@@ -496,7 +496,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "if(d.networks&&d.networks.length){"
         "d.networks.forEach(function(n){"
         "h+='<div style=\"display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin:4px 0;background:#0a0a1e;border-radius:8px;border:1px solid #1e1e3a;cursor:pointer;\" '"
-        "+'onclick=\"document.getElementById(\'wifi-ssid\').value=\''+n.ssid.replace(/'/g,'')+'\';\">';"
+        "+'onclick=\"document.getElementById(\\'wifi-ssid\\').value=\\''+n.ssid.replace(/'/g,'')+'\\';\">';"
         "h+='<span style=\"color:#e0e0f0;font-size:13px;\">'+n.ssid+'</span>';"
         "h+='<span style=\"color:#666;font-size:11px;\">'+n.rssi+'dBm</span></div>';"
         "});"
