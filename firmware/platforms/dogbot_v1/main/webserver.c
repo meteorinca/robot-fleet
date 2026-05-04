@@ -1,5 +1,6 @@
 #include "webserver.h"
 #include "config.h"
+#include "wifi_mgr.h"
 // WS2812 boards define WS2812_NUM_LEDS; simple LED boards define LED_GPIO
 #ifdef WS2812_NUM_LEDS
 #include "ws2812.h"
@@ -29,6 +30,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include <sys/socket.h>   // send(), close(), MSG_DONTWAIT
+#include "esp_wifi.h"     // esp_wifi_scan_*
 
 static httpd_handle_t s_server = NULL;
 
@@ -272,6 +274,22 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div class='err-msg' id='ota-msg'></div>"
         "</div>"
 
+        /* ── WiFi Setup Card ── */
+        "<div class='card' id='wifi-card'>"
+        "<h2>\xF0\x9F\x93\xB6 WiFi Setup</h2>"
+        "<div id='wifi-status' style='margin-bottom:12px;'></div>"
+        "<div id='saved-nets' style='margin-bottom:12px;'></div>"
+        "<button class='btn-primary' onclick='scanWifi()' style='background:linear-gradient(135deg,#1a1a35,#20203d);border:1px solid #2a2a50;margin-bottom:10px;'>Scan for Networks</button>"
+        "<div id='scan-results' style='margin-bottom:10px;'></div>"
+        "<div style='border-top:1px solid #1e1e3a;padding-top:12px;margin-top:8px;'>"
+        "<div style='font-size:11px;color:#666;font-weight:700;margin-bottom:8px;'>ADD NETWORK MANUALLY</div>"
+        "<input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)'>"
+        "<input type='password' id='wifi-pass' placeholder='Password'>"
+        "<button class='btn-primary' onclick='saveWifi()'>Connect \x26 Reboot</button>"
+        "<div class='err-msg' id='wifi-err'></div>"
+        "</div>"
+        "</div>"
+
         "</div>"
         /* ── CALIBRATION SECTION (Hidden by default, can be toggled) ── */
         "<button onclick=\"document.getElementById('panel-cal').style.display='block'\" style='margin-top:20px; background:none; border:none; color:#666; text-decoration:underline;'>Show Calibration</button>"
@@ -469,6 +487,59 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "};"
         "xhr.send(f);"
         "}"
+        /* WiFi Setup JS */
+        "function scanWifi(){"
+        "var sr=document.getElementById('scan-results');"
+        "sr.innerHTML='<div style=\"color:#666;font-size:12px;\">Scanning...</div>';"
+        "fetch('/wifi_scan').then(function(r){return r.json();}).then(function(d){"
+        "var h='';"
+        "if(d.networks&&d.networks.length){"
+        "d.networks.forEach(function(n){"
+        "h+='<div style=\"display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin:4px 0;background:#0a0a1e;border-radius:8px;border:1px solid #1e1e3a;cursor:pointer;\" '"
+        "+'onclick=\"document.getElementById(\'wifi-ssid\').value=\''+n.ssid.replace(/'/g,'')+'\';\">';"
+        "h+='<span style=\"color:#e0e0f0;font-size:13px;\">'+n.ssid+'</span>';"
+        "h+='<span style=\"color:#666;font-size:11px;\">'+n.rssi+'dBm</span></div>';"
+        "});"
+        "}else{h='<div style=\"color:#666;font-size:12px;\">No networks found</div>';}"
+        "sr.innerHTML=h;"
+        "}).catch(function(e){sr.innerHTML='<div class=\"err-msg\">Scan error: '+e+'</div>';});"
+        "}"
+        "function saveWifi(){"
+        "var s=document.getElementById('wifi-ssid').value.trim();"
+        "var p=document.getElementById('wifi-pass').value;"
+        "var e=document.getElementById('wifi-err');"
+        "if(!s){e.textContent='Enter an SSID';return;}"
+        "e.style.color='#a0a0d0';e.textContent='Saving & rebooting...';"
+        "fetch('/wifi',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ssid:s,pass:p})})"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok){e.style.color='#00e5a0';e.textContent='Saved! Rebooting in 3s...';}"
+        "else{e.style.color='#f7736a';e.textContent='Error: '+(d.error||'unknown');}"
+        "}).catch(function(x){e.style.color='#f7736a';e.textContent='Network error: '+x;});"
+        "}"
+        "function loadSavedNets(){"
+        "fetch('/wifi').then(function(r){return r.json();}).then(function(d){"
+        "var h='',ws=document.getElementById('wifi-status');"
+        "if(d.ap_mode){"
+        "ws.innerHTML='<div style=\"padding:8px 12px;background:#2a1a1a;border:1px solid #5a2a2a;border-radius:8px;color:#f7a56a;font-size:13px;\">\xe2\x9a\xa0 Running in AP mode \xe2\x80\x94 add a WiFi network below to connect.</div>';"
+        "var tc=document.getElementById('tts-card');if(tc)tc.style.display='none';"
+        "}else{"
+        "ws.innerHTML='<div style=\"padding:8px 12px;background:#1a2a1a;border:1px solid #2a5a2a;border-radius:8px;color:#00e5a0;font-size:13px;\">\xe2\x9c\x93 Connected to WiFi</div>';"
+        "}"
+        "if(d.saved&&d.saved.length){"
+        "h='<div style=\"font-size:11px;color:#666;margin-bottom:6px;font-weight:700;\">SAVED NETWORKS</div>';"
+        "d.saved.forEach(function(n,i){"
+        "h+='<div style=\"display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin:3px 0;background:#0a0a1e;border-radius:6px;border:1px solid #1e1e3a;\">';"
+        "h+='<span style=\"color:#a0a0d0;font-size:12px;\">'+n+'</span>';"
+        "h+='<button onclick=\"deleteNet('+i+')\" style=\"background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:0 4px;\">&times;</button></div>';"
+        "});"
+        "}"
+        "document.getElementById('saved-nets').innerHTML=h;"
+        "}).catch(function(){});"
+        "}"
+        "function deleteNet(idx){"
+        "fetch('/wifi?delete='+idx,{method:'DELETE'}).then(function(){loadSavedNets();}).catch(function(){});"
+        "}"
+        "loadSavedNets();"
         "</script></body></html>";
 
     httpd_resp_set_type(req, "text/html");
@@ -940,6 +1011,186 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  WiFi provisioning endpoints
+//    GET  /wifi       — list saved networks + AP mode status
+//    POST /wifi       — save {ssid, pass} and reboot
+//    GET  /wifi_scan  — scan for visible SSIDs
+//    DELETE /wifi?delete=N — delete saved credential N
+// ══════════════════════════════════════════════════════════════
+
+// GET /wifi — returns {"ap_mode":bool, "saved":["ssid1","ssid2",...]}
+static esp_err_t wifi_get_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    char resp[512];
+    int pos = 0;
+    pos += snprintf(resp + pos, sizeof(resp) - pos,
+                    "{\"ap_mode\":%s,\"saved\":[",
+                    wifi_is_ap_mode() ? "true" : "false");
+
+    int count = wifi_nvs_credential_count();
+    for (int i = 0; i < count; i++) {
+        char ssid[33] = {0}, pass[65] = {0};
+        if (wifi_nvs_credential_get(i, ssid, sizeof(ssid), pass, sizeof(pass))) {
+            if (i > 0) pos += snprintf(resp + pos, sizeof(resp) - pos, ",");
+            pos += snprintf(resp + pos, sizeof(resp) - pos, "\"%s\"", ssid);
+        }
+    }
+    pos += snprintf(resp + pos, sizeof(resp) - pos, "]}");
+    httpd_resp_send(req, resp, pos);
+    return ESP_OK;
+}
+
+// POST /wifi — body: {"ssid":"...", "pass":"..."}
+static esp_err_t wifi_post_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    char body[200] = {0};
+    int got = httpd_req_recv(req, body, sizeof(body) - 1);
+    if (got <= 0) {
+        httpd_resp_send(req, "{\"error\":\"No body\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+    body[got] = '\0';
+
+    // Simple JSON parse: {"ssid":"...","pass":"..."}
+    char ssid[33] = {0}, pass[65] = {0};
+    char *s = strstr(body, "\"ssid\"");
+    char *p = strstr(body, "\"pass\"");
+    if (s) {
+        s = strchr(s + 5, '"'); // skip key and colon
+        if (s) {
+            s++; // skip opening quote
+            char *end = strchr(s, '"');
+            if (end) {
+                size_t len = end - s;
+                if (len >= sizeof(ssid)) len = sizeof(ssid) - 1;
+                memcpy(ssid, s, len);
+            }
+        }
+    }
+    if (p) {
+        p = strchr(p + 5, '"');
+        if (p) {
+            p++;
+            char *end = strchr(p, '"');
+            if (end) {
+                size_t len = end - p;
+                if (len >= sizeof(pass)) len = sizeof(pass) - 1;
+                memcpy(pass, p, len);
+            }
+        }
+    }
+
+    if (!ssid[0]) {
+        httpd_resp_send(req, "{\"error\":\"Missing SSID\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    esp_err_t err = wifi_save_credential(ssid, pass);
+    if (err != ESP_OK) {
+        httpd_resp_send(req, "{\"error\":\"NVS write failed\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+    ESP_LOGI("WEB", "WiFi credential saved: %s — rebooting in 3s", ssid);
+
+    // Reboot after a brief delay so the HTTP response gets sent
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    esp_restart();
+    return ESP_OK; // unreachable
+}
+
+// DELETE /wifi?delete=N — remove saved credential at index N
+static esp_err_t wifi_delete_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    char qs[64];
+    int idx = -1;
+    if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
+        char p[8];
+        if (httpd_query_key_value(qs, "delete", p, sizeof(p)) == ESP_OK) {
+            idx = atoi(p);
+        }
+    }
+
+    if (idx < 0) {
+        httpd_resp_send(req, "{\"error\":\"Missing ?delete=N\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    esp_err_t err = wifi_nvs_credential_delete(idx);
+    if (err != ESP_OK) {
+        httpd_resp_send(req, "{\"error\":\"Delete failed\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+// GET /wifi_scan — scan for visible networks, returns {"networks":[{"ssid":"...","rssi":-50},...]}
+static esp_err_t wifi_scan_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    // Start a blocking scan
+    wifi_scan_config_t scan_cfg = {
+        .show_hidden = false,
+        .scan_type   = WIFI_SCAN_TYPE_ACTIVE,
+        .scan_time   = { .active = { .min = 100, .max = 300 } },
+    };
+    esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
+    if (err != ESP_OK) {
+        httpd_resp_send(req, "{\"networks\":[],\"error\":\"scan failed\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    uint16_t ap_count = 0;
+    esp_wifi_scan_get_ap_num(&ap_count);
+    if (ap_count > 20) ap_count = 20;  // cap results
+
+    wifi_ap_record_t *ap_records = calloc(ap_count, sizeof(wifi_ap_record_t));
+    if (!ap_records) {
+        httpd_resp_send(req, "{\"networks\":[],\"error\":\"OOM\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+    esp_wifi_scan_get_ap_records(&ap_count, ap_records);
+
+    // Build JSON response
+    char resp[1024];
+    int pos = snprintf(resp, sizeof(resp), "{\"networks\":[");
+    int added = 0;
+    for (int i = 0; i < ap_count && pos < (int)sizeof(resp) - 100; i++) {
+        if (ap_records[i].ssid[0] == '\0') continue;  // skip hidden
+        // Deduplicate by SSID
+        bool dup = false;
+        for (int j = 0; j < i; j++) {
+            if (strcmp((char*)ap_records[i].ssid, (char*)ap_records[j].ssid) == 0) {
+                dup = true;
+                break;
+            }
+        }
+        if (dup) continue;
+
+        if (added > 0) pos += snprintf(resp + pos, sizeof(resp) - pos, ",");
+        pos += snprintf(resp + pos, sizeof(resp) - pos,
+                        "{\"ssid\":\"%s\",\"rssi\":%d}",
+                        (char*)ap_records[i].ssid, ap_records[i].rssi);
+        added++;
+    }
+    pos += snprintf(resp + pos, sizeof(resp) - pos, "]}");
+    free(ap_records);
+
+    httpd_resp_send(req, resp, pos);
+    return ESP_OK;
+}
+
+// ══════════════════════════════════════════════════════════════
 //  Server startup
 // ══════════════════════════════════════════════════════════════
 void webserver_start(void) {
@@ -953,7 +1204,7 @@ void webserver_start(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
     config.server_port      = WEB_SERVER_PORT;
-    config.max_uri_handlers = 66;     // increased for new endpoints (incl. /ota x2)
+    config.max_uri_handlers = 72;     // increased for WiFi provisioning + OTA endpoints
     config.recv_wait_timeout  = 300;  // 300 s — allows large OTA binary uploads
     config.send_wait_timeout  = 10;
     config.stack_size = 8192;
@@ -1040,6 +1291,12 @@ void webserver_start(void) {
         // OTA firmware update — POST the raw .bin file body
         { "/ota",       HTTP_POST, ota_post_handler,       NULL },
         { "/ota",       HTTP_OPTIONS, cors_options_handler,NULL },
+        // WiFi provisioning endpoints
+        { "/wifi",      HTTP_GET,    wifi_get_handler,     NULL },
+        { "/wifi",      HTTP_POST,   wifi_post_handler,    NULL },
+        { "/wifi",      HTTP_DELETE, wifi_delete_handler,   NULL },
+        { "/wifi",      HTTP_OPTIONS,cors_options_handler,  NULL },
+        { "/wifi_scan", HTTP_GET,    wifi_scan_handler,     NULL },
 
     };
     for (int i = 0; i < (int)(sizeof(uris) / sizeof(uris[0])); i++) {

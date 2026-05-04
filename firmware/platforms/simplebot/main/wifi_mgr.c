@@ -37,8 +37,8 @@ static void start_softap(void) {
 
     ESP_LOGW(TAG, "STA failed — starting SoftAP at 192.168.4.1");
 
-    // Create AP netif (STA netif was already created in wifi_init)
-    esp_netif_create_default_wifi_ap();
+    // Create AP netif (Moved to wifi_init so mDNS can bind to it)
+    // esp_netif_create_default_wifi_ap();
 
     wifi_config_t ap_cfg = {
         .ap = {
@@ -132,6 +132,7 @@ EventGroupHandle_t wifi_init(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
+    esp_netif_create_default_wifi_ap(); // Create AP netif early for mDNS
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -158,6 +159,7 @@ EventGroupHandle_t wifi_init(void) {
     ESP_ERROR_CHECK(mdns_init());
     ESP_ERROR_CHECK(mdns_hostname_set(MDNS_HOSTNAME));
     ESP_ERROR_CHECK(mdns_instance_name_set(MDNS_INSTANCE));
+    mdns_service_add(MDNS_INSTANCE, "_http", "_tcp", WEB_SERVER_PORT, NULL, 0);
 
     // Create the AP-fallback timer (one-shot, fires after AP_FALLBACK_MS)
     s_ap_timer = xTimerCreate("ap_fallback",

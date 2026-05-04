@@ -7,7 +7,7 @@
 #pragma once
 
 // ── Firmware identity ───────────────────────────────────────────────────────
-#define FW_VERSION          "0.3"
+#define FW_VERSION          "1.0"
 
 // Device number macro helpers to stringify the number passed from CMake
 #define _XSTR(x) #x
@@ -107,6 +107,11 @@
 //  ESP32-C3 has NO touch sensor hardware.
 //  touch_input.c is compiled but the SOC_TOUCH_SENSOR_SUPPORTED guard makes
 //  it a no-op, and touch_input_start() is never called from main.c.
+
+// ── WiFi provisioning ────────────────────────────────────────────────────────
+#define AP_FALLBACK_TIMEOUT_MS  10000   // ms before SoftAP fallback (per SSID)
+#define MAX_NVS_NETWORKS        8      // max user-saved WiFi networks in NVS
+#define ENABLE_CAPTIVE_PORTAL   1      // DNS redirect to 192.168.4.1 in AP mode
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 #define MAX_SCHEDULED_ACTIONS  8

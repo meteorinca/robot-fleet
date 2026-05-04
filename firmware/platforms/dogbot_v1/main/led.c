@@ -15,7 +15,7 @@ static EventGroupHandle_t s_wifi_events;
 static EventBits_t        s_connected_bit;
 
 #define LED_LEDC_TIMER      LEDC_TIMER_1
-#define LED_LEDC_CHANNEL    LEDC_CHANNEL_2
+#define LED_LEDC_CHANNEL    LEDC_CHANNEL_4
 
 void led_init(void) {
     ledc_timer_config_t ledc_timer = {
