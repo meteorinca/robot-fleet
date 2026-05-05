@@ -2,10 +2,19 @@
 #include "config.h"
 #include "led.h"
 #include "driver/ledc.h"
+#include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+
+// ── Inactivity tracking ────────────────────────────────────────────────────
+static int64_t s_last_action_ms = 0;
+#define SERVO_IDLE_TIMEOUT_MS  60000
+
+static void update_action_time(void) {
+    s_last_action_ms = esp_timer_get_time() / 1000;
+}
 
 // ── Static channel/GPIO table — built from board_config.h ───────────────────
 //  SERVO_COUNT is defined in the active board header (2 or 4).
@@ -75,6 +84,7 @@ void servo_init(void) {
     }
 
     ESP_LOGI("SERVO", "Initialized %d servo(s)", (int)HW_COUNT);
+    update_action_time();
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -88,6 +98,7 @@ void servo_set_angle(int servo_num, int angle) {
     ledc_channel_t ch = s_hw[servo_num - 1].channel;
     ledc_set_duty(LEDC_LOW_SPEED_MODE, ch, duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, ch);
+    update_action_time();
 }
 
 void servo_action_set(int servo, int angle) {
@@ -107,10 +118,23 @@ void servo_quick_action(int servo, int target_angle, int neutral_angle) {
 static void servo_worker_task(void *pvParameters) {
     servo_cmd_t cmd;
     while (1) {
-        if (xQueueReceive(s_servo_queue, &cmd, portMAX_DELAY)) {
+        if (xQueueReceive(s_servo_queue, &cmd, pdMS_TO_TICKS(1000))) {
             servo_action_set(cmd.servo, cmd.target_angle);
             vTaskDelay(pdMS_TO_TICKS(SERVO_RETURN_MS));
             servo_action_set(cmd.servo, cmd.neutral_angle);
+        } else {
+            // Check for inactivity timeout
+            int64_t now = esp_timer_get_time() / 1000;
+            if (now - s_last_action_ms > SERVO_IDLE_TIMEOUT_MS) {
+                for (int i = 0; i < (int)HW_COUNT; i++) {
+                    ledc_set_duty(LEDC_LOW_SPEED_MODE, s_hw[i].channel, 0);
+                    ledc_update_duty(LEDC_LOW_SPEED_MODE, s_hw[i].channel);
+                }
+                // Update time so we don't spam the logs or repeated calls unnecessarily 
+                // though ledc_set_duty(0) is cheap.
+                update_action_time(); 
+                ESP_LOGI("SERVO", "Idle timeout: Servos powered down");
+            }
         }
     }
 }

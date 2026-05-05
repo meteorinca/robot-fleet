@@ -29,6 +29,32 @@ static void startup_audio_task(void *arg) {
     dog_audio_play_paulbot();
     vTaskDelete(NULL);
 }
+
+static void hourly_bark_task(void *arg) {
+    int last_hour = -1;
+    while (1) {
+        if (timekeep_is_synced()) {
+            time_t now = timekeep_now();
+            struct tm timeinfo;
+            localtime_r(&now, &timeinfo);
+            int current_hour = timeinfo.tm_hour;
+
+            if (last_hour != -1 && current_hour != last_hour) {
+                // Hour changed!
+                int hour_12 = (current_hour % 12 == 0) ? 12 : (current_hour % 12);
+                int barks = (hour_12 > 4) ? 4 : hour_12;
+                
+                ESP_LOGI("MAIN", "Hourly bark: %d barks for hour %d", barks, current_hour);
+                for (int i = 0; i < barks; i++) {
+                    dog_audio_play_bark();
+                    vTaskDelay(pdMS_TO_TICKS(800));
+                }
+            }
+            last_hour = current_hour;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10000)); // Check every 10s
+    }
+}
 #endif
 
 void app_main(void) {
@@ -46,6 +72,7 @@ void app_main(void) {
 
 #ifdef DISP_MOSI_GPIO
     dog_peripherals_init();
+    dog_audio_play_bark(); // Woof Woof early!
 #endif
 
     // Set all servos to neutral on boot
@@ -74,6 +101,8 @@ void app_main(void) {
 #ifdef DISP_MOSI_GPIO
     // Play startup audio message after wifi connects
     xTaskCreate(startup_audio_task, "startup_audio", 4096, wifi_events, 5, NULL);
+    // Start hourly barking monitor
+    xTaskCreate(hourly_bark_task, "hourly_bark", 4096, NULL, 4, NULL);
 #endif
 
     // Touch pads (ESP32-S3 only — compiled away on C3 via SOC guard)

@@ -1,7 +1,9 @@
 #include "dog_peripherals.h"
 #include "config.h"
 #include "audio_clips.h"
-#include "paulbot_audio.h"
+#include "paulbot_audio_8bit.h"
+#include "dogbark_audio_8bit.h"
+#include "extra_sounds.h"
 #include "font5x7.h"
 
 #ifdef DISP_MOSI_GPIO
@@ -11,6 +13,7 @@
 #include "driver/i2s_std.h"
 #include "driver/i2s_pdm.h"
 #include "esp_adc/adc_oneshot.h"
+#include "esp_random.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"
@@ -355,7 +358,8 @@ static void dog_audio_task(void *arg) {
     // We need to handle potential byte-alignment issues from the ring buffer.
     uint8_t leftover_byte = 0;
     bool has_leftover = false;
-    bool stream_active = true;
+    bool stream_active = false;
+    bool amp_enabled = false;
 
     while(1) {
         size_t item_size = 0;
@@ -363,6 +367,11 @@ static void dog_audio_task(void *arg) {
         uint8_t *item = (uint8_t *)xRingbufferReceive(audio_rb, &item_size, stream_active ? pdMS_TO_TICKS(150) : portMAX_DELAY);
         
         if (item) {
+            if (!amp_enabled) {
+                gpio_set_level(AUDIO_AMP_GPIO, 1);
+                amp_enabled = true;
+                vTaskDelay(pdMS_TO_TICKS(20)); // Small delay for amp to stabilize
+            }
             stream_active = true;
             size_t offset = 0;
             while (offset < item_size) {
@@ -395,7 +404,11 @@ static void dog_audio_task(void *arg) {
                 }
                 stream_active = false;
                 has_leftover = false;
-                ESP_LOGI(TAG, "Audio stream finished, DMA flushed.");
+                
+                // Turn off amp to stop scritchy sounds
+                gpio_set_level(AUDIO_AMP_GPIO, 0);
+                amp_enabled = false;
+                ESP_LOGI(TAG, "Audio stream finished, DMA flushed, Amp OFF.");
             }
         }
     }
@@ -466,11 +479,48 @@ void dog_audio_play_tone(void) {
     ESP_LOGI(TAG, "Bark clip finished");
 }
 
+void dog_audio_play_8bit(const uint8_t *data, size_t len) {
+    if (!audio_rb || !data || len == 0) return;
+    
+    const size_t chunk_samples = 1024;
+    uint8_t *upsampled = malloc(chunk_samples * 2);
+    if (!upsampled) return;
+
+    size_t processed = 0;
+    while (processed < len) {
+        size_t to_process = len - processed;
+        if (to_process > chunk_samples) to_process = chunk_samples;
+
+        for (size_t i = 0; i < to_process; i++) {
+            int8_t sample8 = (int8_t)data[processed + i];
+            int16_t sample16 = sample8 << 8;
+            upsampled[i*2] = sample16 & 0xFF;
+            upsampled[i*2 + 1] = (sample16 >> 8) & 0xFF;
+        }
+
+        dog_audio_play_chunk(upsampled, to_process * 2);
+        processed += to_process;
+    }
+
+    free(upsampled);
+}
+
 void dog_audio_play_paulbot(void) {
-    if (!audio_rb) return;
     ESP_LOGI(TAG, "Playing paulbot boot sound...");
-    dog_audio_play_chunk(paulbot_audio, paulbot_audio_len);
+    dog_audio_play_8bit(paulbot_audio_8bit, paulbot_audio_8bit_len);
     ESP_LOGI(TAG, "Paulbot boot sound finished");
+}
+
+void dog_audio_play_bark(void) {
+    ESP_LOGI(TAG, "Barking...");
+    dog_audio_play_8bit(dogbark_audio_8bit, dogbark_audio_8bit_len);
+}
+
+void dog_audio_play_random(void) {
+    if (random_sounds_count == 0) return;
+    int idx = esp_random() % random_sounds_count;
+    ESP_LOGI(TAG, "Playing random sound %d", idx);
+    dog_audio_play_8bit(random_sounds[idx].data, random_sounds[idx].len);
 }
 
 
@@ -481,7 +531,7 @@ static void init_audio(void) {
         .mode = GPIO_MODE_OUTPUT,
     };
     gpio_config(&amp_conf);
-    gpio_set_level(AUDIO_AMP_GPIO, 1);
+    gpio_set_level(AUDIO_AMP_GPIO, 0);
 
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_chan, NULL));
@@ -561,7 +611,7 @@ static void button_task(void* arg) {
                 ESP_LOGI(TAG, "Button %lu pressed", io_num);
                 if (io_num == BTN_BOOT_GPIO) {
                     eye_mood = (eye_mood + 1) % 4;
-                    dog_audio_play_tone(); // audio feedback
+                    dog_audio_play_random(); // Play random sound on button press
                 } else {
                     force_blink = true;
                 }
