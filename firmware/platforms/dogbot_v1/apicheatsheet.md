@@ -8,6 +8,12 @@ This document lists the available HTTP GET endpoints to control your MojDog via 
 - **Say a phrase**: `GET /tts?say=My%20name%20is%20Paulbot`
   - *Forces the bot to fetch the audio and speak it out loud.*
 - **Play dog bark clip**: `GET /bark`
+- **Play "Huh?"**: `GET /huh`
+- **Play "Scream"**: `GET /scream`
+- **Play "Yes"**: `GET /yes`
+- **Play "Jump"**: `GET /jump`
+- **Play "Ding"**: `GET /ding`
+- **Play Random Sound**: `GET /random`
 
 ## 👁️ OLED Display API
 - **Change Eye Mood**: `GET /eye_mood?val=X`

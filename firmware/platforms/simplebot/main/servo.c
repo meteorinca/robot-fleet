@@ -49,6 +49,7 @@ typedef struct {
 } servo_cmd_t;
 
 static QueueHandle_t s_servo_queue;
+static int s_current_angles[4]; // max servos supported
 
 // ────────────────────────────────────────────────────────────────────────────
 void servo_init(void) {
@@ -93,6 +94,9 @@ void servo_set_angle(int servo_num, int angle) {
 void servo_action_set(int servo, int angle) {
     led_register_manual_control();
     servo_set_angle(servo, angle);
+    if (servo >= 1 && servo <= (int)HW_COUNT) {
+        s_current_angles[servo - 1] = angle;
+    }
     ESP_LOGI("SERVO", "Servo%d -> %d", servo, angle);
 }
 
@@ -103,14 +107,56 @@ void servo_quick_action(int servo, int target_angle, int neutral_angle) {
     }
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+void servo_detach(int servo_num) {
+    if (servo_num < 1 || servo_num > (int)HW_COUNT) return;
+    ledc_channel_t ch = s_hw[servo_num - 1].channel;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, ch, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, ch);
+}
+
+void servo_move_stepped(int servo_num, int target, int ms_delay) {
+    if (servo_num < 1 || servo_num > (int)HW_COUNT) return;
+    int cur = s_current_angles[servo_num - 1];
+    if (cur == 0) cur = 90; // default if unknown
+
+    while (cur != target) {
+        if (cur < target) cur++;
+        else cur--;
+        servo_set_angle(servo_num, cur);
+        s_current_angles[servo_num - 1] = cur;
+        vTaskDelay(pdMS_TO_TICKS(ms_delay));
+    }
+}
+
 // Background task — processes queued servo commands without blocking HTTP
 static void servo_worker_task(void *pvParameters) {
     servo_cmd_t cmd;
+    
+    // Boot sequence: move to neutral and then detach (off)
+    for (int i=0; i<HW_COUNT; i++) {
+        int neut = servo_neutral(i + 1);
+        s_current_angles[i] = neut;
+        servo_set_angle(i + 1, neut);
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000)); // wait for them to reach neutral
+    for (int i=0; i<HW_COUNT; i++) {
+        servo_detach(i + 1);
+    }
+
     while (1) {
         if (xQueueReceive(s_servo_queue, &cmd, portMAX_DELAY)) {
-            servo_action_set(cmd.servo, cmd.target_angle);
-            vTaskDelay(pdMS_TO_TICKS(SERVO_RETURN_MS));
-            servo_action_set(cmd.servo, cmd.neutral_angle);
+            // Pulse to target at "medium speed" (~10ms per degree)
+            servo_move_stepped(cmd.servo, cmd.target_angle, 10);
+            
+            vTaskDelay(pdMS_TO_TICKS(200)); // brief hold at pulse peak
+            
+            // Go back to neutral at "medium speed"
+            servo_move_stepped(cmd.servo, cmd.neutral_angle, 10);
+            
+            // Wait 1 second then turn off
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            servo_detach(cmd.servo);
         }
     }
 }

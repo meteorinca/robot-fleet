@@ -10,6 +10,7 @@ void led_set(bool on);
 void led_action_set(bool state);
 void led_action_toggle(void);
 void led_register_manual_control(void);
+void led_blink(int count, int ms_period);
 void led_start_heartbeat(EventGroupHandle_t wifi_events, EventBits_t connected_bit);
 
 #endif

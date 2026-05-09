@@ -3,6 +3,8 @@
 # Source files common to ALL boards
 set(COMMON_SRCS
     "main.c"
+    "servo.c"
+    "dog_actions.c"
     "wifi_mgr.c"
     "webserver.c"
     "ota_mgr.c"

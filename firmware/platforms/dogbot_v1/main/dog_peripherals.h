@@ -11,6 +11,8 @@ void dog_audio_play_tone(void);
 void dog_audio_play_paulbot(void);
 void dog_audio_play_bark(void);
 void dog_audio_play_random(void);
+void dog_audio_play_8bit(const uint8_t *data, size_t len);
+void dog_audio_play_named(const char *name);
 
 void dog_set_eye_mood(int mood);
 void dog_set_oled_text(const char* msg, int duration_ms);

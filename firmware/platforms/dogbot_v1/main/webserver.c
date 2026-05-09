@@ -114,8 +114,14 @@ void execute_named_action(const char *action) {
     else if (strcmp(action, "l1off")  == 0) led_action_set(false);
     else if (strcmp(action, "toggle") == 0) led_action_toggle();
     else if (strcmp(action, "hi")     == 0) servo_quick_action(1, 40, POS1_NEUTRAL);
-    else if (strcmp(action, "bark")   == 0) dog_audio_play_tone();
+    else if (strcmp(action, "bark")   == 0) dog_audio_play_bark();
     else if (strcmp(action, "paulbot")== 0) dog_audio_play_paulbot();
+    else if (strcmp(action, "huh")    == 0) dog_audio_play_named("huh");
+    else if (strcmp(action, "scream") == 0) dog_audio_play_named("scream");
+    else if (strcmp(action, "yes")    == 0) dog_audio_play_named("yes");
+    else if (strcmp(action, "jump")   == 0) dog_audio_play_named("jump");
+    else if (strcmp(action, "ding")   == 0) dog_audio_play_named("ding");
+    else if (strcmp(action, "random") == 0) dog_audio_play_named("random");
     else if (strcmp(action, "lay")    == 0 || strcmp(action, "lie") == 0) dog_action_send("lay");
     else if (strcmp(action, "stand")  == 0) dog_action_send("stand");
     else if (strcmp(action, "walk_fwd") == 0) dog_action_send("forward");
@@ -1204,7 +1210,7 @@ void webserver_start(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
     config.server_port      = WEB_SERVER_PORT;
-    config.max_uri_handlers = 72;     // increased for WiFi provisioning + OTA endpoints
+    config.max_uri_handlers = 80;     // increased for WiFi provisioning + OTA + new sounds
     config.recv_wait_timeout  = 300;  // 300 s — allows large OTA binary uploads
     config.send_wait_timeout  = 10;
     config.stack_size = 8192;
@@ -1284,6 +1290,12 @@ void webserver_start(void) {
         { "/jumpbck",   HTTP_GET,  quick_action_handler,   NULL },
         { "/jump_fwd",  HTTP_GET,  quick_action_handler,   NULL },
         { "/jump_bwd",  HTTP_GET,  quick_action_handler,   NULL },
+        { "/huh",       HTTP_GET,  quick_action_handler,   NULL },
+        { "/scream",    HTTP_GET,  quick_action_handler,   NULL },
+        { "/yes",       HTTP_GET,  quick_action_handler,   NULL },
+        { "/jump",      HTTP_GET,  quick_action_handler,   NULL },
+        { "/ding",      HTTP_GET,  quick_action_handler,   NULL },
+        { "/random",    HTTP_GET,  quick_action_handler,   NULL },
 #ifdef DISP_MOSI_GPIO
         { "/audio",     HTTP_POST, audio_post_handler,     NULL },
         { "/audio",     HTTP_OPTIONS, cors_options_handler,NULL },

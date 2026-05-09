@@ -3,6 +3,7 @@
 #include "led.h"
 #include "timekeep.h"
 #include "ota_mgr.h"
+#include "servo.h"
 #include <string.h>
 #include <stdio.h>
 #include "esp_system.h"
@@ -84,9 +85,20 @@ static esp_err_t sse_handler(httpd_req_t *req) {
 //  Named-action dispatcher (used by web handlers + scheduler)
 // ══════════════════════════════════════════════════════════════
 void execute_named_action(const char *action) {
-    if      (strcmp(action, "l1on")   == 0) led_action_set(true);
+    ESP_LOGI("ACTION", "Executing: %s", action);
+    // Blink for any servo-related action (s1..., s2...)
+    if (strncmp(action, "s1", 2) == 0 || strncmp(action, "s2", 2) == 0) {
+        led_blink(3, 80);
+    }
+
+    if      (strcmp(action, "s1on")   == 0) servo_quick_action(1, POS1_ON,  POS1_NEUTRAL);
+    else if (strcmp(action, "s1off")  == 0) servo_quick_action(1, POS1_OFF, POS1_NEUTRAL);
+    else if (strcmp(action, "s2on")   == 0) servo_quick_action(2, POS2_ON,  POS2_NEUTRAL);
+    else if (strcmp(action, "s2off")  == 0) servo_quick_action(2, POS2_OFF, POS2_NEUTRAL);
+    else if (strcmp(action, "l1on")   == 0) led_action_set(true);
     else if (strcmp(action, "l1off")  == 0) led_action_set(false);
     else if (strcmp(action, "toggle") == 0) led_action_toggle();
+    else if (strcmp(action, "hi")     == 0) servo_quick_action(1, 40, POS1_NEUTRAL);
     // tts:<text> — push text to SSE clients for browser-side synthesis
     else if (strncmp(action, "tts:", 4) == 0) sse_broadcast_tts(action + 4);
     else ESP_LOGW("ACTION", "Action ignored on simplebot: %s", action);
@@ -116,8 +128,12 @@ static esp_err_t dog_handler(httpd_req_t *req) {
     body[got] = '\0';
 
     char key[16] = {0}, val[16] = {0};
-    // Parse {"key":"val"}
-    sscanf(body, "{\"%[^\"]\":\"%[^\"]\"}", key, val);
+    // Parse {"key":"val"} or {"action":"val"}
+    if (sscanf(body, "{\"%[^\"]\":\"%[^\"]\"}", key, val) == 2) {
+        if (strcmp(key, "action") == 0 || strcmp(key, "move") == 0) {
+            execute_named_action(val);
+        }
+    }
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_type(req, "application/json");
@@ -155,6 +171,9 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         ".act-btn{padding:10px 4px;font-size:11px;font-weight:600;background:#0a0a1e;border:1px solid #1e1e3a;border-radius:8px;color:#444;cursor:default;}"
         ".status-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#1e1e3a;color:#7c6af7;margin-bottom:6px;}"
         ".err-msg{color:#f7736a;font-size:12px;margin-top:6px;text-align:center;}"
+        ".slider{-webkit-appearance:none;width:100%;height:6px;background:#1e1e3a;border-radius:5px;outline:none;margin:10px 0;}"
+        ".slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;background:#7c6af7;cursor:pointer;border-radius:50%;transition:all .15s;}"
+        ".slider::-webkit-slider-thumb:hover{transform:scale(1.2);background:#5b4de8;}"
         "</style>"
         "</head><body>"
         "<div class='content'>"
@@ -170,6 +189,32 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<button class='btn-led' onclick='led(\"l1on\")'>ON</button>"
         "<button class='btn-led' onclick='led(\"l1off\")'>OFF</button>"
         "<button class='btn-led' onclick='led(\"toggle\")'>TOGGLE</button>"
+        "</div>"
+        "</div>"
+
+        "<div class='card'>"
+        "<h2>Servo Control</h2>"
+        "<div style='margin-bottom:15px;'>"
+        "  <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>"
+        "    <label>Servo 1</label>"
+        "    <span id='s1-val'>121°</span>"
+        "  </div>"
+        "  <input type='range' min='0' max='180' value='121' class='slider' id='s1-slide' oninput='sv(1,this.value)'>"
+        "  <div class='btn-led-grid' style='margin-top:5px;'>"
+        "    <button class='btn-led' onclick='dog(\"s1on\")'>ON</button>"
+        "    <button class='btn-led' onclick='dog(\"s1off\")'>OFF</button>"
+        "  </div>"
+        "</div>"
+        "<div>"
+        "  <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>"
+        "    <label>Servo 2</label>"
+        "    <span id='s2-val'>121°</span>"
+        "  </div>"
+        "  <input type='range' min='0' max='180' value='121' class='slider' id='s2-slide' oninput='sv(2,this.value)'>"
+        "  <div class='btn-led-grid' style='margin-top:5px;'>"
+        "    <button class='btn-led' onclick='dog(\"s2on\")'>ON</button>"
+        "    <button class='btn-led' onclick='dog(\"s2off\")'>OFF</button>"
+        "  </div>"
         "</div>"
         "</div>"
 
@@ -192,7 +237,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div class='err-msg' id='tts-err'></div>"
         "</div>"
 
-        "<div class='card disabled'>"
+        "<div class='card'>"
         "<h2>Dog Actions</h2>"
         "<div class='action-grid' id='action-grid'></div>"
         "</div>"
@@ -210,6 +255,11 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</div>" /* end .content */
         "<script>"
         "function led(a){fetch('/'+a);}"
+        "function dog(v){fetch('/'+v);}"
+        "function sv(n,a){"
+        "document.getElementById('s'+n+'-val').textContent=a+'°';"
+        "fetch('/s'+n+'_'+a);"
+        "}"
         "function scheduleAction(){"
         "var d=document.getElementById('sched-delay').value;"
         "var a=document.getElementById('sched-action').value;"
@@ -217,12 +267,14 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         ".then(function(j){ document.getElementById('sched-err').textContent='Scheduled '+a+' in '+d+'s'; })"
         ".catch(function(e){ document.getElementById('sched-err').textContent=e; });"
         "}"
-        "var ACTIONS={'1':'Lie','2':'Bow','3':'Lean','4':'Wiggle','5':'Rock','6':'Sway','7':'Shake','8':'Poke'};"
+        "var ACTIONS={'hi':'Say Hi','s1on':'S1 ON','s1off':'S1 OFF','s2on':'S2 ON','s2off':'S2 OFF'};"
         "(function(){"
         "var g=document.getElementById('action-grid');"
         "for(var k in ACTIONS){"
         "var b=document.createElement('button');"
         "b.className='act-btn';b.textContent=ACTIONS[k];"
+        "b.style.cursor='pointer';b.style.color='#a0a0d0';"
+        "(function(val){b.onclick=function(){dog(val);};})(k);"
         "g.appendChild(b);"
         "}"
         "})();"
@@ -298,8 +350,39 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-// Calibration and servo handlers removed for simplebot.
-// They are not needed as this board only has a single LED.
+// Servo endpoints
+static esp_err_t servo_handler(httpd_req_t *req) {
+    char buf[100];
+    int servo = 0, angle = 0;
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        char p[16];
+        if (httpd_query_key_value(buf, "num", p, sizeof(p)) == ESP_OK)   servo = atoi(p);
+        if (httpd_query_key_value(buf, "angle", p, sizeof(p)) == ESP_OK) angle = atoi(p);
+    }
+    if (servo >= 1 && servo <= servo_count()) {
+        led_blink(3, 100);
+        servo_action_set(servo, angle);
+    }
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t servo_angle_uri_handler(httpd_req_t *req) {
+    const char *uri = req->uri; // e.g. "/s1_90"
+    int servo = 0, angle = 0;
+    if (sscanf(uri, "/s%d_%d", &servo, &angle) == 2) {
+        if (servo >= 1 && servo <= servo_count()) {
+            led_blink(3, 100);
+            servo_action_set(servo, angle);
+            ESP_LOGI("WEB", "API: servo %d -> %d deg", servo, angle);
+        }
+    }
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
 static esp_err_t time_handler(httpd_req_t *req) {
     char buf[32];
     timekeep_format(buf, sizeof(buf));
@@ -327,6 +410,7 @@ static esp_err_t status_handler(httpd_req_t *req) {
 // Quick-action: now async — returns immediately
 static esp_err_t quick_action_handler(httpd_req_t *req) {
     const char *uri = req->uri;
+    ESP_LOGI("WEB", "Quick action URI: %s", uri);
     // Strip leading '/' and dispatch
     if (uri[0] == '/') uri++;
     execute_named_action(uri);
@@ -626,7 +710,7 @@ void webserver_start(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
     config.server_port      = WEB_SERVER_PORT;
-    config.max_uri_handlers = 66;     // increased for new endpoints (incl. /ota x2)
+    config.max_uri_handlers = 100;     // increased for new endpoints
     config.recv_wait_timeout  = 300;  // 300 s — allows large OTA binary uploads
     config.send_wait_timeout  = 10;
     config.stack_size = 8192;
@@ -638,6 +722,10 @@ void webserver_start(void) {
     }
 
     static const httpd_uri_t uris[] = {
+        { "/s1on",      HTTP_GET,  quick_action_handler,   NULL },
+        { "/s1off",     HTTP_GET,  quick_action_handler,   NULL },
+        { "/s2on",      HTTP_GET,  quick_action_handler,   NULL },
+        { "/s2off",     HTTP_GET,  quick_action_handler,   NULL },
         { "/",          HTTP_GET,  root_get_handler,       NULL },
         { "/dog",       HTTP_POST, dog_handler,            NULL },
         { "/dog",       HTTP_OPTIONS, cors_options_handler,NULL },
@@ -646,7 +734,7 @@ void webserver_start(void) {
         { "/schedule",  HTTP_GET,  schedule_handler,       NULL },
         { "/events",    HTTP_GET,  sse_handler,            NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },
-        // Named quick-actions
+        // ... (rest of quick actions)
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },
         { "/l1off",     HTTP_GET,  quick_action_handler,   NULL },
         { "/toggle",    HTTP_GET,  quick_action_handler,   NULL },
@@ -675,10 +763,11 @@ void webserver_start(void) {
         { "/audio",     HTTP_POST, audio_post_handler,     NULL },
         { "/audio",     HTTP_OPTIONS, cors_options_handler,NULL },
 #endif
-        // OTA firmware update — POST the raw .bin file body
         { "/ota",       HTTP_POST, ota_post_handler,       NULL },
         { "/ota",       HTTP_OPTIONS, cors_options_handler,NULL },
-
+        { "/servo",     HTTP_GET,  servo_handler,          NULL },
+        { "/s1_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
+        { "/s2_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
     };
     for (int i = 0; i < (int)(sizeof(uris) / sizeof(uris[0])); i++) {
         httpd_register_uri_handler(s_server, &uris[i]);

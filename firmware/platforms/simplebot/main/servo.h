@@ -3,6 +3,7 @@
 
 void servo_init(void);
 void servo_set_angle(int servo_num, int angle);
+void servo_detach(int servo_num);
 void servo_action_set(int servo, int angle);
 // Async: queues move-to-target then return-to-neutral (non-blocking)
 void servo_quick_action(int servo, int target_angle, int neutral_angle);

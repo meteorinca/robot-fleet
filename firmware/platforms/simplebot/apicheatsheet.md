@@ -9,6 +9,12 @@ This document lists the available HTTP GET endpoints to control your SimpleBot v
 - **Turn OFF**: `GET /l1off` or `GET /led?state=off`
 - **Toggle**: `GET /toggle` or `GET /led?state=toggle`
 
+## 🔧 Servo Control
+- **Move to Angle**: `GET /servo?num=1&angle=90` (Hold position)
+- **Quick Action (Stepped)**: `GET /s1on` (Moves to ON position at medium speed, then returns to neutral and detaches)
+- **Manual Angle (URI style)**: `GET /s1_120` (Sets servo 1 to 120° and holds)
+- **Quick Actions list**: `s1on`, `s1off`, `s2on`, `s2off`
+
 ## 🕒 Scheduling (For Synchronized Events!)
 You can queue an action to happen at an exact Unix timestamp across all bots simultaneously, or after a relative delay.
 

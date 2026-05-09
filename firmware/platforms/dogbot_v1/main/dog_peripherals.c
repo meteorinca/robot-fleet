@@ -370,7 +370,11 @@ static void dog_audio_task(void *arg) {
             if (!amp_enabled) {
                 gpio_set_level(AUDIO_AMP_GPIO, 1);
                 amp_enabled = true;
-                vTaskDelay(pdMS_TO_TICKS(20)); // Small delay for amp to stabilize
+                vTaskDelay(pdMS_TO_TICKS(100)); // Give amp plenty of time to stabilize
+                // Prime the I2S pipeline with some silence so the first real samples aren't lost
+                for (int i = 0; i < 4; i++) {
+                    i2s_channel_write(tx_chan, silence, sizeof(silence), &w_bytes, portMAX_DELAY);
+                }
             }
             stream_active = true;
             size_t offset = 0;
@@ -521,6 +525,17 @@ void dog_audio_play_random(void) {
     int idx = esp_random() % random_sounds_count;
     ESP_LOGI(TAG, "Playing random sound %d", idx);
     dog_audio_play_8bit(random_sounds[idx].data, random_sounds[idx].len);
+}
+
+void dog_audio_play_named(const char *name) {
+    if (strcmp(name, "huh") == 0) dog_audio_play_8bit(sound_freesound_community_huh_102688, sound_freesound_community_huh_102688_len);
+    else if (strcmp(name, "scream") == 0) dog_audio_play_8bit(sound_freesound_community_cartoon_scream_1_6835, sound_freesound_community_cartoon_scream_1_6835_len);
+    else if (strcmp(name, "yes") == 0) dog_audio_play_8bit(sound_sergequadrado_child_says_yes_113117, sound_sergequadrado_child_says_yes_113117_len);
+    else if (strcmp(name, "jump") == 0) dog_audio_play_8bit(sound_freesound_community_cartoon_jump_6462, sound_freesound_community_cartoon_jump_6462_len);
+    else if (strcmp(name, "ding") == 0) dog_audio_play_8bit(sound_alexis_gaming_cam_ding_cartoon_346093, sound_alexis_gaming_cam_ding_cartoon_346093_len);
+    else if (strcmp(name, "bark") == 0) dog_audio_play_bark();
+    else if (strcmp(name, "random") == 0) dog_audio_play_random();
+    else ESP_LOGW(TAG, "Unknown sound name: %s", name);
 }
 
 

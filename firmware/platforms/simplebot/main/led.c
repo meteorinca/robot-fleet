@@ -68,6 +68,16 @@ void led_action_toggle(void) {
     led_action_set(!g_led_state);
 }
 
+void led_blink(int count, int ms_period) {
+    led_register_manual_control();
+    for (int i = 0; i < count; i++) {
+        led_set(true);
+        vTaskDelay(pdMS_TO_TICKS(ms_period / 2));
+        led_set(false);
+        vTaskDelay(pdMS_TO_TICKS(ms_period / 2));
+    }
+}
+
 #include "ota_mgr.h"
 
 // ── Heartbeat task ──
