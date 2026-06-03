@@ -1,8 +1,8 @@
-// boards/esp32c3_simplebot/board_config.h
+// boards/esp32c3_rfbot/board_config.h
 // ============================================================================
-//  Board: ESP32-C3 Simple Bot
+//  Board: ESP32-C3 RFBot
 //  Chip:  ESP32-C3
-//  Notes: Simple bot with only a built-in LED, 2 servos, webUI and OTA capabilities
+//  Notes: RF bot with a built-in LED, OTA capabilities and RF receiver/transmitter and two servos
 // ============================================================================
 #pragma once
 
@@ -17,8 +17,10 @@
 #define DEVICE_NUMBER 5
 #endif
 
-#define MDNS_HOSTNAME       "simplebot" _STR(DEVICE_NUMBER)
-#define MDNS_INSTANCE       "SimpleBot v" _STR(DEVICE_NUMBER)
+// This hostname sets the base mDNS name.
+// E.g. "rfbot" -> "rfbot1.local"
+#define MDNS_HOSTNAME       "rfbot" _STR(DEVICE_NUMBER)
+#define MDNS_INSTANCE       "RFBot v" _STR(DEVICE_NUMBER)
 
 #define WEB_SERVER_PORT     80
 #define DISABLE_OTA         0
@@ -43,7 +45,7 @@
 // How long a manual command suppresses the heartbeat (microseconds)
 #define LED_MANUAL_OVERRIDE_US  4000000     // 4 s
 
-// ── Servos (2 servos for simple bot) ────────────────────────────────────────
+// ── Servos (2 servos for rf bot) ────────────────────────────────────────
 #define SERVO_COUNT             2
 #define SERVO1_GPIO             GPIO_NUM_5
 #define SERVO2_GPIO             GPIO_NUM_6
@@ -68,6 +70,15 @@
 #define BTN_BOOT_GPIO           GPIO_NUM_9    // boot button
 #define BTN_1_GPIO              GPIO_NUM_0    // user button 1
 #define BTN_2_GPIO              GPIO_NUM_1    // user button 2
+
+// ── 433 MHz RF Module ───────────────────────────────────────────────────────
+// TX and RX GPIOs for the 433 MHz transmitter / receiver
+#define RF_TX_GPIO              GPIO_NUM_3
+#define RF_RX_GPIO              GPIO_NUM_4
+
+// Hard-coded RF action codes (used for physical remote dispatch)
+#define RF_CODE_TOGGLE_LED      0x123456
+#define RF_CODE_SERVO1          0x789ABC
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 #define MAX_SCHEDULED_ACTIONS  8

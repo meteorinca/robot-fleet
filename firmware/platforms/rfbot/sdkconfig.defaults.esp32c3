@@ -1,0 +1,42 @@
+# sdkconfig.defaults.esp32c3
+# Applied automatically by IDF when IDF_TARGET=esp32c3
+
+# C3 uses UART0 for console (no native USB)
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_NUM=0
+
+# C3 dog board has 4MB flash
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# OTA-capable single-bank partition table for 4MB (1.25MB factory + 1.25MB ota_0)
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_ota_4mb.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions_ota_4mb.csv"
+
+# ── Size optimizations ─────────────────────────────────────────
+# Size-optimized builds (trades tiny perf hit for ~20% smaller code)
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y
+
+# Log: keep ERRORs only in production (saves flash for every ESP_LOGI string)
+CONFIG_LOG_DEFAULT_LEVEL_ERROR=y
+CONFIG_LOG_MAXIMUM_LEVEL_ERROR=y
+
+# Trim LWIP TCP/IP task stack (default 3072 – 2048 is fine for our use)
+CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=2048
+
+# Disable AMPDU TX/RX (saves ~4KB WiFi stack, not needed for our http server)
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
+
+# Trim HTTP server buffers (we never use headers > 512 bytes)
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=512
+CONFIG_HTTPD_MAX_URI_LEN=512
+
+# We use SSE not WebSockets — disable WS support in httpd
+CONFIG_HTTPD_WS_SUPPORT=n
+
+# Disable coredump-to-flash (use UART if you ever need a crash dump)
+CONFIG_ESP_COREDUMP_ENABLE_TO_NONE=y
+
+# C3 has no touch sensor

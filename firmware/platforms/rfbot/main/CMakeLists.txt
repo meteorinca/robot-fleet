@@ -1,0 +1,70 @@
+# main/CMakeLists.txt
+#
+# Source files common to ALL boards
+set(COMMON_SRCS
+    "main.c"
+    "servo.c"
+    "dog_actions.c"
+    "wifi_mgr.c"
+    "webserver.c"
+    "ota_mgr.c"
+    "timekeep.c"
+)
+
+# Boards that use a WS2812/NeoPixel strip instead of a simple GPIO LED
+set(WS2812_BOARDS "")
+
+set(DISPLAY_BOARDS "")
+
+if(BOARD IN_LIST WS2812_BOARDS)
+    list(APPEND CONDITIONAL_SRCS "ws2812.c")
+    message(STATUS "━━━ [main] LED driver: ws2812.c (NeoPixel RMT) ━━━")
+else()
+    list(APPEND CONDITIONAL_SRCS "led.c")
+    message(STATUS "━━━ [main] LED driver: led.c (simple GPIO/LEDC) ━━━")
+endif()
+
+if(BOARD IN_LIST DISPLAY_BOARDS)
+    list(APPEND CONDITIONAL_SRCS "dog_peripherals.c")
+    message(STATUS "━━━ [main] Display & Audio peripherals: ENABLED ━━━")
+endif()
+
+
+# Boards that include a 433 MHz RF module
+set(HAS_RF_BOARDS "esp32c3_rfbot")
+
+message(STATUS "DEBUG: BOARD variable = '${BOARD}'")
+message(STATUS "DEBUG: HAS_RF_BOARDS = '${HAS_RF_BOARDS}'")
+
+set(CONDITIONAL_REQUIRES "")
+
+if(BOARD IN_LIST HAS_RF_BOARDS)
+    list(APPEND CONDITIONAL_SRCS "rf.c")
+    list(APPEND CONDITIONAL_REQUIRES "RCSwitch")
+    message(STATUS "  [main] RF module: ENABLED (RCSwitchBALLSBALLSBALLSSEEEHHERE!)")
+else()
+    message(STATUS "  [main] RF module: DISABLED (board=${BOARD})")
+endif()
+
+# ── Component registration ────────────────────────────────────────────────────
+idf_component_register(
+    SRCS            ${COMMON_SRCS} ${CONDITIONAL_SRCS}
+    INCLUDE_DIRS    "."
+                    "${CMAKE_SOURCE_DIR}/boards/${BOARD}"   # makes board_config.h includable directly
+    REQUIRES        led_strip
+                    esp_driver_rmt
+                    RCSwitch
+                    
+    PRIV_REQUIRES   esp_driver_gpio
+                    esp_driver_ledc
+                    esp_wifi
+                    esp_event
+                    esp_netif
+                    esp_timer
+                    nvs_flash
+                    esp_http_server
+                    mdns
+                    esp_app_format
+                    app_update
+                    ${CONDITIONAL_REQUIRES}
+)
