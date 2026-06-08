@@ -68,6 +68,11 @@ void initSwitch(RCSWITCH_t * RCSwitch) {
 	RCSwitch->nReceivedDelay = 0;
 	RCSwitch->nReceivedProtocol = 0;
 	RCSwitch->nReceiveTolerance = 60;
+	/* nSeparationLimit: the minimum gap (µs) that marks the boundary between
+	 * two consecutive packet transmissions.  Protocol 1 at 185µs has a sync
+	 * LOW of 31×185 = 5735µs, so 4300 is fine.  But protocol 1 at 350µs has
+	 * a sync LOW of 31×350 = 10850µs.  The original 4300 is safe for both;
+	 * keep it.  The real fix is the repeat-gap tolerance below. */
 	RCSwitch->nSeparationLimit = 4300;
 
 	RCSwitch->nTransmitterPin = -1;
@@ -372,7 +377,6 @@ void transmit(RCSWITCH_t * RCSwitch, HighLow pulses) {
 	esp_rom_delay_us(RCSwitch->protocol.pulseLength * pulses.low);
 }
 
-
 /**
  * Enable receiving data
  */
@@ -381,19 +385,24 @@ esp_err_t enableReceive(RCSWITCH_t * RCSwitch, int interrupt) {
 	return (enableReceiveInternal(RCSwitch));
 }
 
-#define ESP_INTR_FLAG_DEFAULT 0
+/* Use IRAM-resident ISR so it doesn't stall waiting for flash cache under WiFi load */
+#define ESP_INTR_FLAG_DEFAULT ESP_INTR_FLAG_IRAM
 
 
 esp_err_t enableReceiveInternal(RCSWITCH_t * RCSwitch) {
 	uint64_t gpio_pin_sel = (1ULL<<RCSwitch->nReceiverInterrupt);
 	ESP_LOGI(TAG, "RCSwitch->nReceiverInterrupt=%d gpio_pin_sel=%llu", RCSwitch->nReceiverInterrupt, gpio_pin_sel);
 
-	// Configure the data input
+	// Configure the data input.
+	// NOTE: pull-up is DISABLED.  Cheap 433 MHz receiver modules (XY-MK-5V,
+	// RXB6, etc.) idle their DATA pin LOW and pulse HIGH on signal.  Enabling
+	// the internal pull-up fights the receiver's weak LOW driver and prevents
+	// it from pulling the line low reliably, causing missed or garbled edges.
 	gpio_config_t io_conf = {
-		.intr_type = GPIO_INTR_ANYEDGE,
-		.mode = GPIO_MODE_INPUT,
+		.intr_type    = GPIO_INTR_ANYEDGE,
+		.mode         = GPIO_MODE_INPUT,
 		.pin_bit_mask = gpio_pin_sel,
-		.pull_up_en = GPIO_PULLUP_ENABLE,
+		.pull_up_en   = GPIO_PULLUP_DISABLE,   // ← was ENABLE, broke RX
 		.pull_down_en = GPIO_PULLDOWN_DISABLE
 	};
 	gpio_config(&io_conf);
@@ -527,14 +536,21 @@ void handleInterrupt(void* arg)
 	if (duration > RCSwitch->nSeparationLimit) {
 		// A long stretch without signal level change occurred. This could
 		// be the gap between two transmission.
-		if (diff(duration, RCSwitch->timings[0]) < 200) {
+		/* Use a tolerance of 20% of the measured gap (instead of a hard
+		 * 200µs) so short-pulse protocols don't fail the repeat check. */
+		unsigned int gapTolerance = RCSwitch->timings[0] / 5;   // 20 %
+		if (gapTolerance < 200) gapTolerance = 200;             // floor
+		if (diff(duration, RCSwitch->timings[0]) < gapTolerance) {
 			// This long signal is close in length to the long signal which
 			// started the previously recorded timings; this suggests that
 			// it may indeed by a a gap between two transmissions (we assume
 			// here that a sender will send the signal multiple times,
 			// with roughly the same gap between them).
 			repeatCount++;
-			if (repeatCount == 2) {
+			/* Decode on the very first clean packet (repeatCount==1) rather
+			 * than waiting for a second copy.  Cheap 433 MHz modules often
+			 * receive the first burst cleanly but may distort the second. */
+			if (repeatCount == 1) {
 				for(uint8_t i = 1; i <= numProto; i++) {
 					if (receiveProtocol(RCSwitch, i, changeCount)) {
 						// receive succeeded for protocol i

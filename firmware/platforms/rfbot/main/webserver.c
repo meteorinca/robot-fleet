@@ -11,7 +11,16 @@
 #ifdef RF_RX_GPIO
 #include "rf.h"
 #include "cJSON.h"
+// ── RF Outlet Button Config (edit rf_outlets_config.h to add/remove outlets) ─
+typedef struct { const char *label; uint32_t on_code; uint32_t off_code; } rf_outlet_t;
+static const rf_outlet_t s_outlets[] = {
+#define RF_OUTLET(lbl, on, off) { lbl, (uint32_t)(on), (uint32_t)(off) },
+#include "rf_outlets_config.h"
+#undef RF_OUTLET
+};
+#define RF_OUTLET_COUNT ((int)(sizeof(s_outlets)/sizeof(s_outlets[0])))
 #endif
+
 #include <stdlib.h>
 #include "esp_log.h"
 #include "esp_http_server.h"
@@ -19,6 +28,11 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include <sys/socket.h>   // send(), close(), MSG_DONTWAIT
+
+/* Forward declaration — httpd_req_t is now defined via esp_http_server.h above */
+#ifdef RF_RX_GPIO
+static void rf_outlets_card_send(httpd_req_t *req);
+#endif
 
 static httpd_handle_t s_server = NULL;
 
@@ -143,7 +157,8 @@ static esp_err_t dog_handler(httpd_req_t *req) {
 }
 
 static esp_err_t root_get_handler(httpd_req_t *req) {
-    static const char html[] =
+    /* ── Part 1: everything up to and including the RF Radio card ─────────── */
+    static const char html_pre[] =
         "<!DOCTYPE html>"
         "<html lang='en'>"
         "<head>"
@@ -183,7 +198,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div class='time-big' id='clock'>--:--:--</div>"
         "<div class='epoch'>Epoch: <span id='epoch'>-</span>&nbsp;&nbsp;Synced: <span id='synced'>no</span></div>"
         "</div>"
-        
+
         "<div class='card'>"
         "<h2>GPIO LED Control</h2>"
         "<div class='btn-led-grid'>"
@@ -198,7 +213,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div style='margin-bottom:15px;'>"
         "  <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>"
         "    <label>Servo 1</label>"
-        "    <span id='s1-val'>121°</span>"
+        "    <span id='s1-val'>121\xc2\xb0</span>"
         "  </div>"
         "  <input type='range' min='0' max='180' value='121' class='slider' id='s1-slide' oninput='sv(1,this.value)'>"
         "  <div class='btn-led-grid' style='margin-top:5px;'>"
@@ -209,7 +224,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div>"
         "  <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>"
         "    <label>Servo 2</label>"
-        "    <span id='s2-val'>121°</span>"
+        "    <span id='s2-val'>121\xc2\xb0</span>"
         "  </div>"
         "  <input type='range' min='0' max='180' value='121' class='slider' id='s2-slide' oninput='sv(2,this.value)'>"
         "  <div class='btn-led-grid' style='margin-top:5px;'>"
@@ -243,7 +258,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div class='action-grid' id='action-grid'></div>"
         "</div>"
 
-        /* ── RF Radio Card ─────────────────────────────────────────────────────── */
+        /* ── RF Radio Card ──────────────────────────────────────────────── */
         "<div class='card' id='rf-card'>"
         "<h2>\xf0\x9f\x93\xa1 433 MHz RF Radio</h2>"
         "<div style='display:flex;gap:10px;margin-bottom:12px;align-items:center;'>"
@@ -252,10 +267,10 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</div>"
         "<div style='margin-bottom:10px;'>"
         "  <div style='display:flex;gap:8px;'>"
-        "    <input type='text' id='rf-code' placeholder='Code (hex, e.g. 1A2B3C)' style='flex:2;margin-bottom:0;'>"
+        "    <input type='text' id='rf-code' placeholder='Code: decimal (5584140) or 0x hex' style='flex:2;margin-bottom:0;'>"
         "    <input type='number' id='rf-bits' placeholder='Bits' value='24' style='flex:1;margin-bottom:0;'>"
         "    <input type='number' id='rf-proto' placeholder='Proto' value='1' style='flex:1;margin-bottom:0;'>"
-        "    <input type='number' id='rf-pulse' placeholder='Pulse' value='350' style='flex:1;margin-bottom:0;'>"
+        "    <input type='number' id='rf-pulse' placeholder='\xc2\xb5s' value='185' style='flex:1;margin-bottom:0;'>"
         "  </div>"
         "  <button class='btn-primary' onclick='rfSend()' style='margin-top:8px;background:linear-gradient(135deg,#7c3af7,#5b2de8);'>\xe2\x9a\xa1\xef\xb8\x8f Transmit</button>"
         "  <div class='err-msg' id='rf-send-err'></div>"
@@ -268,8 +283,11 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "  <button onclick='rfClearLog()' style='flex:1;padding:7px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#888;font-size:11px;cursor:pointer;'>Clear Log</button>"
         "  <div id='rf-poll-status' style='flex:2;font-size:11px;color:#444;display:flex;align-items:center;padding:0 8px;'></div>"
         "</div>"
-        "</div>"
+        "</div>";
+        /* ── RF Outlets card injected here dynamically ─────────────────── */
 
+    /* ── Part 2: OTA card + all JavaScript ─────────────────────────────── */
+    static const char html_post[] =
         "<div class='card'>"
         "<h2>OTA Firmware Update</h2>"
         "<input type='file' id='ota-file' accept='.bin' style='color:#a0a0d0;margin-bottom:10px;width:100%;'>"
@@ -371,7 +389,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "};"
         "xhr.send(f);"
         "}"
-        /* ── RF Radio JavaScript ──────────────────────────────────────────── */
+        /* ── RF Radio + Outlets JavaScript ──────────────────────────────── */
         "var rfListening=false,rfPollTimer=null,rfLogCount=0;"
         "function rfToggleListen(){"
         "  if(!rfListening){"
@@ -425,13 +443,14 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "  var code=document.getElementById('rf-code').value.trim();"
         "  var bits=document.getElementById('rf-bits').value||'24';"
         "  var proto=document.getElementById('rf-proto').value||'1';"
-        "  var pulse=document.getElementById('rf-pulse').value||'350';"
+        "  var pulse=document.getElementById('rf-pulse').value||'185';"
         "  var err=document.getElementById('rf-send-err');"
-        "  if(!code){err.textContent='Enter a hex code';return;}"
+        "  if(!code){err.textContent='Enter a code (decimal or 0x hex)';return;}"
         "  err.textContent='Sending...';"
+        "  err.style.color='#a0a0d0';"
         "  fetch('/rf/send?code='+encodeURIComponent(code)+'&bits='+bits+'&proto='+proto+'&pulse='+pulse)"
         "    .then(function(r){return r.json();})"
-        "    .then(function(d){err.style.color='#00e5a0';err.textContent=d.ok?'Sent!':'Error: '+JSON.stringify(d);})"
+        "    .then(function(d){err.style.color='#00e5a0';err.textContent=d.ok?'Sent 0x'+d.sent_hex+'!':'Error: '+JSON.stringify(d);})"
         "    .catch(function(e){err.style.color='#f7736a';err.textContent=e;});"
         "}"
         "function rfClearLog(){"
@@ -439,12 +458,91 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "  rfLogCount=0;"
         "  document.getElementById('rf-poll-status').textContent='';"
         "}"
+        /* rfOutlet: send ON (on=1) or OFF (on=0) for an outlet code.
+         * Always uses proto=1, 24 bits, 185µs — matching the remotes. */
+        "function rfOutlet(code,on){"
+        "  var st=document.getElementById('outlet-status');"
+        "  st.textContent='Sending...';"
+        "  fetch('/rf/send?code='+code+'&bits=24&proto=1&pulse=185')"
+        "    .then(function(r){return r.json();})"
+        "    .then(function(d){"
+        "      st.style.color=d.ok?'#00e5a0':'#f7736a';"
+        "      st.textContent=d.ok?(on?'\xe2\x9c\x93 ON sent (0x'+d.sent_hex+')':'\xe2\x9c\x93 OFF sent (0x'+d.sent_hex+')'):'Error';"
+        "      setTimeout(function(){st.textContent='';},3000);"
+        "    }).catch(function(e){st.style.color='#f7736a';st.textContent=e;});"
+        "}"
         "</script></body></html>";
 
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html, HTTPD_RESP_USE_STRLEN);
+
+    /* Send Part 1 — static HTML up to and including the RF Radio card */
+    httpd_resp_send_chunk(req, html_pre, HTTPD_RESP_USE_STRLEN);
+
+    /* Inject the RF Outlets card (rows generated from rf_outlets_config.h) */
+#ifdef RF_RX_GPIO
+    rf_outlets_card_send(req);
+#endif
+
+    /* Send Part 2 — OTA card + all JavaScript */
+    httpd_resp_send_chunk(req, html_post, HTTPD_RESP_USE_STRLEN);
+
+    /* Terminate chunked transfer */
+    httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
+
+/* ── RF Outlets card (generated from rf_outlets_config.h) ────────────────
+ * Each outlet row is sent as a series of small literal chunks plus one tiny
+ * snprintf for the onclick code number.  No large stack buffer needed.      */
+#ifdef RF_RX_GPIO
+static void rf_outlets_card_send(httpd_req_t *req)
+{
+    httpd_resp_send_chunk(req,
+        "<div class='card' id='outlets-card'>"
+        "<h2>&#x1F50C; RF Outlets</h2>"
+        "<div id='outlet-status' style='font-size:11px;color:#00e5a0;"
+            "min-height:16px;margin-bottom:8px;'></div>",
+        HTTPD_RESP_USE_STRLEN);
+
+    /* Styles shared by both ON and OFF buttons (only the gradient differs) */
+    for (int i = 0; i < RF_OUTLET_COUNT; i++) {
+        char tmp[64];   /* large enough for onclick='rfOutlet(NNNNNNNN,X)' */
+
+        /* Row open + label */
+        httpd_resp_send_chunk(req,
+            "<div style='display:flex;align-items:center;gap:8px;margin-bottom:8px;'>"
+            "<span style='flex:1;font-size:13px;font-weight:600;color:#a0a0d0;'>",
+            HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send_chunk(req, s_outlets[i].label, HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send_chunk(req, "</span>", HTTPD_RESP_USE_STRLEN);
+
+        /* ON button */
+        snprintf(tmp, sizeof(tmp), "<button onclick='rfOutlet(%lu,1)' ",
+                 (unsigned long)s_outlets[i].on_code);
+        httpd_resp_send_chunk(req, tmp, HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send_chunk(req,
+            "style='flex:1;padding:9px;border:none;border-radius:8px;"
+            "background:linear-gradient(135deg,#1b8f5e,#0d6644);"
+            "color:#fff;font-weight:700;cursor:pointer;'>ON</button>",
+            HTTPD_RESP_USE_STRLEN);
+
+        /* OFF button */
+        snprintf(tmp, sizeof(tmp), "<button onclick='rfOutlet(%lu,0)' ",
+                 (unsigned long)s_outlets[i].off_code);
+        httpd_resp_send_chunk(req, tmp, HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send_chunk(req,
+            "style='flex:1;padding:9px;border:none;border-radius:8px;"
+            "background:linear-gradient(135deg,#8f1b1b,#6a0d0d);"
+            "color:#fff;font-weight:700;cursor:pointer;'>OFF</button>",
+            HTTPD_RESP_USE_STRLEN);
+
+        httpd_resp_send_chunk(req, "</div>", HTTPD_RESP_USE_STRLEN);
+    }
+
+    httpd_resp_send_chunk(req, "</div>", HTTPD_RESP_USE_STRLEN);
+}
+#endif
+
 
 // Servo endpoints
 static esp_err_t servo_handler(httpd_req_t *req) {
@@ -865,14 +963,31 @@ static esp_err_t rf_send_handler(httpd_req_t *req) {
         return ESP_OK;
     }
 
-    uint32_t code_val = (uint32_t)strtoul(code_str, NULL, 16);
-    rf_send_full(code_val, (unsigned)bits, proto, pulse);
-    ESP_LOGI("RF_API", "TX 0x%lX bits=%d proto=%d pulse=%d", (unsigned long)code_val, bits, proto, pulse);
+    /* Auto-detect base: 0x/0X prefix → hex, otherwise → decimal.
+     * This fixes the bug where entering a decimal code (e.g. 5584140) was
+     * silently parsed as hex (0x5584140 = 89587008) and the wrong code was sent. */
+    uint32_t code_val;
+    if ((code_str[0] == '0') && (code_str[1] == 'x' || code_str[1] == 'X')) {
+        code_val = (uint32_t)strtoul(code_str + 2, NULL, 16);
+    } else {
+        /* Check if it looks like a pure hex string (contains a-f/A-F) */
+        int has_alpha = 0;
+        for (int i = 0; code_str[i]; i++) {
+            char c = code_str[i];
+            if ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) { has_alpha = 1; break; }
+        }
+        code_val = has_alpha ? (uint32_t)strtoul(code_str, NULL, 16)
+                             : (uint32_t)strtoul(code_str, NULL, 10);
+    }
 
-    char resp[128];
+    rf_send_full(code_val, (unsigned)bits, proto, pulse);
+    ESP_LOGI("RF_API", "TX 0x%lX (input='%s') bits=%d proto=%d pulse=%d",
+             (unsigned long)code_val, code_str, bits, proto, pulse);
+
+    char resp[160];
     int len = snprintf(resp, sizeof(resp),
-        "{\"ok\":true,\"code\":\"%s\",\"bits\":%d,\"proto\":%d,\"pulse\":%d}",
-        code_str, bits, proto, pulse);
+        "{\"ok\":true,\"code\":\"%s\",\"sent_hex\":\"%lX\",\"bits\":%d,\"proto\":%d,\"pulse\":%d}",
+        code_str, (unsigned long)code_val, bits, proto, pulse);
     httpd_resp_send(req, resp, len);
     return ESP_OK;
 }

@@ -38,14 +38,31 @@ This document lists the available HTTP GET endpoints to control your RF Bot via 
   - *Returns*: `{"listening":false,"learning":false,"tx_gpio":3,"rx_gpio":4}`
 
 ### Transmitting (Send)
-- **Send a code**: `GET /rf/send?code=<hex>&bits=<n>&proto=<p>&pulse=<us>`
+- **Send a code**: `GET /rf/send?code=<code>&bits=<n>&proto=<p>&pulse=<us>`
   - *Transmits a 433 MHz OOK signal using the RC-switch protocol.*
-  - `code` — hex value, e.g. `1A2B3C` (**required**)
+  - `code` — **decimal** (e.g. `5584140`) **or** `0x`-prefixed hex (e.g. `0x553F4C`) (**required**)
+    - Pure hex letters with no prefix (e.g. `1A2B3C`) also work — auto-detected.
   - `bits` — number of bits to send (default: `24`)
   - `proto` — RC-Switch protocol number 1–12 (default: `1`)
-  - `pulse` — base pulse length in µs (default: `350`)
-  - *Returns*: `{"ok":true,"code":"1A2B3C","bits":24,"proto":1,"pulse":350}`
-  - **Example**: `GET /rf/send?code=1A2B3C&bits=24&proto=1&pulse=350`
+  - `pulse` — base pulse length in µs (default: `185`)
+  - *Returns*: `{"ok":true,"code":"5584140","sent_hex":"553F4C","bits":24,"proto":1,"pulse":185}`
+    - **`sent_hex`** — actual hex value transmitted (use this to verify decimal input was parsed correctly)
+  - **Example**: `GET /rf/send?code=5584140&bits=24&proto=1&pulse=185`
+
+### RF Outlets (Web UI quick-buttons)
+The **🔌 RF Outlets** card in the Web UI provides one-tap ON/OFF buttons for named outlets.
+All outlet buttons always use: **24 bits, protocol 1, 185 µs pulse**.
+
+| Outlet  | ON code  | OFF code |
+|---------|----------|----------|
+| Alpha   | 5576451  | 5576460  |
+| Bravo   | 5584131  | 5584140  |
+| Foxtrot | 1381827  | 1381836  |
+
+**To add/remove outlets**: edit [`rf_outlets_config.h`](file:///c:\Users\dontm\Documents\mojCodexstuff\ActiveGithub\robot-fleet\firmware\platforms\rfbot\main\rf_outlets_config.h) and reflash — no other file changes needed.
+Format: `RF_OUTLET("Label", decimal_on_code, decimal_off_code)`
+
+
 
 ### Python examples
 ```python

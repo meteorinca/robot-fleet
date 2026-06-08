@@ -57,11 +57,18 @@ void rf_send_code(uint32_t code, unsigned int bit_length) {
 }
 
 void rf_send_full(uint32_t code, unsigned int bit_length, int protocol, int pulse_length) {
+    /* Save current protocol so we can restore it cleanly after the send. */
+    Protocol saved = s_rc_tx.protocol;
+
     if (protocol > 0) setProtocol(&s_rc_tx, protocol);
     if (pulse_length > 0) setPulseLength(&s_rc_tx, pulse_length);
+
+    ESP_LOGI(TAG, "rf_send_full: code=0x%lX bits=%u proto=%d pulse=%d",
+             (unsigned long)code, bit_length, protocol, pulse_length);
     sendCode(&s_rc_tx, code, bit_length);
-    // Reset to default protocol 1 after sending
-    setProtocol(&s_rc_tx, 1);
+
+    /* Restore previous protocol (including its pulseLength). */
+    s_rc_tx.protocol = saved;
 }
 
 // ── Learn mode API ───────────────────────────────────────────────────────────
