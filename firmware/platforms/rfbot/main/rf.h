@@ -8,6 +8,8 @@
 void rf_module_init(void);
 void rf_send_code(uint32_t code, unsigned int bit_length);
 void rf_send_full(uint32_t code, unsigned int bit_length, int protocol, int pulse_length);
+
+extern volatile uint32_t rf_isr_edge_count;
 void rf_start_receiver(void);
 
 // ── Learn mode ───────────────────────────────────────────────────────────────

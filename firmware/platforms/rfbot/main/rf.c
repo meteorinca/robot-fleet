@@ -12,6 +12,8 @@
 
 static const char *TAG = "RF";
 
+volatile uint32_t rf_isr_edge_count = 0;
+
 // ── Separate TX and RX structs to avoid conflicts ───────────────────────────
 static RCSWITCH_t s_rc_tx;
 static RCSWITCH_t s_rc_rx;

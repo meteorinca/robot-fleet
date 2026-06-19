@@ -38,6 +38,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "esp_timer.h" // for esp-idf v5
+#include "esp_attr.h"
 
 #include "RCSwitch.h"
 
@@ -67,13 +68,13 @@ void initSwitch(RCSWITCH_t * RCSwitch) {
 	RCSwitch->nReceivedBitlength = 0;
 	RCSwitch->nReceivedDelay = 0;
 	RCSwitch->nReceivedProtocol = 0;
-	RCSwitch->nReceiveTolerance = 60;
+	RCSwitch->nReceiveTolerance = 80;
 	/* nSeparationLimit: the minimum gap (µs) that marks the boundary between
 	 * two consecutive packet transmissions.  Protocol 1 at 185µs has a sync
 	 * LOW of 31×185 = 5735µs, so 4300 is fine.  But protocol 1 at 350µs has
 	 * a sync LOW of 31×350 = 10850µs.  The original 4300 is safe for both;
 	 * keep it.  The real fix is the repeat-gap tolerance below. */
-	RCSwitch->nSeparationLimit = 4300;
+	RCSwitch->nSeparationLimit = 2000;
 
 	RCSwitch->nTransmitterPin = -1;
 	setRepeatTransmit(RCSwitch, 10);
@@ -393,6 +394,9 @@ esp_err_t enableReceiveInternal(RCSWITCH_t * RCSwitch) {
 	uint64_t gpio_pin_sel = (1ULL<<RCSwitch->nReceiverInterrupt);
 	ESP_LOGI(TAG, "RCSwitch->nReceiverInterrupt=%d gpio_pin_sel=%llu", RCSwitch->nReceiverInterrupt, gpio_pin_sel);
 
+	// Reset pin to GPIO mode (crucial for ESP32-C3 where GPIO 4 is JTAG by default)
+	gpio_reset_pin(RCSwitch->nReceiverInterrupt);
+
 	// Configure the data input.
 	// NOTE: pull-up is DISABLED.  Cheap 433 MHz receiver modules (XY-MK-5V,
 	// RXB6, etc.) idle their DATA pin LOW and pulse HIGH on signal.  Enabling
@@ -420,6 +424,7 @@ esp_err_t enableReceiveInternal(RCSWITCH_t * RCSwitch) {
 
 	//hook isr handler for specific gpio pin
 	err = gpio_isr_handler_add(RCSwitch->nReceiverInterrupt, handleInterrupt, RCSwitch);
+	gpio_intr_enable(RCSwitch->nReceiverInterrupt);
 	ESP_LOGI(TAG, "gpio_isr_handler_add=%d", err);
 	return err;
 }
@@ -458,80 +463,67 @@ unsigned int getReceivedProtocol(RCSWITCH_t * RCSwitch) {
 	return RCSwitch->nReceivedProtocol;
 }
 
-unsigned int* getReceivedRawdata(RCSWITCH_t * RCSwitch) {
+volatile unsigned int* getReceivedRawdata(RCSWITCH_t * RCSwitch) {
 	return RCSwitch->timings;
 }
 
 /* helper function for the receiveProtocol method */
-static inline unsigned int diff(int A, int B) {
-	return abs(A - B);
+static inline unsigned int diff(unsigned int A, unsigned int B) {
+	return (A > B) ? (A - B) : (B - A);
 }
 
 bool receiveProtocol(RCSWITCH_t * RCSwitch, const int p, unsigned int changeCount) {
 	const Protocol pro = proto[p-1];
-
-	unsigned long code = 0;
-	//Assuming the longer pulse length is the pulse captured in timings[0]
 	const unsigned int syncLengthInPulses =  ((pro.syncFactor.low) > (pro.syncFactor.high)) ? (pro.syncFactor.low) : (pro.syncFactor.high);
 	const unsigned int delay = RCSwitch->timings[0] / syncLengthInPulses;
 	const unsigned int delayTolerance = delay * RCSwitch->nReceiveTolerance / 100;
 
-	/* For protocols that start low, the sync period looks like
-	 *							 _________
-	 * _____________|					|XXXXXXXXXXXX|
-	 *
-	 * |--1st dur--|-2nd dur-|-Start data-|
-	 *
-	 * The 3rd saved duration starts the data.
-	 *
-	 * For protocols that start high, the sync period looks like
-	 *
-	 *	______________
-	 * |							|____________|XXXXXXXXXXXXX|
-	 *
-	 * |-filtered out-|--1st dur--|--Start data--|
-	 *
-	 * The 2nd saved duration starts the data
-	 */
-	const unsigned int firstDataTiming = (pro.invertedSignal) ? (2) : (1);
-
-	for (unsigned int i = firstDataTiming; i < changeCount - 1; i += 2) {
-		code <<= 1;
-		if (diff(RCSwitch->timings[i], delay * pro.zero.high) < delayTolerance &&
-			diff(RCSwitch->timings[i + 1], delay * pro.zero.low) < delayTolerance) {
-			// zero
-		} else if (diff(RCSwitch->timings[i], delay * pro.one.high) < delayTolerance &&
-					diff(RCSwitch->timings[i + 1], delay * pro.one.low) < delayTolerance) {
-			// one
-			code |= 1;
-		} else {
-			// Failed
-			return false;
+	// Test both normal (offset=1) and inverted (offset=2) signal parsing
+	// This automatically handles hardware receivers that invert the signal
+	for (unsigned int offset = 1; offset <= 2; offset++) {
+		unsigned long code = 0;
+		bool failed = false;
+		for (unsigned int i = offset; i < changeCount - 1; i += 2) {
+			code <<= 1;
+			if (diff(RCSwitch->timings[i], delay * pro.zero.high) < delayTolerance &&
+				diff(RCSwitch->timings[i + 1], delay * pro.zero.low) < delayTolerance) {
+				// zero
+			} else if (diff(RCSwitch->timings[i], delay * pro.one.high) < delayTolerance &&
+						diff(RCSwitch->timings[i + 1], delay * pro.one.low) < delayTolerance) {
+				// one
+				code |= 1;
+			} else {
+				// Failed
+				failed = true;
+				break;
+			}
+		}
+		
+		if (!failed && changeCount > 7) { // ignore very short transmissions
+			RCSwitch->nReceivedValue = code;
+			RCSwitch->nReceivedBitlength = (changeCount - offset) / 2;
+			RCSwitch->nReceivedDelay = delay;
+			RCSwitch->nReceivedProtocol = p;
+			return true;
 		}
 	}
-
-	if (changeCount > 7) { // ignore very short transmissions: no device sends them, so this must be noise
-		RCSwitch->nReceivedValue = code;
-		RCSwitch->nReceivedBitlength = (changeCount - 1) / 2;
-		RCSwitch->nReceivedDelay = delay;
-		RCSwitch->nReceivedProtocol = p;
-		return true;
-	}
-
 	return false;
 }
 
 
-void handleInterrupt(void* arg)
+extern volatile uint32_t rf_isr_edge_count;
+
+void IRAM_ATTR handleInterrupt(void* arg)
 {
+	rf_isr_edge_count++;
 	RCSWITCH_t *RCSwitch = (RCSWITCH_t *) arg;
 
 	static unsigned int changeCount = 0;
-	static unsigned long lastTime = 0;
+	static int64_t lastTime = 0;
 	static unsigned int repeatCount = 0;
 
-	const long time = esp_timer_get_time();
-	const unsigned int duration = time - lastTime;
+	const int64_t time = esp_timer_get_time();
+	const unsigned int duration = (unsigned int)(time - lastTime);
 
 	if (duration > RCSwitch->nSeparationLimit) {
 		// A long stretch without signal level change occurred. This could

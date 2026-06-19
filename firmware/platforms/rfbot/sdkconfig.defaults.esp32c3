@@ -1,5 +1,5 @@
 # sdkconfig.defaults.esp32c3
-# Applied automatically by IDF when IDF_TARGET=esp32c3
+# Applied Yes automatically by IDF when IDF_TARGET=esp32c3
 
 # C3 uses UART0 for console (no native USB)
 CONFIG_ESP_CONSOLE_UART_DEFAULT=y
@@ -19,8 +19,8 @@ CONFIG_COMPILER_OPTIMIZATION_SIZE=y
 CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y
 
 # Log: keep ERRORs only in production (saves flash for every ESP_LOGI string)
-CONFIG_LOG_DEFAULT_LEVEL_ERROR=y
-CONFIG_LOG_MAXIMUM_LEVEL_ERROR=y
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_MAXIMUM_LEVEL_INFO=y
 
 # Trim LWIP TCP/IP task stack (default 3072 – 2048 is fine for our use)
 CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=2048

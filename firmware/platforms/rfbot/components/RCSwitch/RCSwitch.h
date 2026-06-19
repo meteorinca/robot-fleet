@@ -51,19 +51,19 @@
 
 // Number of maximum high/Low changes per packet.
 // We can handle up to (unsigned long) => 32 bit * 2 H/L changes per bit + 2 for sync
-#define RCSWITCH_MAX_CHANGES 67
+#define RCSWITCH_MAX_CHANGES 120
 
 typedef struct {
-	unsigned long nReceivedValue;
-	unsigned int nReceivedBitlength;
-	unsigned int nReceivedDelay;
-	unsigned int nReceivedProtocol;
+	volatile unsigned long nReceivedValue;
+	volatile unsigned int nReceivedBitlength;
+	volatile unsigned int nReceivedDelay;
+	volatile unsigned int nReceivedProtocol;
 	int nReceiveTolerance;
 	unsigned nSeparationLimit;
 	/*
 	 * timings[0] contains sync timing, followed by a number of bits
 	 */
-	unsigned int timings[RCSWITCH_MAX_CHANGES];
+	volatile unsigned int timings[RCSWITCH_MAX_CHANGES];
 	int nReceiverInterrupt;
 
 	int nTransmitterPin;
@@ -101,7 +101,7 @@ typedef struct {
 	unsigned int getReceivedBitlength(RCSWITCH_t * RCSwitch);
 	unsigned int getReceivedDelay(RCSWITCH_t * RCSwitch);
 	unsigned int getReceivedProtocol(RCSWITCH_t * RCSwitch);
-	unsigned int* getReceivedRawdata(RCSWITCH_t * RCSwitch);
+	volatile unsigned int* getReceivedRawdata(RCSWITCH_t * RCSwitch);
 
 	void handleInterrupt(void* arg);
 
