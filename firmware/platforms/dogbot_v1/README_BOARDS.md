@@ -1,16 +1,23 @@
 # README_BOARDS.md — Multi-Board Build System
 
-This project supports multiple ESP32 boards from a **single codebase**. 
-No branches, no duplicated files — just one command to switch.
+## Fast Instructions:
 
----
+Hold button down and plug in esp32c3 for manual flashing. OTA should work after that.
+In idf.py v5.5.4 powershell, normally for esp32c3 esp-hi based dogbot the default command is:
+
+```powershell
+ idf.py -D BOARD=esp32c3_dog -D DEVICE_NUMBER=1 build
+```
+
+NOTE: The DEVICE_NUMBER is what the localhost will be so: dogbot1.local
 
 ## How to build for each board
 
-
-
 ### ESP32-C3 Dog Robot (4 leg servos)
 
+
+
+If creating a new board: 
 ```powershell
 idf.py -DBOARD=esp32c3_dog set-target esp32c3 fullclean build flash monitor
 ```
