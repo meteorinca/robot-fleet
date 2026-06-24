@@ -187,7 +187,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<meta charset='UTF-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>"
         "<meta name='apple-mobile-web-app-capable' content='yes'>"
-        "<title>MojDog Control</title>"
+        "<title>PaulBot Control</title>"
         "<style>"
         "*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}"
         "html,body{height:100%;overflow:hidden;position:fixed;width:100%;font-family:system-ui,sans-serif;background:#0d0d1a;color:#e0e0f0;}"
@@ -265,7 +265,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 
         "<div class='card' id='tts-card'>"
         "<h2>Text to Speech</h2>"
-        "<input type='text' id='say' placeholder='What should MojDog say?'>"
+        "<input type='text' id='say' placeholder='What should PaulBot say?'>"
         "<button class='btn-primary' onclick='sendTTS()'>Speak</button>"
         "<div class='err-msg' id='tts-err'></div>"
         "</div>"
@@ -289,9 +289,14 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div id='scan-results' style='margin-bottom:10px;'></div>"
         "<div style='border-top:1px solid #1e1e3a;padding-top:12px;margin-top:8px;'>"
         "<div style='font-size:11px;color:#666;font-weight:700;margin-bottom:8px;'>ADD NETWORK MANUALLY</div>"
-        "<input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)'>"
-        "<input type='password' id='wifi-pass' placeholder='Password'>"
-        "<button class='btn-primary' onclick='saveWifi()'>Connect \x26 Reboot</button>"
+        "<input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)' style='font-size:16px;padding:14px 12px;'>"
+        "<div style='position:relative;margin-bottom:10px;'>"
+        "<input type='password' id='wifi-pass' placeholder='Password' autocomplete='current-password'"
+        " style='width:100%;font-size:16px;padding:14px 48px 14px 12px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#e0e0f0;outline:none;box-sizing:border-box;'>"
+        "<button type='button' onclick=\"var i=document.getElementById('wifi-pass');i.type=i.type==='password'?'text':'password';\""
+        " style='position:absolute;right:0;top:0;bottom:0;width:44px;background:none;border:none;color:#666;font-size:20px;cursor:pointer;'>&#128065;</button>"
+        "</div>"
+        "<button class='btn-primary' onclick='saveWifi()' style='font-size:16px;padding:14px;'>Connect &#38; Reboot</button>"
         "<div class='err-msg' id='wifi-err'></div>"
         "</div>"
         "</div>"
@@ -311,7 +316,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</div>"
         "<div id='cal-iface' style='display:none'>"
         "<div class='vehicle'>"
-        "<div class='dog-head'>MojDog</div>"
+        "<div class='dog-head'>PaulBot</div>"
         "<div class='servo fl' data-pos='fl'><span class='label'>FL</span><span class='value' id='v-fl'>0</span></div>"
         "<div class='servo fr' data-pos='fr'><span class='label'>FR</span><span class='value' id='v-fr'>0</span></div>"
         "<div class='servo bl' data-pos='bl'><span class='label'>BL</span><span class='value' id='v-bl'>0</span></div>"
@@ -868,7 +873,7 @@ static void github_tts_task(void *arg) {
 //   import requests, time
 //   t = int(time.time()) + 10   # 10 s from now
 //   for n in range(1, 4):
-//       requests.get(f"http://dogbot{n}.local:81/schedule?action=wiggle&at={t}")
+//       requests.get(f"http://paulbot{n}.local:81/schedule?action=wiggle&at={t}")
 static esp_err_t schedule_handler(httpd_req_t *req) {
     char qs[200];
     char action[32] = {0};
@@ -954,7 +959,7 @@ static esp_err_t audio_post_handler(httpd_req_t *req) {
 //  Use from shell / Jupyter:
 //    import requests
 //    with open('mojDogv1.bin','rb') as f:
-//        requests.post('http://dogbot2.local:81/ota', data=f,
+//        requests.post('http://paulbot2.local:81/ota', data=f,
 //                      headers={'Content-Type':'application/octet-stream'})
 //
 //  Or from the web UI (added below in root_get_handler HTML).
@@ -1048,6 +1053,35 @@ static esp_err_t wifi_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static bool parse_json_string(const char *json, const char *key, char *out_val, size_t max_len) {
+    char key_buf[64];
+    snprintf(key_buf, sizeof(key_buf), "\"%s\"", key);
+    const char *k = strstr(json, key_buf);
+    if (!k) return false;
+
+    // Move past the key name
+    k += strlen(key_buf);
+
+    // Find the colon ':' separating key and value
+    const char *colon = strchr(k, ':');
+    if (!colon) return false;
+
+    // Find the opening quote '"' of the string value
+    const char *start = strchr(colon, '"');
+    if (!start) return false;
+    start++; // skip the opening quote
+
+    // Find the closing quote '"' of the string value
+    const char *end = strchr(start, '"');
+    if (!end) return false;
+
+    size_t len = end - start;
+    if (len >= max_len) len = max_len - 1;
+    memcpy(out_val, start, len);
+    out_val[len] = '\0';
+    return true;
+}
+
 // POST /wifi — body: {"ssid":"...", "pass":"..."}
 static esp_err_t wifi_post_handler(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -1063,32 +1097,8 @@ static esp_err_t wifi_post_handler(httpd_req_t *req) {
 
     // Simple JSON parse: {"ssid":"...","pass":"..."}
     char ssid[33] = {0}, pass[65] = {0};
-    char *s = strstr(body, "\"ssid\"");
-    char *p = strstr(body, "\"pass\"");
-    if (s) {
-        s = strchr(s + 5, '"'); // skip key and colon
-        if (s) {
-            s++; // skip opening quote
-            char *end = strchr(s, '"');
-            if (end) {
-                size_t len = end - s;
-                if (len >= sizeof(ssid)) len = sizeof(ssid) - 1;
-                memcpy(ssid, s, len);
-            }
-        }
-    }
-    if (p) {
-        p = strchr(p + 5, '"');
-        if (p) {
-            p++;
-            char *end = strchr(p, '"');
-            if (end) {
-                size_t len = end - p;
-                if (len >= sizeof(pass)) len = sizeof(pass) - 1;
-                memcpy(pass, p, len);
-            }
-        }
-    }
+    parse_json_string(body, "ssid", ssid, sizeof(ssid));
+    parse_json_string(body, "pass", pass, sizeof(pass));
 
     if (!ssid[0]) {
         httpd_resp_send(req, "{\"error\":\"Missing SSID\"}", HTTPD_RESP_USE_STRLEN);

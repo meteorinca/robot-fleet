@@ -155,7 +155,7 @@ The ESP32-C3 has **one** RISC-V core. Every task shares the same core via FreeRT
 | **Buttons** | 3 GPIO with ISR + debounce queue |
 | **Scheduling** | Named actions by delay or epoch time |
 | **OTA** | Over-the-air firmware updates |
-| **mDNS** | `dogbot1.local:81` |
+| **mDNS** | `paulbot1.local:81` |
 
 ---
 

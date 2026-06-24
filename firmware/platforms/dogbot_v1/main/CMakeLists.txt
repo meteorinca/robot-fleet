@@ -13,7 +13,7 @@ set(COMMON_SRCS
 )
 
 # Boards that use a WS2812/NeoPixel strip instead of a simple GPIO LED
-set(WS2812_BOARDS "")
+set(WS2812_BOARDS "esp32c3_dog")
 
 # Boards that have the OLED display and audio peripherals (dog_peripherals.c)
 set(DISPLAY_BOARDS "esp32c3_dog")

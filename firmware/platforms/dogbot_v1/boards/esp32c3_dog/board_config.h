@@ -17,10 +17,10 @@
 #define DEVICE_NUMBER 2
 #endif
 
-#define MDNS_HOSTNAME       "dogbot" _STR(DEVICE_NUMBER)
-#define MDNS_INSTANCE       "MOJDogv" _STR(DEVICE_NUMBER)
+#define MDNS_HOSTNAME       "paulbot" _STR(DEVICE_NUMBER)
+#define MDNS_INSTANCE       "PaulBotv" _STR(DEVICE_NUMBER)
 
-#define WEB_SERVER_PORT     81
+#define WEB_SERVER_PORT     80
 #define DISABLE_OTA         0
 
 // ── Network ─────────────────────────────────────────────────────────────────
@@ -34,9 +34,10 @@
 #define LED_GPIO                GPIO_NUM_8
 #define LED_ACTIVE_LOW          1       // HIGH = OFF
 
-// ── WS2812 NeoPixel strip (DISABLED) ────────────────────────────────────────
-// #define WS2812_GPIO             GPIO_NUM_8
-// #define WS2812_NUM_LEDS         4
+// ── WS2812 NeoPixel strip ────────────────────────────────────────
+#define WS2812_GPIO             GPIO_NUM_8
+#define WS2812_NUM_LEDS         4
+#define WS2812_RMT_RES_HZ 10000000    // 10 MHz
 
 // Heartbeat colours (legacy for code that uses these names, but simple LED is single color)
 #define WS2812_COLOR_CONNECTED  0x000A00    // dim green

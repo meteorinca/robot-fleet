@@ -3,13 +3,13 @@
 ## Fast Instructions:
 
 Hold button down and plug in esp32c3 for manual flashing. OTA should work after that.
-In idf.py v5.5.4 powershell, normally for esp32c3 esp-hi based dogbot the default command is:
+In idf.py v5.5.4 powershell, normally for esp32c3 esp-hi based paulbot the default command is:
 
 ```powershell
  idf.py -D BOARD=esp32c3_dog -D DEVICE_NUMBER=1 build
 ```
 
-NOTE: The DEVICE_NUMBER is what the localhost will be so: dogbot1.local
+NOTE: The DEVICE_NUMBER is what the localhost will be so: paulbot1.local
 
 ## How to build for each board
 

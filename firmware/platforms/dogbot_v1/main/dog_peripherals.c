@@ -154,7 +154,11 @@ static void dog_eyes_task(void *arg) {
             oled_text_timer--;
             memset(buffer, 0, 160 * 80 * sizeof(uint16_t));
             int msg_len = strlen(oled_text_msg);
-            int scale = 3;
+            // Auto-scale: largest scale that fits all chars within 160 px.
+            // At scale s, total width = s*(6*n - 1) where n = char count.
+            int scale = (msg_len == 0) ? 3 : (160 / (6 * msg_len - 1));
+            if (scale > 3) scale = 3;
+            if (scale < 1) scale = 1;
             int fw = 5 * scale;
             int fh = 7 * scale;
             int char_space = 1 * scale;

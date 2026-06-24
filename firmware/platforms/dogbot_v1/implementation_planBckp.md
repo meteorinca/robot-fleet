@@ -2,7 +2,7 @@
 
 ## Overview
 
-When the dogbot can't find any known WiFi within a configurable timeout, it already falls back to SoftAP mode. This plan extends that to include:
+When the paulbot can't find any known WiFi within a configurable timeout, it already falls back to SoftAP mode. This plan extends that to include:
 
 1. **A full control web UI** served at `192.168.4.1` in AP mode (same look as the STA UI, minus internet-dependent features like TTS)
 2. **WiFi provisioning** — a form to enter new SSID/password, stored in NVS (survives reboots)
@@ -19,7 +19,7 @@ flowchart TD
     C -->|No, timeout| E[Try hardcoded SSIDs]
     E --> F{Connected?}
     F -->|Yes| D
-    F -->|No| G["Start SoftAP: MojDog-N"]
+    F -->|No| G["Start SoftAP: PaulBot-N"]
     G --> H["Serve AP Web UI @ 192.168.4.1"]
     H --> I[User adds WiFi via web form]
     I --> J[Save to NVS + reboot]

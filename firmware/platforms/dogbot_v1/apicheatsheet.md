@@ -1,8 +1,8 @@
-# MojDog v1 API Cheat Sheet
+# PaulBot v1 API Cheat Sheet
 
-This document lists the available HTTP GET endpoints to control your MojDog via its local web server. You can trigger these directly from your browser, via `curl`, or using Python scripts.
+This document lists the available HTTP GET endpoints to control your PaulBot via its local web server. You can trigger these directly from your browser, via `curl`, or using Python scripts.
 
-**Base URL**: `http://dogbot3.local:81` (Replace `dogbot3` with your specific bot's hostname or IP address).
+**Base URL**: `http://paulbot3.local:81` (Replace `paulbot3` with your specific bot's hostname or IP address).
 
 ## 🗣️ Voice & Audio API
 - **Say a phrase**: `GET /tts?say=My%20name%20is%20Paulbot`
@@ -63,4 +63,4 @@ You can queue an action to happen at an exact Unix timestamp across all bots sim
 
 ---
 
-*Tip: You can test any of these by just typing them into your browser's address bar! Example: `http://dogbot3.local:81/schedule?action=bark&delay=3`*
+*Tip: You can test any of these by just typing them into your browser's address bar! Example: `http://paulbot3.local:81/schedule?action=bark&delay=3`*

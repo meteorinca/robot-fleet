@@ -1,6 +1,12 @@
 #include "wifi_mgr.h"
 #include "webserver.h"
 #include "config.h"
+#ifdef DISP_MOSI_GPIO
+#include "dog_peripherals.h"
+#define OLED_MSG(msg, ms)  dog_set_oled_text((msg), (ms))
+#else
+#define OLED_MSG(msg, ms)  ((void)0)
+#endif
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -27,8 +33,10 @@
 
 // ── State ────────────────────────────────────────────────────────────────────
 static EventGroupHandle_t s_wifi_events;
-static TimerHandle_t      s_ap_timer  = NULL;
-static bool               s_ap_active = false;
+static TimerHandle_t      s_ap_timer      = NULL;
+static bool               s_ap_active     = false;
+static int                s_no_ap_count   = 0; // consecutive NO_AP_FOUND for current SSID
+static int                s_auth_fail_count = 0; // consecutive AUTH_FAIL for current SSID
 
 // ── Combined network list ────────────────────────────────────────────────────
 // Layout: NVS-stored credentials first (user-added, highest priority),
@@ -276,7 +284,7 @@ static void start_captive_dns(void) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  SoftAP setup
-//  AP SSID: "MojDog-XX"  (XX = device number from board_config.h)
+//  AP SSID: "PaulBot-XX"  (XX = device number from board_config.h)
 //  AP IP:   192.168.4.1  (ESP32 default)
 //  No password — dogs are friendly.
 // ══════════════════════════════════════════════════════════════════════════════
@@ -291,6 +299,10 @@ static void start_softap(void) {
 
     ESP_LOGW(TAG, "STA failed — starting SoftAP at 192.168.4.1");
 
+#ifdef DISP_MOSI_GPIO
+    dog_set_oled_text("192.168.4.1", 5000);
+#endif
+
     // Create AP netif (Moved to wifi_init so mDNS can bind to it)
     // esp_netif_create_default_wifi_ap();
 
@@ -302,9 +314,9 @@ static void start_softap(void) {
             .max_connection = 4,
         },
     };
-    // Build SSID "MojDog-<device_num>"
+    // Build SSID "PaulBot-<device_num>"
     snprintf((char *)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid),
-             "MojDog-%d", DEVICE_NUMBER);
+             "PaulBot-%d", DEVICE_NUMBER);
 
     // Switch to APSTA so we still try STA in background
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -321,46 +333,97 @@ static void start_softap(void) {
     webserver_start();
 }
 
-static void ap_fallback_cb(TimerHandle_t xTimer) {
+// Advance to the next network in the list, or fall back to SoftAP when all are exhausted.
+// Called by the timeout timer OR immediately on an auth/not-found failure.
+static void advance_to_next_network(void) {
     if (s_ap_active) return;
 
+    s_no_ap_count    = 0;  // reset per-SSID counters
+    s_auth_fail_count = 0;
     s_network_idx++;
     if (s_network_idx < s_network_count) {
-        ESP_LOGW(TAG, "STA timeout — trying next SSID: %s", s_networks[s_network_idx].ssid);
+        ESP_LOGW(TAG, "Trying network %d/%d: %s",
+                 s_network_idx + 1, s_network_count, s_networks[s_network_idx].ssid);
+
+        char oled_buf[32];
+        snprintf(oled_buf, sizeof(oled_buf), "Try %d/%d",
+                 s_network_idx + 1, s_network_count);
+        OLED_MSG(oled_buf, 4000);
 
         wifi_config_t wifi_config = {
-            .sta = {
-                .threshold.authmode = WIFI_AUTH_WPA2_PSK,
-            },
+            .sta = { .threshold.authmode = WIFI_AUTH_WPA_PSK },
         };
-        strncpy((char*)wifi_config.sta.ssid, s_networks[s_network_idx].ssid, sizeof(wifi_config.sta.ssid));
-        strncpy((char*)wifi_config.sta.password, s_networks[s_network_idx].pass, sizeof(wifi_config.sta.password));
-
+        strncpy((char*)wifi_config.sta.ssid,     s_networks[s_network_idx].ssid,
+                sizeof(wifi_config.sta.ssid));
+        strncpy((char*)wifi_config.sta.password, s_networks[s_network_idx].pass,
+                sizeof(wifi_config.sta.password));
         esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
         esp_wifi_connect();
-
-        // Reset timer for the next network
-        xTimerReset(s_ap_timer, 0);
+        if (s_ap_timer) xTimerReset(s_ap_timer, 0);
     } else {
         start_softap();
     }
+}
+
+static void ap_fallback_cb(TimerHandle_t xTimer) {
+    advance_to_next_network();
 }
 
 // ── ESP-NETIF style event handler ──
 static void on_wifi_event(void *arg, esp_event_base_t base,
                           int32_t id, void *event_data) {
     if (id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-        // Start the AP-fallback countdown
-        if (s_ap_timer) {
-            xTimerReset(s_ap_timer, 0);
+        if (s_network_count == 0) {
+            // No networks configured at all — go straight to AP
+            ESP_LOGW(TAG, "No networks configured — starting SoftAP immediately");
+            advance_to_next_network();
+        } else {
+            OLED_MSG("WiFi...", 6000);
+            esp_wifi_connect();
+            if (s_ap_timer) xTimerReset(s_ap_timer, 0);
         }
     } else if (id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
         if (!s_ap_active) {
-            ESP_LOGW(TAG, "Disconnected — retrying...");
-            esp_wifi_connect();
-            // Note: We DON'T reset the fallback timer here so that the
-            // SSID switch/AP fallback happens after AP_FALLBACK_TIMEOUT_MS total.
+            if (disc->reason == WIFI_REASON_AUTH_FAIL ||
+                disc->reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
+                s_no_ap_count = 0;
+                s_auth_fail_count++;
+                if (s_auth_fail_count >= 3) {
+                    // 3 consecutive auth failures — definitely wrong password
+                    ESP_LOGW(TAG, "Auth fail x%d on '%s' — skipping",
+                             s_auth_fail_count, s_networks[s_network_idx].ssid);
+                    OLED_MSG("Bad PW!", 3000);
+                    if (s_ap_timer) xTimerStop(s_ap_timer, 0);
+                    advance_to_next_network();
+                } else {
+                    // Retry — first-connect AUTH_FAIL can be transient on ESP32
+                    ESP_LOGW(TAG, "Auth fail %d/3 on '%s' — retrying",
+                             s_auth_fail_count, s_networks[s_network_idx].ssid);
+                    esp_wifi_connect();
+                }
+            } else if (disc->reason == WIFI_REASON_NO_AP_FOUND) {
+                s_auth_fail_count = 0;
+                s_no_ap_count++;
+                if (s_no_ap_count >= 3) {
+                    // 3 consecutive scan misses — SSID genuinely not in range
+                    ESP_LOGW(TAG, "SSID '%s' not found after %d scans — skipping",
+                             s_networks[s_network_idx].ssid, s_no_ap_count);
+                    OLED_MSG("No SSID", 3000);
+                    if (s_ap_timer) xTimerStop(s_ap_timer, 0);
+                    advance_to_next_network();
+                } else {
+                    ESP_LOGW(TAG, "SSID '%s' not found (scan %d/3) — retrying",
+                             s_networks[s_network_idx].ssid, s_no_ap_count);
+                    esp_wifi_connect();
+                }
+            } else {
+                s_no_ap_count    = 0;
+                s_auth_fail_count = 0;
+                ESP_LOGW(TAG, "Disconnected (reason=%d) — retrying '%s'...",
+                         disc->reason, s_networks[s_network_idx].ssid);
+                esp_wifi_connect();
+            }
         }
         xEventGroupClearBits(s_wifi_events, WIFI_CONNECTED_BIT);
     } else if (id == WIFI_EVENT_AP_STACONNECTED) {
@@ -377,8 +440,11 @@ static void on_ip_event(void *arg, esp_event_base_t base,
     if (id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
-        // STA connected — cancel the AP fallback timer
         if (s_ap_timer) xTimerStop(s_ap_timer, 0);
+        // Show actual IP on OLED for 4 s (auto-scaled to fit)
+        char ip_str[20];
+        snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&event->ip_info.ip));
+        OLED_MSG(ip_str, 4000);
         xEventGroupSetBits(s_wifi_events, WIFI_CONNECTED_BIT);
         webserver_start();
     }
@@ -391,27 +457,21 @@ static void build_network_list(void) {
     // 1) NVS-stored credentials (highest priority — user-added networks)
     nvs_load_credentials();
 
-    // 2) Hardcoded credentials from secrets.h (fallback — deprioritized)
-    //    Only add if not already in the NVS list (avoid duplicates).
+    // 2) Hardcoded credentials from secrets.h — always appended, even if the same
+    //    SSID already exists in NVS. This ensures a correct hardcoded password is still
+    //    tried after an NVS entry for the same SSID fails (e.g. typo via WebUI).
+    //    Empty-string entries (production builds) are silently skipped.
     const char *hardcoded_ssids[] = { WIFI_SSID_1, WIFI_SSID_2 };
     const char *hardcoded_passes[] = { WIFI_PASS_1, WIFI_PASS_2 };
 
     for (int h = 0; h < 2 && s_network_count < MAX_TOTAL_NETWORKS; h++) {
-        bool dup = false;
-        for (int n = 0; n < s_network_count; n++) {
-            if (strcmp(s_networks[n].ssid, hardcoded_ssids[h]) == 0) {
-                dup = true;
-                break;
-            }
-        }
-        if (!dup) {
-            strncpy(s_networks[s_network_count].ssid, hardcoded_ssids[h],
-                    sizeof(s_networks[0].ssid) - 1);
-            strncpy(s_networks[s_network_count].pass, hardcoded_passes[h],
-                    sizeof(s_networks[0].pass) - 1);
-            ESP_LOGI(TAG, "Hardcoded WiFi %d: %s", s_network_count, hardcoded_ssids[h]);
-            s_network_count++;
-        }
+        if (hardcoded_ssids[h][0] == '\0') continue;  // skip empty entries
+        strncpy(s_networks[s_network_count].ssid, hardcoded_ssids[h],
+                sizeof(s_networks[0].ssid) - 1);
+        strncpy(s_networks[s_network_count].pass, hardcoded_passes[h],
+                sizeof(s_networks[0].pass) - 1);
+        ESP_LOGI(TAG, "Hardcoded WiFi %d: %s", s_network_count, hardcoded_ssids[h]);
+        s_network_count++;
     }
 
     ESP_LOGI(TAG, "Total networks to try: %d", s_network_count);
