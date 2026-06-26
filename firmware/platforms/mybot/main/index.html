@@ -108,6 +108,13 @@ input:focus,select:focus{border-color:#7c6af7;}
 <div class='err-msg' id='tts-err'></div>
 </div>
 
+<div class='card' id='oled-card'>
+<h2>OLED Display</h2>
+<input type='text' id='oled-text' placeholder='Text to show on OLED...'>
+<button class='btn-primary' onclick='sendOLED()'>Send to Screen</button>
+<div class='err-msg' id='oled-err'></div>
+</div>
+
 <div class='card'>
 <h2>Actions</h2>
 <div class='action-grid' id='action-grid'></div>
@@ -188,6 +195,13 @@ var err=document.getElementById('tts-err');
 err.textContent='Sending...';
 fetch('/tts?say='+encodeURIComponent(t)).then(function(){err.textContent='';}).catch(function(e){err.textContent=e;});
 }
+function sendOLED(){
+var t=document.getElementById('oled-text').value.trim();
+if(!t)return;
+var err=document.getElementById('oled-err');
+err.textContent='Sending...';
+fetch('/oled?text='+encodeURIComponent(t)).then(function(){err.textContent='';}).catch(function(e){err.textContent=e;});
+}
 // Polling for Ultrasonic Data
 setInterval(function(){
   fetch('/us_data').then(r=>r.json()).then(j=>{
@@ -218,7 +232,7 @@ else{msg.style.color='#f7736a';msg.textContent='Error '+xhr.status;}
 btn.disabled=false;btn.style.opacity='1';
 };
 xhr.onerror=function(){msg.style.color='#f7736a';msg.textContent='Upload failed';btn.disabled=false;btn.style.opacity='1';};
-xhr.open('POST','/update',true);
+xhr.open('POST','/ota',true);
 xhr.send(f);
 }
 </script>

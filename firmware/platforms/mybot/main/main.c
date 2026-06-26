@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "servo.h"
 #include "ultrasonic.h"
+#include "oled.h"
 #include "driver/gpio.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -48,6 +49,7 @@ void app_main(void) {
     servo_init();
     servo_worker_start();
     ultrasonic_init();
+    oled_init();
 
     // Buttons
     gpio_config_t btn_conf = {

@@ -7,7 +7,7 @@
 #pragma once
 
 // ── Firmware identity ───────────────────────────────────────────────────────
-#define FW_VERSION          "1.1"
+#define FW_VERSION          "1.3"
 
 // Device number macro helpers to stringify the number passed from CMake
 #define _XSTR(x) #x
@@ -60,6 +60,17 @@
 #define POS1_ON                 171
 #define POS1_NEUTRAL            121
 #define POS1_OFF                70
+
+// ── Servos ───────────────────────────────────────────────────────────────────
+#define SERVO_LEDC_TIMER    LEDC_TIMER_0
+#define SERVO_LEDC_CHANNEL_1 LEDC_CHANNEL_0
+
+#define SERVO_PIN_1         5   // 360 Continuous Rotation Servo
+
+// ── OLED Display (I2C) ───────────────────────────────────────────────────────
+#define OLED_SDA_PIN        6
+#define OLED_SCL_PIN        7
+#define OLED_ADDR           0x3C
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
 #define BTN_BOOT_GPIO           GPIO_NUM_9    // boot button

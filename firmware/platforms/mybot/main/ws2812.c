@@ -41,13 +41,7 @@ static void strip_fill(uint32_t rgb) {
     led_strip_refresh(s_strip);
 }
 
-// Scale an 0x00RRGGBB colour by [0.0, 1.0]
-static uint32_t scale_rgb(uint32_t rgb, float scale) {
-    uint8_t r = (uint8_t)(((rgb >> 16) & 0xFF) * scale);
-    uint8_t g = (uint8_t)(((rgb >>  8) & 0xFF) * scale);
-    uint8_t b = (uint8_t)(((rgb >>  0) & 0xFF) * scale);
-    return ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
-}
+
 
 // Dope as hell HSV to RGB converter
 static uint32_t hsv_to_rgb(float h, float s, float v) {

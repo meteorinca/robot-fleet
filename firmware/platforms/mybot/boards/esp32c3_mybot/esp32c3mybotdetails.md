@@ -29,19 +29,22 @@ The board is laid out symmetrically with the USB-C port facing "up."
 | Continuous Rotation Servo | VCC: 5V | | |
 | | Signal: GPIO 5 | | |
 | | GND: GND | | |
-| Neopixel Strip | VCC: 5V | | |
-| | Data: GPIO 3 | | |
-| | GND: GND | | |
+| Neopixel Strip | VCC: 5V | |
+| | Data: GPIO 3 | |
+| | GND: GND | |
+| 0.96" OLED (I2C) | VCC: 3.3V or 5V | |
+| | SDA: GPIO 6 | |
+| | SCL: GPIO 7 | |
+| | GND: GND | |
 | Buttons | Pin | Note |
 | | User Button 1: GPIO 0 | | |
 | | User Button 2: GPIO 1 | | |
-
 ------------------------------
 ## Key Feature Configurations
 
 * Onboard LED: The user-controllable blue status LED is connected to GPIO 8. Note that it operates on inverted logic (LOW turns the LED on).
-* I2C Bus: The default hardware configuration assigns GPIO 8 as SDA and GPIO 9 as SCL.
-* SPI Bus (SPI2): Uses GPIO 4 (SCK), GPIO 5 (MISO), GPIO 6 (MOSI), and GPIO 7 (CS/SS).
+* I2C Bus: We use GPIO 6 (SDA) and GPIO 7 (SCL) for the OLED. (Default hardware is 8/9, but 8 conflicts with the built-in LED).
+* SPI Bus (SPI2): Uses GPIO 4 (SCK), GPIO 5 (MISO), GPIO 6 (MOSI), and GPIO 7 (CS/SS). *Note: SPI MOSI/CS overlap with our custom I2C pins, so SPI cannot be used simultaneously with the OLED.*
 * Analog Inputs: GPIO 0 through 4 belong to the highly accurate, factory-calibrated ADC1. GPIO 5 maps to ADC2, but you should avoid using it for analog readings if Wi-Fi is turned on due to internal chip limitations. [1, 2, 4, 6, 7, 8] 
 
 ------------------------------

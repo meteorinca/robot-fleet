@@ -9,6 +9,8 @@
 #include "ota_mgr.h"
 #include "servo.h"
 #include "ultrasonic.h"
+#include "oled.h"
+#include <sys/param.h>
 #include <string.h>
 #include <stdio.h>
 #include "esp_system.h"
@@ -204,7 +206,32 @@ static esp_err_t tts_api_handler(httpd_req_t *req) {
     httpd_resp_send(req, text[0] ? "OK" : "Missing ?say=", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
-// Removed eye_mood_handler and oled_text_handler
+
+static esp_err_t oled_text_handler(httpd_req_t *req) {
+    char text[64] = {0};
+    char buf[128];
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        if (httpd_query_key_value(buf, "text", text, sizeof(text)) == ESP_OK) {
+            for (char *p = text; *p; p++) if (*p == '+') *p = ' ';
+            // naive hex decode for %20 etc
+            char decoded[64] = {0};
+            int d = 0;
+            for (int i = 0; text[i] && d < 63; i++) {
+                if (text[i] == '%' && text[i+1] && text[i+2]) {
+                    char hex[3] = {text[i+1], text[i+2], 0};
+                    decoded[d++] = (char)strtol(hex, NULL, 16);
+                    i += 2;
+                } else {
+                    decoded[d++] = text[i];
+                }
+            }
+            oled_set_text(decoded, 4000); // show for 4 seconds
+        }
+    }
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
 
 static esp_err_t sync_time_handler(httpd_req_t *req) {
     char buf[100];
@@ -602,6 +629,7 @@ void webserver_start(void) {
         { "/jumpbck",   HTTP_GET,  quick_action_handler,   NULL },
         { "/jump_fwd",  HTTP_GET,  quick_action_handler,   NULL },
         { "/jump_bwd",  HTTP_GET,  quick_action_handler,   NULL },
+        { "/oled",      HTTP_GET,  oled_text_handler,      NULL },
 
 #ifdef DISP_MOSI_GPIO
         { "/audio",     HTTP_POST, audio_post_handler,     NULL },

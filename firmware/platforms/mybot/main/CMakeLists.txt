@@ -10,6 +10,7 @@ set(COMMON_SRCS
     "ota_mgr.c"
     "timekeep.c"
     "ultrasonic.c"
+    "oled.c"
 )
 
 # Boards that use a WS2812/NeoPixel strip instead of a simple GPIO LED
@@ -60,4 +61,6 @@ idf_component_register(
                     mdns
                     esp_app_format
                     app_update
+                    esp_driver_i2c
+                    driver
 )

@@ -19,6 +19,7 @@
 static EventGroupHandle_t s_wifi_events;
 static TimerHandle_t      s_ap_timer  = NULL;
 static bool               s_ap_active = false;
+static char               s_ip_addr[32] = {0};
 
 // Multi-SSID tracking
 static int s_network_idx = 0;
@@ -118,7 +119,8 @@ static void on_ip_event(void *arg, esp_event_base_t base,
                         int32_t id, void *event_data) {
     if (id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
+        snprintf(s_ip_addr, sizeof(s_ip_addr), IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "Got IP: %s", s_ip_addr);
         // STA connected — cancel the AP fallback timer
         if (s_ap_timer) xTimerStop(s_ap_timer, 0);
         xEventGroupSetBits(s_wifi_events, WIFI_CONNECTED_BIT);
@@ -169,4 +171,14 @@ EventGroupHandle_t wifi_init(void) {
     ESP_LOGI(TAG, "WiFi init — STA → %s | AP fallback in %d s",
              MDNS_HOSTNAME, AP_FALLBACK_MS / 1000);
     return s_wifi_events;
+}
+
+wifi_state_t wifi_mgr_get_state(void) {
+    if (s_ap_active) return WIFI_STATE_AP_MODE;
+    if (s_wifi_events && (xEventGroupGetBits(s_wifi_events) & WIFI_CONNECTED_BIT)) return WIFI_STATE_CONNECTED;
+    return WIFI_STATE_CONNECTING;
+}
+
+const char* wifi_mgr_get_ip(void) {
+    return s_ip_addr;
 }
