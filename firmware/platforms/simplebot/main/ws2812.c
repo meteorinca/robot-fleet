@@ -127,6 +127,7 @@ void led_register_manual_control(void) {
 }
 
 void led_action_set(bool state) {
+    led_register_manual_control();
     g_state = state;
     led_set(state);
     ESP_LOGI(TAG, "%s (built-in)", state ? "ON" : "OFF");
@@ -137,6 +138,7 @@ void led_action_toggle(void) {
 }
 
 void led_blink(int count, int ms_period) {
+    led_register_manual_control();
     for (int i = 0; i < count; i++) {
         led_set(true);
         vTaskDelay(pdMS_TO_TICKS(ms_period / 2));
