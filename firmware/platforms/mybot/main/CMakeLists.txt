@@ -9,10 +9,11 @@ set(COMMON_SRCS
     "webserver.c"
     "ota_mgr.c"
     "timekeep.c"
+    "ultrasonic.c"
 )
 
 # Boards that use a WS2812/NeoPixel strip instead of a simple GPIO LED
-set(WS2812_BOARDS "esp32c3_simplebot")
+set(WS2812_BOARDS "esp32c3_mybot")
 
 set(DISPLAY_BOARDS "")
 

@@ -8,6 +8,7 @@
 #include "timekeep.h"
 #include "ota_mgr.h"
 #include "servo.h"
+#include "ultrasonic.h"
 #include <string.h>
 #include <stdio.h>
 #include "esp_system.h"
@@ -95,17 +96,17 @@ void execute_named_action(const char *action) {
         led_blink(3, 80);
     }
 
-    if      (strcmp(action, "s1on")   == 0) servo_quick_action(1, POS1_ON,  POS1_NEUTRAL);
-    else if (strcmp(action, "s1off")  == 0) servo_quick_action(1, POS1_OFF, POS1_NEUTRAL);
-    else if (strcmp(action, "s2on")   == 0) servo_quick_action(2, POS2_ON,  POS2_NEUTRAL);
-    else if (strcmp(action, "s2off")  == 0) servo_quick_action(2, POS2_OFF, POS2_NEUTRAL);
+    if      (strcmp(action, "s1on")   == 0) servo_action_set(1, servo_get_last_angle(1));
+    else if (strcmp(action, "s1off")  == 0) servo_detach(1);
+    else if (strcmp(action, "us_on")  == 0) ultrasonic_set_active(true);
+    else if (strcmp(action, "us_off") == 0) ultrasonic_set_active(false);
     else if (strcmp(action, "l1on")   == 0) led_action_set(true);
     else if (strcmp(action, "l1off")  == 0) led_action_set(false);
     else if (strcmp(action, "toggle") == 0) led_action_toggle();
     else if (strcmp(action, "hi")     == 0) servo_quick_action(1, 40, POS1_NEUTRAL);
     // tts:<text> — push text to SSE clients for browser-side synthesis
     else if (strncmp(action, "tts:", 4) == 0) sse_broadcast_tts(action + 4);
-    else ESP_LOGW("ACTION", "Action ignored on simplebot: %s", action);
+    else ESP_LOGW("ACTION", "Action ignored on mybot: %s", action);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -153,7 +154,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<meta charset='UTF-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>"
         "<meta name='apple-mobile-web-app-capable' content='yes'>"
-        "<title>SimpleBot Control</title>"
+        "<title>Moe's MyBot Control</title>"
         "<style>"
         "*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}"
         "html,body{height:100%;overflow-y:auto;width:100%;font-family:system-ui,sans-serif;background:#0d0d1a;color:#e0e0f0;}"
@@ -181,7 +182,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</style>"
         "</head><body>"
         "<div class='content'>"
-        "<h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>SimpleBot V0.1</h1>"
+        "<h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>Moe's MyBot V1.0</h1>"
         "<div class='card' style='text-align:center;'>"
         "<span class='status-badge' id='conn-badge'>●&nbsp;Online</span>"
         "<div class='time-big' id='clock'>--:--:--</div>"
@@ -198,27 +199,30 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</div>"
 
         "<div class='card'>"
-        "<h2>Servo Control</h2>"
+        "<h2>Continuous Servo</h2>"
         "<div style='margin-bottom:15px;'>"
         "  <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>"
-        "    <label>Servo 1</label>"
-        "    <span id='s1-val'>121°</span>"
+        "    <label>Speed (Reverse - Stop - Forward)</label>"
+        "    <span id='s1-val'>90</span>"
         "  </div>"
-        "  <input type='range' min='0' max='180' value='121' class='slider' id='s1-slide' oninput='sv(1,this.value)'>"
+        "  <input type='range' min='0' max='180' value='90' class='slider' id='s1-slide' oninput='sv(1,this.value)'>"
         "  <div class='btn-led-grid' style='margin-top:5px;'>"
         "    <button class='btn-led' onclick='dog(\"s1on\")'>ON</button>"
         "    <button class='btn-led' onclick='dog(\"s1off\")'>OFF</button>"
         "  </div>"
         "</div>"
-        "<div>"
-        "  <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>"
-        "    <label>Servo 2</label>"
-        "    <span id='s2-val'>121°</span>"
-        "  </div>"
-        "  <input type='range' min='0' max='180' value='121' class='slider' id='s2-slide' oninput='sv(2,this.value)'>"
-        "  <div class='btn-led-grid' style='margin-top:5px;'>"
-        "    <button class='btn-led' onclick='dog(\"s2on\")'>ON</button>"
-        "    <button class='btn-led' onclick='dog(\"s2off\")'>OFF</button>"
+        "</div>"
+
+        "<div class='card'>"
+        "<h2>Ultrasonic Sensor</h2>"
+        "<div class='btn-led-grid' style='grid-template-columns:1fr 1fr;'>"
+        "  <button class='btn-led' onclick='dog(\"us_on\")' style='color:#00e5a0;border-color:#00e5a0;'>ON</button>"
+        "  <button class='btn-led' onclick='dog(\"us_off\")' style='color:#f7736a;border-color:#f7736a;'>OFF</button>"
+        "</div>"
+        "<div style='margin-top:15px;text-align:center;'>"
+        "  <div class='time-big' id='us-val'>-- cm</div>"
+        "  <div style='background:#0a0a1e;border-radius:6px;height:8px;margin-top:8px;overflow:hidden;'>"
+        "    <div id='us-bar' style='width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#7c6af7);transition:width .1s;'></div>"
         "  </div>"
         "</div>"
         "</div>"
@@ -274,7 +278,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "function led(a){fetch('/'+a);}"
         "function dog(v){fetch('/'+v);}"
         "function sv(n,a){"
-        "document.getElementById('s'+n+'-val').textContent=a+'°';"
+        "document.getElementById('s'+n+'-val').textContent=a;"
         "fetch('/s'+n+'_'+a);"
         "}"
         "var npT=0;function np_clr(){clearInterval(npT);fetch('/neopixel_clear');}"
@@ -294,7 +298,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         ".then(function(j){ document.getElementById('sched-err').textContent='Scheduled '+a+' in '+d+'s'; })"
         ".catch(function(e){ document.getElementById('sched-err').textContent=e; });"
         "}"
-        "var ACTIONS={'hi':'Say Hi','s1on':'S1 ON','s1off':'S1 OFF','s2on':'S2 ON','s2off':'S2 OFF'};"
+        "var ACTIONS={'hi':'Say Hi','s1on':'S1 ON','s1off':'S1 OFF','us_on':'US ON','us_off':'US OFF'};"
         "(function(){"
         "var g=document.getElementById('action-grid');"
         "for(var k in ACTIONS){"
@@ -336,6 +340,13 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "}"
         "function initSSE(){"
         "var es=new EventSource('/events');"
+        "es.onmessage=function(e){"
+        "try { var j=JSON.parse(e.data); if(j.type==='us'){"
+        "document.getElementById('us-val').textContent=j.dist+' cm';"
+        "var pct=Math.min(100, Math.max(0, ((50-j.dist)/50)*100));"
+        "document.getElementById('us-bar').style.width=pct+'%';"
+        "} }catch(ex){}"
+        "};"
         "es.onerror=function(){es.close();setTimeout(initSSE,8000);};"
         "}"
         "initSSE();"
@@ -446,7 +457,7 @@ static esp_err_t quick_action_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-// Servo endpoints removed for simplebot.
+// Servo endpoints removed for mybot.
 
 static esp_err_t tts_api_handler(httpd_req_t *req) {
     char text[256] = {0};
@@ -853,6 +864,8 @@ void webserver_start(void) {
         { "/l1off",     HTTP_GET,  quick_action_handler,   NULL },
         { "/toggle",    HTTP_GET,  quick_action_handler,   NULL },
         { "/hi",        HTTP_GET,  quick_action_handler,   NULL },
+        { "/us_on",     HTTP_GET,  quick_action_handler,   NULL },
+        { "/us_off",    HTTP_GET,  quick_action_handler,   NULL },
         { "/bark",      HTTP_GET,  quick_action_handler,   NULL },
         { "/paulbot",   HTTP_GET,  quick_action_handler,   NULL },
         { "/lay",       HTTP_GET,  quick_action_handler,   NULL },

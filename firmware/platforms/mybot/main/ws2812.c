@@ -12,6 +12,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <math.h>
+#include "board_config.h"
+
 
 static const char *TAG = "WS2812";
 
