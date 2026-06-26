@@ -14,6 +14,7 @@
 #define TIMEOUT_US (MAX_DISTANCE_CM * 58)
 
 static bool s_ultrasonic_active = false;
+static float s_distance = 0.0f;
 static const char *TAG = "ULTRASONIC";
 
 void ultrasonic_set_active(bool active) {
@@ -26,6 +27,10 @@ void ultrasonic_set_active(bool active) {
 
 bool ultrasonic_is_active(void) {
     return s_ultrasonic_active;
+}
+
+float ultrasonic_get_distance(void) {
+    return s_distance;
 }
 
 // Simple HSV to RGB (Hue 0-360)
@@ -100,12 +105,8 @@ static void ultrasonic_task(void *pvParameters) {
             int64_t duration = esp_timer_get_time() - start;
             
             float distance = duration / 58.0f;
+            s_distance = distance;
             update_neopixels(distance);
-            
-            char sse_data[128];
-            snprintf(sse_data, sizeof(sse_data), "{\"type\":\"us\",\"dist\":%.1f}", distance);
-            // We use sse_broadcast_tts as a general pipe for now
-            sse_broadcast_tts(sse_data); 
         } else {
             // timeout
             update_neopixels(50.0f);

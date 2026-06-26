@@ -1,5 +1,5 @@
 
-# ESP32-C3 Super Mini
+# ESP32-C3 MyBot Super Mini
 
 
 The ESP32-C3 Super Mini is an ultra-compact development board featuring 16 main header pins (8 on each side) with a standard 2.54 mm spacing. It breaks out 13 General Purpose Input/Output (GPIO) pins, power inputs, and dedicated communication buses.
@@ -18,6 +18,23 @@ The board is laid out symmetrically with the USB-C port facing "up."
 | GPIO 4 | ADC1_CH4, SPI SCK, PWM | GPIO 9 | Onboard BOOT Button, I2C SCL |
 | GPIO 5 | ADC2_CH0, SPI MISO, PWM | GPIO 8 | Onboard Blue LED, I2C SDA |
 | GPIO 6 | SPI MOSI, PWM | GPIO 7 | SPI SS, PWM |
+
+## MyBot Connection Guide
+| Components | Connection Pin | Note |
+|---|---|---|
+| Ultrasonic Sensor (HC-SR04) | VCC: 5V | | |
+| | Trigger: GPIO 10 | | |
+| | Echo: GPIO 4 | | |
+| | GND: GND | | |
+| Continuous Rotation Servo | VCC: 5V | | |
+| | Signal: GPIO 5 | | |
+| | GND: GND | | |
+| Neopixel Strip | VCC: 5V | | |
+| | Data: GPIO 3 | | |
+| | GND: GND | | |
+| Buttons | Pin | Note |
+| | User Button 1: GPIO 0 | | |
+| | User Button 2: GPIO 1 | | |
 
 ------------------------------
 ## Key Feature Configurations

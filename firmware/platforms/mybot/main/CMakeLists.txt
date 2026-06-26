@@ -46,6 +46,7 @@ idf_component_register(
     SRCS            ${COMMON_SRCS} ${CONDITIONAL_SRCS}
     INCLUDE_DIRS    "."
                     "${CMAKE_SOURCE_DIR}/boards/${BOARD}"   # makes board_config.h includable directly
+    EMBED_TXTFILES  "index.html"
     REQUIRES        led_strip
                     esp_driver_rmt
     PRIV_REQUIRES   esp_driver_gpio

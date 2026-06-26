@@ -7,7 +7,4 @@ void webserver_start(void);
 // Execute a named action string (used by webserver + scheduler)
 void execute_named_action(const char *action);
 
-// Push TTS text to all SSE-connected browsers (any module may call this)
-void sse_broadcast_tts(const char *text);
-
 #endif

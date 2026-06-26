@@ -23,66 +23,23 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include <sys/socket.h>   // send(), close(), MSG_DONTWAIT
+#include <errno.h>
 
 static httpd_handle_t s_server = NULL;
 
 // ══════════════════════════════════════════════════════════════
 //  SSE (Server-Sent Events) — push TTS text to browser
-// ══════════════════════════════════════════════════════════════
-#define SSE_MAX_CLIENTS 4
-static int         s_sse_fds[SSE_MAX_CLIENTS];
-static SemaphoreHandle_t s_sse_mutex = NULL;
+extern const uint8_t index_html_start[] asm("_binary_index_html_start");
+extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 
-static void sse_init(void) {
-    s_sse_mutex = xSemaphoreCreateMutex();
-    for (int i = 0; i < SSE_MAX_CLIENTS; i++) s_sse_fds[i] = -1;
-}
-
-// Push a line of text to all connected SSE clients.
-// Format: "data: <text>\n\n"
-void sse_broadcast_tts(const char *text) {
-    if (!s_sse_mutex || !text) return;
-    char buf[512];
-    int len = snprintf(buf, sizeof(buf), "data: %s\n\n", text);
-    if (len <= 0) return;
-    xSemaphoreTake(s_sse_mutex, portMAX_DELAY);
-    for (int i = 0; i < SSE_MAX_CLIENTS; i++) {
-        if (s_sse_fds[i] >= 0) {
-            int sent = send(s_sse_fds[i], buf, len, MSG_DONTWAIT);
-            if (sent < 0) {
-                // Client disconnected — remove slot
-                close(s_sse_fds[i]);
-                s_sse_fds[i] = -1;
-                ESP_LOGI("SSE", "Client slot %d removed", i);
-            }
-        }
-    }
-    xSemaphoreGive(s_sse_mutex);
-}
-
-static esp_err_t sse_handler(httpd_req_t *req) {
-    httpd_resp_set_type(req, "text/event-stream");
-    httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
+static esp_err_t us_data_handler(httpd_req_t *req) {
+    char resp[64];
+    int len = snprintf(resp, sizeof(resp), "{\"active\":%s,\"dist\":%.1f}", 
+        ultrasonic_is_active() ? "true" : "false",
+        ultrasonic_get_distance());
+    httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_set_hdr(req, "Connection", "keep-alive");
-
-    // Send initial comment so the browser confirms connection
-    httpd_resp_send_chunk(req, ": connected\n\n", HTTPD_RESP_USE_STRLEN);
-
-    int fd = httpd_req_to_sockfd(req);
-    xSemaphoreTake(s_sse_mutex, portMAX_DELAY);
-    for (int i = 0; i < SSE_MAX_CLIENTS; i++) {
-        if (s_sse_fds[i] < 0) {
-            s_sse_fds[i] = fd;
-            ESP_LOGI("SSE", "Client registered on slot %d (fd=%d)", i, fd);
-            break;
-        }
-    }
-    xSemaphoreGive(s_sse_mutex);
-
-    // Return immediately — do NOT block the httpd worker thread.
-    // The socket stays open because we never send the final chunk.
-    // sse_broadcast_tts() pushes data directly via send() on the raw fd.
+    httpd_resp_send(req, resp, len);
     return ESP_OK;
 }
 
@@ -104,8 +61,6 @@ void execute_named_action(const char *action) {
     else if (strcmp(action, "l1off")  == 0) led_action_set(false);
     else if (strcmp(action, "toggle") == 0) led_action_toggle();
     else if (strcmp(action, "hi")     == 0) servo_quick_action(1, 40, POS1_NEUTRAL);
-    // tts:<text> — push text to SSE clients for browser-side synthesis
-    else if (strncmp(action, "tts:", 4) == 0) sse_broadcast_tts(action + 4);
     else ESP_LOGW("ACTION", "Action ignored on mybot: %s", action);
 }
 
@@ -147,244 +102,8 @@ static esp_err_t dog_handler(httpd_req_t *req) {
 }
 
 static esp_err_t root_get_handler(httpd_req_t *req) {
-    static const char html[] =
-        "<!DOCTYPE html>"
-        "<html lang='en'>"
-        "<head>"
-        "<meta charset='UTF-8'>"
-        "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>"
-        "<meta name='apple-mobile-web-app-capable' content='yes'>"
-        "<title>Moe's MyBot Control</title>"
-        "<style>"
-        "*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}"
-        "html,body{height:100%;overflow-y:auto;width:100%;font-family:system-ui,sans-serif;background:#0d0d1a;color:#e0e0f0;}"
-        ".content{padding:20px 10px;display:flex;flex-direction:column;align-items:center;}"
-        ".card{background:#11112a;border:1px solid #1e1e3a;border-radius:14px;padding:18px;margin-bottom:14px;width:100%;max-width:460px;}"
-        ".card.disabled{opacity:0.4;filter:grayscale(1);pointer-events:none;position:relative;}"
-        ".card.disabled::after{content:'NOT SUPPORTED';position:absolute;top:10px;right:12px;font-size:9px;font-weight:900;color:#f7736a;letter-spacing:1px;border:1px solid #f7736a;padding:2px 4px;border-radius:4px;}"
-        ".card h2{font-size:13px;font-weight:700;color:#7c6af7;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}"
-        ".time-big{font-size:36px;font-weight:700;font-family:monospace;color:#00e5a0;text-align:center;}"
-        ".epoch{font-size:12px;color:#444;margin-top:4px;text-align:center;}"
-        "input[type=text],input[type=number],select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#e0e0f0;font-size:15px;margin-bottom:10px;outline:none;}"
-        "input:focus,select:focus{border-color:#7c6af7;}"
-        ".btn-primary{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c6af7,#5b4de8);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;}"
-        ".btn-primary:active{transform:scale(0.98);opacity:0.8;}"
-        ".btn-led-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}"
-        ".btn-led{padding:12px 5px;border-radius:10px;border:1px solid #2a2a50;background:#1a1a35;color:#e0e0f0;font-weight:700;cursor:pointer;transition:all .15s;}"
-        ".btn-led:active{background:#7c6af7;color:#fff;}"
-        ".action-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;}"
-        ".act-btn{padding:10px 4px;font-size:11px;font-weight:600;background:#0a0a1e;border:1px solid #1e1e3a;border-radius:8px;color:#444;cursor:default;}"
-        ".status-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#1e1e3a;color:#7c6af7;margin-bottom:6px;}"
-        ".err-msg{color:#f7736a;font-size:12px;margin-top:6px;text-align:center;}"
-        ".slider{-webkit-appearance:none;width:100%;height:6px;background:#1e1e3a;border-radius:5px;outline:none;margin:10px 0;}"
-        ".slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;background:#7c6af7;cursor:pointer;border-radius:50%;transition:all .15s;}"
-        ".slider::-webkit-slider-thumb:hover{transform:scale(1.2);background:#5b4de8;}"
-        "</style>"
-        "</head><body>"
-        "<div class='content'>"
-        "<h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>Moe's MyBot V1.1</h1>"
-        "<div class='card' style='text-align:center;'>"
-        "<span class='status-badge' id='conn-badge'>●&nbsp;Online</span>"
-        "<div class='time-big' id='clock'>--:--:--</div>"
-        "<div class='epoch'>Epoch: <span id='epoch'>-</span>&nbsp;&nbsp;Synced: <span id='synced'>no</span></div>"
-        "</div>"
-        
-        "<div class='card'>"
-        "<h2>GPIO LED Control</h2>"
-        "<div class='btn-led-grid'>"
-        "<button class='btn-led' onclick='led(\"l1on\")'>ON</button>"
-        "<button class='btn-led' onclick='led(\"l1off\")'>OFF</button>"
-        "<button class='btn-led' onclick='led(\"toggle\")'>TOGGLE</button>"
-        "</div>"
-        "</div>"
-
-        "<div class='card'>"
-        "<h2>Continuous Servo</h2>"
-        "<div style='margin-bottom:15px;'>"
-        "  <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>"
-        "    <label>Speed (Reverse - Stop - Forward)</label>"
-        "    <span id='s1-val'>90</span>"
-        "  </div>"
-        "  <input type='range' min='0' max='180' value='90' class='slider' id='s1-slide' oninput='sv(1,this.value)'>"
-        "  <div class='btn-led-grid' style='margin-top:5px;'>"
-        "    <button class='btn-led' onclick='dog(\"s1on\")'>ON</button>"
-        "    <button class='btn-led' onclick='dog(\"s1off\")'>OFF</button>"
-        "  </div>"
-        "</div>"
-        "</div>"
-
-        "<div class='card'>"
-        "<h2>Ultrasonic Sensor</h2>"
-        "<div class='btn-led-grid' style='grid-template-columns:1fr 1fr;'>"
-        "  <button class='btn-led' onclick='dog(\"us_on\")' style='color:#00e5a0;border-color:#00e5a0;'>ON</button>"
-        "  <button class='btn-led' onclick='dog(\"us_off\")' style='color:#f7736a;border-color:#f7736a;'>OFF</button>"
-        "</div>"
-        "<div style='margin-top:15px;text-align:center;'>"
-        "  <div class='time-big' id='us-val'>-- cm</div>"
-        "  <div style='background:#0a0a1e;border-radius:6px;height:8px;margin-top:8px;overflow:hidden;'>"
-        "    <div id='us-bar' style='width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#7c6af7);transition:width .1s;'></div>"
-        "  </div>"
-        "</div>"
-        "</div>"
-
-        "<div class='card'>"
-        "<h2>NeoPixel Animations</h2>"
-        "<div class='btn-led-grid' style='grid-template-columns:1fr 1fr 1fr;'>"
-        "<button class='btn-led' onclick='np_rbw()' style='color:#ff55ff;border-color:#ff55ff;'>RAINBOW</button>"
-        "<button class='btn-led' onclick='np_plc()' style='color:#5555ff;border-color:#5555ff;'>POLICE</button>"
-        "<button class='btn-led' onclick='np_dsc()' style='color:#55ff55;border-color:#55ff55;'>DISCO</button>"
-        "<button class='btn-led' onclick='np_pac()' style='color:#55ffff;border-color:#55ffff;'>PACIFICA</button>"
-        "<button class='btn-led' onclick='np_on()' style='color:#ffffff;border-color:#ffffff;'>ON</button>"
-        "<button class='btn-led' onclick='np_clr()' style='color:#a0a0a0;'>OFF</button>"
-        "</div>"
-        "</div>"
-
-        "<div class='card'>"
-        "<h2>Schedule Action</h2>"
-        "<div style='display:flex;gap:10px;'>"
-        "<input type='number' id='sched-delay' placeholder='Delay (sec)' value='5' style='flex:1; margin-bottom:0;'>"
-        "<select id='sched-action' style='flex:2; padding:10px 12px; border-radius:8px; border:1px solid #2a2a50; background:#0a0a1e; color:#e0e0f0; outline:none;'>"
-        "<option value='toggle'>Toggle LED</option><option value='l1on'>LED ON</option><option value='l1off'>LED OFF</option><option value='hi'>Say Hi</option><option value='bark'>Bark</option>"
-        "</select>"
-        "</div>"
-        "<button class='btn-primary' onclick='scheduleAction()' style='margin-top:10px;'>Schedule</button>"
-        "<div class='err-msg' id='sched-err'></div>"
-        "</div>"
-
-        "<div class='card' id='tts-card'>"
-        "<h2>Text to Speech</h2>"
-        "<input type='text' id='say' placeholder='Broadcast text to browsers...'>"
-        "<button class='btn-primary' onclick='sendTTS()'>Speak</button>"
-        "<div class='err-msg' id='tts-err'></div>"
-        "</div>"
-
-        "<div class='card'>"
-        "<h2>Actions</h2>"
-        "<div class='action-grid' id='action-grid'></div>"
-        "</div>"
-
-        "<div class='card'>"
-        "<h2>OTA Firmware Update</h2>"
-        "<input type='file' id='ota-file' accept='.bin' style='color:#a0a0d0;margin-bottom:10px;width:100%;'>"
-        "<div style='background:#0a0a1e;border-radius:6px;height:8px;margin-bottom:8px;overflow:hidden;'>"
-        "<div id='ota-bar' style='width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#7c6af7);transition:width .3s;'></div>"
-        "</div>"
-        "<button class='btn-primary' id='ota-btn' onclick='doOTA()'>Flash Firmware</button>"
-        "<div class='err-msg' id='ota-msg'></div>"
-        "</div>"
-
-        "</div>" /* end .content */
-        "<script>"
-        "function led(a){fetch('/'+a);}"
-        "function dog(v){fetch('/'+v);}"
-        "function sv(n,a){"
-        "document.getElementById('s'+n+'-val').textContent=a;"
-        "fetch('/s'+n+'_'+a);"
-        "}"
-        "var npT=0;function np_clr(){clearInterval(npT);fetch('/neopixel_clear');}"
-        "function np_on(){clearInterval(npT);fetch('/neopixel_all?r=255&g=255&b=255');}"
-        "function np_pac(){clearInterval(npT);fetch('/neopixel_pacifica');}"
-        "function np_rbw(){clearInterval(npT);var h=0;npT=setInterval(function(){"
-        "h=(h+15)%360;var f=function(n){var k=(n+h/60)%6;return 255-Math.round(255*Math.max(0,Math.min(k,4-k,1)));};"
-        "fetch('/neopixel_all?r='+f(5)+'&g='+f(3)+'&b='+f(1));},200);}"
-        "function np_plc(){clearInterval(npT);var t=0;npT=setInterval(function(){"
-        "t=!t;if(t)fetch('/neopixel_all?r=255&g=0&b=0');else fetch('/neopixel_all?r=0&g=0&b=255');},250);}"
-        "function np_dsc(){clearInterval(npT);npT=setInterval(function(){"
-        "fetch('/neopixel_all?r='+Math.floor(Math.random()*255)+'&g='+Math.floor(Math.random()*255)+'&b='+Math.floor(Math.random()*255));},150);}"
-        "function scheduleAction(){"
-        "var d=document.getElementById('sched-delay').value;"
-        "var a=document.getElementById('sched-action').value;"
-        "fetch('/schedule?action='+a+'&delay='+d).then(function(r){return r.json();})"
-        ".then(function(j){ document.getElementById('sched-err').textContent='Scheduled '+a+' in '+d+'s'; })"
-        ".catch(function(e){ document.getElementById('sched-err').textContent=e; });"
-        "}"
-        "var ACTIONS={'hi':'Say Hi','s1on':'S1 ON','s1off':'S1 OFF','us_on':'US ON','us_off':'US OFF'};"
-        "(function(){"
-        "var g=document.getElementById('action-grid');"
-        "for(var k in ACTIONS){"
-        "var b=document.createElement('button');"
-        "b.className='act-btn';b.textContent=ACTIONS[k];"
-        "b.style.cursor='pointer';b.style.color='#a0a0d0';"
-        "(function(val){b.onclick=function(){dog(val);};})(k);"
-        "g.appendChild(b);"
-        "}"
-        "})();"
-        "var timeOffset=0,isSynced=false;"
-        "function syncT(){"
-        "fetch('/time').then(function(r){return r.json();}).then(function(d){"
-        "if(d.synced){"
-        "  timeOffset = (d.epoch * 1000) - Date.now();"
-        "  isSynced = true;"
-        "  document.getElementById('synced').textContent='yes';"
-        "}else{"
-        "  fetch('/sync_time?epoch='+Math.floor(Date.now()/1000));"
-        "  timeOffset = 0; isSynced = true;"
-        "  document.getElementById('synced').textContent='local';"
-        "}"
-        "}).catch(function(){});"
-        "}"
-        "syncT(); setInterval(syncT, 10000);"
-        "setInterval(function(){"
-        "var d=new Date(Date.now()+timeOffset);"
-        "var f=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)+' '+"
-        "('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2);"
-        "document.getElementById('clock').textContent=f;"
-        "document.getElementById('epoch').textContent=Math.floor(d.getTime()/1000);"
-        "},100);"
-        "function sendTTS(){"
-        "var t=document.getElementById('say').value.trim();"
-        "if(!t)return;"
-        "var err=document.getElementById('tts-err');"
-        "err.textContent='Sending...';"
-        "fetch('/tts?say='+encodeURIComponent(t)).then(function(){err.textContent='';}).catch(function(e){err.textContent=e;});"
-        "}"
-        "function initSSE(){"
-        "var es=new EventSource('/events');"
-        "es.onmessage=function(e){"
-        "try { var j=JSON.parse(e.data); if(j.type==='us'){"
-        "document.getElementById('us-val').textContent=j.dist+' cm';"
-        "var pct=Math.min(100, Math.max(0, ((50-j.dist)/50)*100));"
-        "document.getElementById('us-bar').style.width=pct+'%';"
-        "} }catch(ex){}"
-        "};"
-        "es.onerror=function(){es.close();setTimeout(initSSE,8000);};"
-        "}"
-        "initSSE();"
-        "function doOTA(){"
-        "var f=document.getElementById('ota-file').files[0];"
-        "var msg=document.getElementById('ota-msg');"
-        "var bar=document.getElementById('ota-bar');"
-        "var btn=document.getElementById('ota-btn');"
-        "if(!f){msg.textContent='Pick a .bin file first';return;}"
-        "btn.disabled=true;btn.style.opacity='.5';"
-        "msg.style.color='#a0a0d0';msg.textContent='Uploading...';"
-        "var xhr=new XMLHttpRequest();"
-        "xhr.open('POST','/ota',true);"
-        "xhr.upload.onprogress=function(e){"
-        "  if(e.lengthComputable){"
-        "    var pct=Math.round(e.loaded/e.total*100);"
-        "    bar.style.width=pct+'%';"
-        "    msg.textContent='Uploading... '+pct+'%';"
-        "  }"
-        "};"
-        "xhr.onload=function(){"
-        "  bar.style.width='100%';"
-        "  if(xhr.status===200){"
-        "    msg.style.color='#00e5a0';"
-        "    msg.textContent='OTA OK! Rebooting...';"
-        "    setTimeout(function(){location.reload();},10000);"
-        "  } else {"
-        "    msg.style.color='#f7736a';"
-        "    msg.textContent='OTA failed: HTTP '+xhr.status;"
-        "    btn.disabled=false;btn.style.opacity='1';"
-        "  }"
-        "};"
-        "xhr.send(f);"
-        "}"
-        "</script></body></html>";
-
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, (const char *)index_html_start, index_html_end - index_html_start);
     return ESP_OK;
 }
 
@@ -479,7 +198,7 @@ static esp_err_t tts_api_handler(httpd_req_t *req) {
 
     if (text[0]) {
         ESP_LOGI("WEB", "TTS API: \"%s\"", text);
-        sse_broadcast_tts(text);
+        // Note: SSE broadcast was removed. If TTS is needed in future, implement via polling/websocket.
     }
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, text[0] ? "OK" : "Missing ?say=", HTTPD_RESP_USE_STRLEN);
@@ -830,8 +549,6 @@ void webserver_start(void) {
         return;
     }
 
-    sse_init();
-
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
     config.server_port      = WEB_SERVER_PORT;
@@ -857,7 +574,7 @@ void webserver_start(void) {
         { "/time",      HTTP_GET,  time_handler,           NULL },
         { "/status",    HTTP_GET,  status_handler,         NULL },
         { "/schedule",  HTTP_GET,  schedule_handler,       NULL },
-        { "/events",    HTTP_GET,  sse_handler,            NULL },
+        { "/us_data",   HTTP_GET,  us_data_handler,        NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },
         // ... (rest of quick actions)
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },
