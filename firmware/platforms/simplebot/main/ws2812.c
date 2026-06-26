@@ -12,6 +12,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <math.h>
+#include "board_config.h"
+#include "driver/ledc.h"
+
+#define LED_LEDC_TIMER      LEDC_TIMER_1
+#define LED_LEDC_CHANNEL    LEDC_CHANNEL_4
+
 
 static const char *TAG = "WS2812";
 
@@ -81,14 +87,39 @@ void led_init(void) {
     led_strip_clear(s_strip);   // all off at startup
     ESP_LOGI(TAG, "WS2812 strip ready: %d LEDs on GPIO %d", WS2812_NUM_LEDS, WS2812_GPIO);
 
-    // Initialize the built-in GPIO LED
-    gpio_reset_pin(LED_GPIO);
-    gpio_set_direction(LED_GPIO, GPIO_MODE_OUTPUT);
+    // Initialize the built-in GPIO LED with LEDC for breathing
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .timer_num        = LED_LEDC_TIMER,
+        .duty_resolution  = LEDC_TIMER_13_BIT,
+        .freq_hz          = 5000,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ledc_timer_config(&ledc_timer);
+
+    ledc_channel_config_t ledc_channel = {
+        .speed_mode     = LEDC_LOW_SPEED_MODE,
+        .channel        = LED_LEDC_CHANNEL,
+        .timer_sel      = LED_LEDC_TIMER,
+        .intr_type      = LEDC_INTR_DISABLE,
+        .gpio_num       = LED_GPIO,
+        .duty           = LED_ACTIVE_LOW ? 8191 : 0,
+        .hpoint         = 0
+    };
+    ledc_channel_config(&ledc_channel);
     led_set(false);
 }
 
 void led_set(bool on) {
-    gpio_set_level(LED_GPIO, LED_ACTIVE_LOW ? !on : on);
+    uint32_t max_duty = 8191;
+    uint32_t duty;
+    if (LED_ACTIVE_LOW) {
+        duty = on ? 0 : max_duty;
+    } else {
+        duty = on ? max_duty : 0;
+    }
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL);
 }
 
 void led_register_manual_control(void) {
@@ -196,12 +227,10 @@ static void ws2812_heartbeat_task(void *pvParameters) {
                          (xEventGroupGetBits(s_wifi_events) & s_connected_bit) != 0;
 
         if (connected) {
-            // Pacifica-like wave (blue/light blue/purple)
+            // Pacifica-like wave for NeoPixels
             float t = esp_timer_get_time() / 1000000.0f;
             for(int i = 0; i < WS2812_NUM_LEDS; i++) {
-                // Hue base ~0.65 (blue). Wobble between 0.5 (cyan) and 0.8 (purple)
                 float hue = 0.65f + sinf(t * 1.5f + i * 0.5f) * 0.15f; 
-                // Very low brightness (0.05 to 0.1)
                 float val = 0.05f + (sinf(t * 2.0f - i * 0.8f) + 1.0f) * 0.025f; 
                 uint32_t rgb = hsv_to_rgb(hue, 1.0f, val);
                 uint8_t r = (rgb >> 16) & 0xFF;
@@ -210,11 +239,21 @@ static void ws2812_heartbeat_task(void *pvParameters) {
                 led_strip_set_pixel(s_strip, i, r, g, b);
             }
             led_strip_refresh(s_strip);
+
+            // Breathing for Built-in LED
+            float breathe = (sinf(t * 3.14159f * 0.6f) + 1.0f) / 2.0f;
+            breathe = breathe * breathe; // gamma correction
+            uint32_t max_duty = 8191;
+            uint32_t duty = (uint32_t)(breathe * max_duty);
+            if (LED_ACTIVE_LOW) duty = max_duty - duty;
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL, duty);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL);
         } else {
-            // Red double-pulse (no WiFi)
+            // Red double-pulse (no WiFi) for NeoPixels
             int cycle_ms = (int)((esp_timer_get_time() / 1000) % 1350);
             bool on = (cycle_ms < 100) || (cycle_ms >= 150 && cycle_ms < 250);
             strip_fill(on ? WS2812_COLOR_DISCO : 0);
+            led_set(on);
         }
     }
 }

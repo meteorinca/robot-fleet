@@ -182,7 +182,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</style>"
         "</head><body>"
         "<div class='content'>"
-        "<h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>Moe's MyBot V1.0</h1>"
+        "<h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>Moe's MyBot V1.1</h1>"
         "<div class='card' style='text-align:center;'>"
         "<span class='status-badge' id='conn-badge'>●&nbsp;Online</span>"
         "<div class='time-big' id='clock'>--:--:--</div>"

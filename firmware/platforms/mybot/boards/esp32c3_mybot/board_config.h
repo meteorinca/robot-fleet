@@ -7,7 +7,7 @@
 #pragma once
 
 // ── Firmware identity ───────────────────────────────────────────────────────
-#define FW_VERSION          "1.0"
+#define FW_VERSION          "1.1"
 
 // Device number macro helpers to stringify the number passed from CMake
 #define _XSTR(x) #x
