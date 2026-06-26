@@ -69,6 +69,12 @@
 #define BTN_1_GPIO              GPIO_NUM_0    // user button 1
 #define BTN_2_GPIO              GPIO_NUM_1    // user button 2
 
+// ── NeoPixel Strip (WS2812) ─────────────────────────────────────────────────
+// Connects to GPIO 3 by default. Change if you wire the strip elsewhere.
+// NUM_LEDS = number of pixels in the strip shipped with the kit.
+#define WS2812_DATA_GPIO        GPIO_NUM_3
+#define WS2812_NUM_LEDS         10
+
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 #define MAX_SCHEDULED_ACTIONS  8
 

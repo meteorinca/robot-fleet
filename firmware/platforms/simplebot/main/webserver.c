@@ -1,6 +1,10 @@
 #include "webserver.h"
 #include "config.h"
 #include "led.h"
+// WS2812 NeoPixel driver — only compiled when the strip is configured
+#ifdef WS2812_NUM_LEDS
+#include "ws2812.h"
+#endif
 #include "timekeep.h"
 #include "ota_mgr.h"
 #include "servo.h"
@@ -177,6 +181,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</style>"
         "</head><body>"
         "<div class='content'>"
+        "<h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>SimpleBot V0.1</h1>"
         "<div class='card' style='text-align:center;'>"
         "<span class='status-badge' id='conn-badge'>●&nbsp;Online</span>"
         "<div class='time-big' id='clock'>--:--:--</div>"
@@ -238,7 +243,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "</div>"
 
         "<div class='card'>"
-        "<h2>Dog Actions</h2>"
+        "<h2>Actions</h2>"
         "<div class='action-grid' id='action-grid'></div>"
         "</div>"
 
@@ -627,6 +632,73 @@ static esp_err_t audio_post_handler(httpd_req_t *req) {
 }
 #endif
 
+#ifdef WS2812_NUM_LEDS
+// ══════════════════════════════════════════════════════════════
+//  NeoPixel endpoints  (only when WS2812_NUM_LEDS is defined)
+// ══════════════════════════════════════════════════════════════
+
+// GET /neopixel?pixel=N&r=R&g=G&b=B
+static esp_err_t neopixel_handler(httpd_req_t *req) {
+    char buf[64];
+    int pixel = 0, r = 0, g = 0, b = 0;
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        char p[8];
+        if (httpd_query_key_value(buf, "pixel", p, sizeof(p)) == ESP_OK) pixel = atoi(p);
+        if (httpd_query_key_value(buf, "r",     p, sizeof(p)) == ESP_OK) r     = atoi(p);
+        if (httpd_query_key_value(buf, "g",     p, sizeof(p)) == ESP_OK) g     = atoi(p);
+        if (httpd_query_key_value(buf, "b",     p, sizeof(p)) == ESP_OK) b     = atoi(p);
+    }
+    // Clamp values
+    if (pixel < 0) pixel = 0;
+    if (pixel >= WS2812_NUM_LEDS) pixel = WS2812_NUM_LEDS - 1;
+    r = r < 0 ? 0 : r > 255 ? 255 : r;
+    g = g < 0 ? 0 : g > 255 ? 255 : g;
+    b = b < 0 ? 0 : b > 255 ? 255 : b;
+
+    ws2812_set_pixel(pixel, (uint8_t)r, (uint8_t)g, (uint8_t)b);
+    ws2812_show();
+    ESP_LOGI("WEB", "NeoPixel: pixel=%d r=%d g=%d b=%d", pixel, r, g, b);
+
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+// GET /neopixel_all?r=R&g=G&b=B
+static esp_err_t neopixel_all_handler(httpd_req_t *req) {
+    char buf[48];
+    int r = 0, g = 0, b = 0;
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        char p[8];
+        if (httpd_query_key_value(buf, "r", p, sizeof(p)) == ESP_OK) r = atoi(p);
+        if (httpd_query_key_value(buf, "g", p, sizeof(p)) == ESP_OK) g = atoi(p);
+        if (httpd_query_key_value(buf, "b", p, sizeof(p)) == ESP_OK) b = atoi(p);
+    }
+    r = r < 0 ? 0 : r > 255 ? 255 : r;
+    g = g < 0 ? 0 : g > 255 ? 255 : g;
+    b = b < 0 ? 0 : b > 255 ? 255 : b;
+
+    uint32_t rgb = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+    ws2812_set_all(rgb);
+    ws2812_show();
+    ESP_LOGI("WEB", "NeoPixel all: r=%d g=%d b=%d", r, g, b);
+
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+// GET /neopixel_clear
+static esp_err_t neopixel_clear_handler(httpd_req_t *req) {
+    ws2812_clear();
+    ws2812_show();
+    ESP_LOGI("WEB", "NeoPixel cleared");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+#endif // WS2812_NUM_LEDS
+
 // ══════════════════════════════════════════════════════════════
 //  OTA firmware update handler  POST /ota
 //
@@ -765,6 +837,11 @@ void webserver_start(void) {
 #endif
         { "/ota",       HTTP_POST, ota_post_handler,       NULL },
         { "/ota",       HTTP_OPTIONS, cors_options_handler,NULL },
+#ifdef WS2812_NUM_LEDS
+        { "/neopixel",       HTTP_GET, neopixel_handler,       NULL },
+        { "/neopixel_all",   HTTP_GET, neopixel_all_handler,   NULL },
+        { "/neopixel_clear", HTTP_GET, neopixel_clear_handler, NULL },
+#endif
         { "/servo",     HTTP_GET,  servo_handler,          NULL },
         { "/s1_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/s2_*",      HTTP_GET,  servo_angle_uri_handler,NULL },

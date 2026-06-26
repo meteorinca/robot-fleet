@@ -29,6 +29,16 @@ You can queue an action to happen at an exact Unix timestamp across all bots sim
 - **Push text to connected browsers**: `GET /sendtts:Hello%20World` or `GET /tts?say=Hello%20World`
   - *Broadcasts the text to any browser listening on `/events`.*
 
+## 🌈 NeoPixel Strip Control (WS2812 — 10 pixels)
+Requires `WS2812_DATA_GPIO` and `WS2812_NUM_LEDS` to be defined in `board_config.h`.
+
+- **Set one pixel**: `GET /neopixel?pixel=N&r=R&g=G&b=B`
+  - *`pixel`: 0–9 · `r`,`g`,`b`: 0–255 · Sets pixel N to the given RGB color.*
+- **Set all pixels**: `GET /neopixel_all?r=R&g=G&b=B`
+  - *Sets every pixel on the strip to a single color.*
+- **Clear all pixels**: `GET /neopixel_clear`
+  - *Turns every pixel off (all black).*
+
 ## ⏱️ System & Status
 - **Get Status**: `GET /status`
   - *Returns JSON with version, running status, and time.*
