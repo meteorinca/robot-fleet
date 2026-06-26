@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -21,6 +21,9 @@ static const char *TAG = "OLED";
 #define OLED_WIDTH 128
 #define OLED_HEIGHT 64
 
+static i2c_master_bus_handle_t bus_handle;
+static i2c_master_dev_handle_t dev_handle;
+
 static uint8_t s_buffer[OLED_WIDTH * OLED_HEIGHT / 8];
 static char s_oled_text_msg[64] = {0};
 static volatile int s_oled_text_timer = 0;
@@ -31,37 +34,20 @@ void oled_set_text(const char* msg, int duration_ms) {
 }
 
 static void oled_send_cmd(uint8_t cmd) {
-    i2c_cmd_handle_t h = i2c_cmd_link_create();
-    i2c_master_start(h);
-    i2c_master_write_byte(h, (OLED_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(h, 0x00, true);
-    i2c_master_write_byte(h, cmd, true);
-    i2c_master_stop(h);
-    i2c_master_cmd_begin(I2C_MASTER_NUM, h, portMAX_DELAY);
-    i2c_cmd_link_delete(h);
+    uint8_t buf[2] = {0x00, cmd};
+    i2c_master_transmit(dev_handle, buf, sizeof(buf), -1);
 }
 
 static void oled_send_buffer(void) {
     for (int page = 0; page < 8; page++) {
-        i2c_cmd_handle_t h = i2c_cmd_link_create();
-        i2c_master_start(h);
-        i2c_master_write_byte(h, (OLED_ADDR << 1) | I2C_MASTER_WRITE, true);
-        i2c_master_write_byte(h, 0x00, true);
-        i2c_master_write_byte(h, 0xB0 + page, true);
-        i2c_master_write_byte(h, 0x00, true);
-        i2c_master_write_byte(h, 0x10, true);
-        i2c_master_stop(h);
-        i2c_master_cmd_begin(I2C_MASTER_NUM, h, portMAX_DELAY);
-        i2c_cmd_link_delete(h);
+        oled_send_cmd(0xB0 + page);
+        oled_send_cmd(0x00);
+        oled_send_cmd(0x10);
 
-        h = i2c_cmd_link_create();
-        i2c_master_start(h);
-        i2c_master_write_byte(h, (OLED_ADDR << 1) | I2C_MASTER_WRITE, true);
-        i2c_master_write_byte(h, 0x40, true);
-        i2c_master_write(h, &s_buffer[page * OLED_WIDTH], OLED_WIDTH, true);
-        i2c_master_stop(h);
-        i2c_master_cmd_begin(I2C_MASTER_NUM, h, portMAX_DELAY);
-        i2c_cmd_link_delete(h);
+        uint8_t buf[OLED_WIDTH + 1];
+        buf[0] = 0x40;
+        memcpy(buf + 1, &s_buffer[page * OLED_WIDTH], OLED_WIDTH);
+        i2c_master_transmit(dev_handle, buf, sizeof(buf), -1);
     }
 }
 
@@ -237,40 +223,32 @@ static void oled_eyes_task(void *arg) {
 void oled_init(void) {
     ESP_LOGI(TAG, "Initializing I2C OLED (SDA=%d, SCL=%d)", OLED_SDA_PIN, OLED_SCL_PIN);
     
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = OLED_SDA_PIN,
+    i2c_master_bus_config_t i2c_bus_cfg = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = I2C_MASTER_NUM,
         .scl_io_num = OLED_SCL_PIN,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+        .sda_io_num = OLED_SDA_PIN,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
     };
-    i2c_param_config(I2C_MASTER_NUM, &conf);
-    i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0);
+    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &bus_handle));
 
-    // SSD1306 Init Sequence
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = OLED_ADDR,
+        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+    };
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle));
+
     vTaskDelay(pdMS_TO_TICKS(100));
-    oled_send_cmd(0xAE); // display off
-    oled_send_cmd(0x20); // Set Memory Addressing Mode
-    oled_send_cmd(0x00); // 00,Horizontal Addressing Mode
-    oled_send_cmd(0x40); // set start line address
-    oled_send_cmd(0xA1); // set segment re-map 0 to 127
-    oled_send_cmd(0xA8); // set multiplex ratio(1 to 64)
-    oled_send_cmd(0x3F); //
-    oled_send_cmd(0xC8); // Set COM Output Scan Direction
-    oled_send_cmd(0xD3); // set display offset
-    oled_send_cmd(0x00); // not offset
-    oled_send_cmd(0xDA); // set com pins hardware configuration
-    oled_send_cmd(0x12);
-    oled_send_cmd(0x81); // set contrast control register
-    oled_send_cmd(0xCF);
-    oled_send_cmd(0xD9); // set pre-charge period
-    oled_send_cmd(0xF1);
-    oled_send_cmd(0xDB); // set vcomh
-    oled_send_cmd(0x40);
-    oled_send_cmd(0xA4); // Output RAM to Display
-    oled_send_cmd(0xA6); // set normal display
-    oled_send_cmd(0xAF); // display on
+    uint8_t init_cmds[] = {
+        0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
+        0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
+        0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
+    };
+    for (int i = 0; i < sizeof(init_cmds); i++) {
+        oled_send_cmd(init_cmds[i]);
+    }
 
     xTaskCreate(oled_eyes_task, "oled_eyes", 4096, NULL, 1, NULL);
 }

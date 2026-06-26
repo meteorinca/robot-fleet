@@ -68,8 +68,8 @@
 #define SERVO_PIN_1         5   // 360 Continuous Rotation Servo
 
 // ── OLED Display (I2C) ───────────────────────────────────────────────────────
-#define OLED_SDA_PIN        6
-#define OLED_SCL_PIN        7
+#define OLED_SDA_PIN        7
+#define OLED_SCL_PIN        6
 #define OLED_ADDR           0x3C
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
