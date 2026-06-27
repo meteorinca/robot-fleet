@@ -1,3 +1,12 @@
+## DOGbot v1.0. It comes built in with:
+DOGbot is a walking robot dog that is a preassembled bot with amazing animated eyes on an OLED display,  obstacle detection, and four servos for legs, a speaker, and 5 led neopixels.
+- Built in web server for control
+- Easy GET commands to control eyes, servos, neopixel and speaker
+- Amazing default life-like animations for the eyes and default oceanic pretty patterns on neopixel
+- Servo pose control via web ui buttons and GET commands
+- OTA updates for easy firmware updates
+
+
 **4 Servo Motors Connections:**
 | Servo | GPIO Pin | Description |
 |-------|----------|-------------|

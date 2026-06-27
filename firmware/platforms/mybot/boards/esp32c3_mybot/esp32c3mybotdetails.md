@@ -1,6 +1,37 @@
 
 # ESP32-C3 MyBot Super Mini
 
+## MyBot v1.3
+MyBot runs on a breadboard with amazing animated eyes, an OLED display for messages, ultrasonic sensors for obstacle detection, and continuous rotation servos for wheels. It comes built in with preprogrammed demos such as:
+- Built in web server for control
+- Easy GET commands to control eyes, servo, neopixel, and led
+- Amazing default life-like animations for the eyes and default oceanic pretty patterns on neopixel
+- Live Readout of Ultrasonic Sensor Data on webapp and on neopixels (using colors)
+- Servo speed control using a slider (and GET commands)
+- More animations on neopixel using WebUI buttons and GET commands
+- OTA updates for easy firmware updates
+
+## MyBot Connection Guide
+| Components | Connection Pin | Note |
+|---|---|---|
+| Ultrasonic Sensor (HC-SR04) | VCC: 5V | | |
+| | Trigger: GPIO 10 | | |
+| | Echo: GPIO 4 | | |
+| | GND: GND | | |
+| Continuous Rotation Servo | VCC: 5V | | |
+| | Signal: GPIO 5 | | |
+| | GND: GND | | |
+| Neopixel Strip | VCC: 5V | |
+| | Data: GPIO 3 | |
+| | GND: GND | |
+| 0.96" OLED (I2C) | VCC: 3.3V or 5V | |
+| | SDA: GPIO 7 | |
+| | SCL: GPIO 6 | |
+| | GND: GND | |
+| Buttons | Pin | Note |
+| | User Button 1: GPIO 0 | | |
+| | User Button 2: GPIO 1 | | |
+------------------------------
 
 The ESP32-C3 Super Mini is an ultra-compact development board featuring 16 main header pins (8 on each side) with a standard 2.54 mm spacing. It breaks out 13 General Purpose Input/Output (GPIO) pins, power inputs, and dedicated communication buses.
 
@@ -19,27 +50,7 @@ The board is laid out symmetrically with the USB-C port facing "up."
 | GPIO 5 | ADC2_CH0, SPI MISO, PWM | GPIO 8 | Onboard Blue LED, I2C SDA |
 | GPIO 6 | SPI MOSI, PWM | GPIO 7 | SPI SS, PWM |
 
-## MyBot Connection Guide
-| Components | Connection Pin | Note |
-|---|---|---|
-| Ultrasonic Sensor (HC-SR04) | VCC: 5V | | |
-| | Trigger: GPIO 10 | | |
-| | Echo: GPIO 4 | | |
-| | GND: GND | | |
-| Continuous Rotation Servo | VCC: 5V | | |
-| | Signal: GPIO 5 | | |
-| | GND: GND | | |
-| Neopixel Strip | VCC: 5V | |
-| | Data: GPIO 3 | |
-| | GND: GND | |
-| 0.96" OLED (I2C) | VCC: 3.3V or 5V | |
-| | SDA: GPIO 6 | |
-| | SCL: GPIO 7 | |
-| | GND: GND | |
-| Buttons | Pin | Note |
-| | User Button 1: GPIO 0 | | |
-| | User Button 2: GPIO 1 | | |
-------------------------------
+
 ## Key Feature Configurations
 
 * Onboard LED: The user-controllable blue status LED is connected to GPIO 8. Note that it operates on inverted logic (LOW turns the LED on).
