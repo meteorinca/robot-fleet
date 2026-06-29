@@ -94,6 +94,23 @@ static void draw_text(int start_x, int start_y, const char* text, int scale) {
     }
 }
 
+static void draw_sprite8(int start_x, int start_y, const uint8_t *sprite, int width, int height) {
+    for (int y = 0; y < height; y++) {
+        uint8_t row = sprite[y];
+        for (int x = 0; x < width; x++) {
+            if (row & (1 << (7 - x))) {
+                draw_pixel(start_x + x, start_y + y, 1);
+            }
+        }
+    }
+}
+
+static const uint8_t b_flap[8] = { 0x1C, 0x3E, 0x76, 0xFF, 0x7E, 0x3C, 0x00, 0x00 };
+static const uint8_t b_fall[8] = { 0x1C, 0x3E, 0x76, 0x7F, 0xFE, 0x3C, 0x00, 0x00 };
+static const uint8_t d_run1[8] = { 0x0E, 0x0F, 0x0C, 0x3C, 0x7C, 0x7C, 0x10, 0x40 };
+static const uint8_t d_run2[8] = { 0x0E, 0x0F, 0x0C, 0x3C, 0x7C, 0x7C, 0x40, 0x10 };
+static const uint8_t c_cactus[10]= { 0x18, 0x58, 0x5A, 0x7A, 0x1E, 0x18, 0x18, 0x18, 0x18, 0x18 };
+
 static void oled_eyes_task(void *arg) {
     int blink_timer = 0;
     int next_blink = 50 + (esp_random() % 100);
@@ -173,6 +190,7 @@ static void oled_eyes_task(void *arg) {
             static float paddle_player_pos = OLED_WIDTH / 2;
             static float paddle_ai_pos = OLED_WIDTH / 2;
             static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static int score_p = 0, score_ai = 0;
             
             bool is_h = (s_oled_mode == OLED_MODE_PONG_H);
             
@@ -187,6 +205,7 @@ static void oled_eyes_task(void *arg) {
                 ball_y = OLED_HEIGHT / 2;
                 paddle_player_pos = max_pos / 2;
                 paddle_ai_pos = max_pos / 2;
+                score_p = 0; score_ai = 0;
                 last_mode = s_oled_mode;
             }
 
@@ -209,11 +228,9 @@ static void oled_eyes_task(void *arg) {
             
             if (is_h) {
                 // Horizontal pong (paddles left/right)
-                // Bounce top/bottom walls
                 if (ball_y < 0) { ball_y = 0; ball_dy = -ball_dy; }
                 if (ball_y > OLED_HEIGHT - ball_size) { ball_y = OLED_HEIGHT - ball_size; ball_dy = -ball_dy; }
                 
-                // Player paddle is on the Right side
                 int px = OLED_WIDTH - paddle_thick - 2;
                 if (ball_x + ball_size >= px && ball_x <= px + paddle_thick) {
                     if (ball_y + ball_size >= paddle_player_pos - paddle_len/2 && ball_y <= paddle_player_pos + paddle_len/2) {
@@ -222,7 +239,6 @@ static void oled_eyes_task(void *arg) {
                         ball_dy = (ball_y - paddle_player_pos) * 0.2f;
                     }
                 }
-                // AI paddle is on the Left side
                 int ax = 2;
                 if (ball_x <= ax + paddle_thick && ball_x + ball_size >= ax) {
                     if (ball_y + ball_size >= paddle_ai_pos - paddle_len/2 && ball_y <= paddle_ai_pos + paddle_len/2) {
@@ -232,12 +248,17 @@ static void oled_eyes_task(void *arg) {
                 }
                 
                 // Score
-                if (ball_x < 0 || ball_x > OLED_WIDTH) {
-                    ball_x = OLED_WIDTH / 2;
-                    ball_y = OLED_HEIGHT / 2;
-                    ball_dx = -ball_dx;
-                }
+                if (ball_x < 0) { score_p++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dx = 2.0f; }
+                if (ball_x > OLED_WIDTH) { score_ai++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dx = -2.0f; }
                 
+                // Center Line
+                for (int y = 0; y < OLED_HEIGHT; y += 4) draw_pixel(OLED_WIDTH/2, y, 1);
+                // Scores
+                char buf[16]; snprintf(buf, sizeof(buf), "%d", score_ai);
+                draw_text(OLED_WIDTH/2 - 20, 2, buf, 1);
+                snprintf(buf, sizeof(buf), "%d", score_p);
+                draw_text(OLED_WIDTH/2 + 10, 2, buf, 1);
+
                 // Draw paddles
                 for (int i=0; i<paddle_thick; i++) {
                     for (int j=0; j<paddle_len; j++) {
@@ -247,11 +268,9 @@ static void oled_eyes_task(void *arg) {
                 }
             } else {
                 // Vertical pong (paddles top/bottom)
-                // Bounce left/right walls
                 if (ball_x < 0) { ball_x = 0; ball_dx = -ball_dx; }
                 if (ball_x > OLED_WIDTH - ball_size) { ball_x = OLED_WIDTH - ball_size; ball_dx = -ball_dx; }
                 
-                // Player paddle at bottom
                 int py = OLED_HEIGHT - paddle_thick - 2;
                 if (ball_y + ball_size >= py && ball_y <= py + paddle_thick) {
                     if (ball_x + ball_size >= paddle_player_pos - paddle_len/2 && ball_x <= paddle_player_pos + paddle_len/2) {
@@ -260,7 +279,6 @@ static void oled_eyes_task(void *arg) {
                         ball_dx = (ball_x - paddle_player_pos) * 0.2f;
                     }
                 }
-                // AI paddle at top
                 int ay = 2;
                 if (ball_y <= ay + paddle_thick && ball_y + ball_size >= ay) {
                     if (ball_x + ball_size >= paddle_ai_pos - paddle_len/2 && ball_x <= paddle_ai_pos + paddle_len/2) {
@@ -270,12 +288,17 @@ static void oled_eyes_task(void *arg) {
                 }
                 
                 // Score
-                if (ball_y < 0 || ball_y > OLED_HEIGHT) {
-                    ball_x = OLED_WIDTH / 2;
-                    ball_y = OLED_HEIGHT / 2;
-                    ball_dy = -ball_dy;
-                }
+                if (ball_y < 0) { score_p++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dy = 2.0f; }
+                if (ball_y > OLED_HEIGHT) { score_ai++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dy = -2.0f; }
                 
+                // Center Line
+                for (int x = 0; x < OLED_WIDTH; x += 4) draw_pixel(x, OLED_HEIGHT/2, 1);
+                // Scores
+                char buf[16]; snprintf(buf, sizeof(buf), "%d", score_ai);
+                draw_text(2, OLED_HEIGHT/2 - 12, buf, 1);
+                snprintf(buf, sizeof(buf), "%d", score_p);
+                draw_text(2, OLED_HEIGHT/2 + 6, buf, 1);
+
                 // Draw paddles
                 for (int i=0; i<paddle_len; i++) {
                     for (int j=0; j<paddle_thick; j++) {
@@ -299,6 +322,7 @@ static void oled_eyes_task(void *arg) {
             static float bird_y = 32;
             static float bird_dy = 0;
             static float pipe_x = 128;
+            static float cloud_x1 = 0, cloud_x2 = 64;
             static int pipe_gap_y = 32;
             static int score = 0;
             static bool game_over = false;
@@ -336,29 +360,47 @@ static void oled_eyes_task(void *arg) {
             if (bird_y > 63) { game_over = true; }
             
             pipe_x -= 3.0f;
-            if (pipe_x < -10) {
+            if (pipe_x < -14) {
                 pipe_x = 128;
                 pipe_gap_y = 15 + (esp_random() % 34);
                 score++;
             }
             
             int bx = 20, by = (int)bird_y;
-            int pw = 10, pg = 20;
-            if (bx + 4 >= pipe_x && bx <= pipe_x + pw) {
-                if (by <= pipe_gap_y - pg || by + 4 >= pipe_gap_y + pg) {
+            int pw = 14, pg = 20;
+            if (bx + 8 >= pipe_x && bx <= pipe_x + pw) {
+                if (by <= pipe_gap_y - pg || by + 6 >= pipe_gap_y + pg) {
                     game_over = true;
                 }
             }
             
-            for (int i=0; i<4; i++) for (int j=0; j<4; j++) draw_pixel(bx + i, by + j, 1);
+            // Background clouds
+            cloud_x1 -= 0.5f; cloud_x2 -= 0.2f;
+            if (cloud_x1 < -20) cloud_x1 = 128;
+            if (cloud_x2 < -20) cloud_x2 = 128;
+            draw_text((int)cloud_x1, 8, "~ ~", 1);
+            draw_text((int)cloud_x2, 28, "~", 1);
             
+            // Draw Bird Sprite
+            const uint8_t* bird_sprite = (bird_dy < 0) ? b_flap : b_fall;
+            draw_sprite8(bx, by, bird_sprite, 8, 6);
+            
+            // Draw Pipe with details
             for (int x=0; x<pw; x++) {
                 if (pipe_x + x >= 0 && pipe_x + x < 128) {
                     for (int y=0; y<64; y++) {
                         if (y < pipe_gap_y - pg || y > pipe_gap_y + pg) {
-                            draw_pixel((int)pipe_x + x, y, 1);
+                            if (x == 0 || x == pw-1) draw_pixel((int)pipe_x + x, y, 1);
+                            else if ((x + y) % 4 != 0) draw_pixel((int)pipe_x + x, y, 1);
                         }
                     }
+                }
+            }
+            // Pipe end caps
+            for(int x=-2; x<pw+2; x++) {
+                for(int y=0; y<3; y++) {
+                    draw_pixel((int)pipe_x + x, pipe_gap_y - pg - y, 1);
+                    draw_pixel((int)pipe_x + x, pipe_gap_y + pg + y, 1);
                 }
             }
             
@@ -372,6 +414,7 @@ static void oled_eyes_task(void *arg) {
             static float dino_y = 50;
             static float dino_dy = 0;
             static float cactus_x = 128;
+            static float cloud_x1 = 30;
             static int score = 0;
             static float speed = 3.0f;
             static bool game_over = false;
@@ -416,19 +459,32 @@ static void oled_eyes_task(void *arg) {
             }
             
             int dx = 20, dy = (int)dino_y;
-            int cx = (int)cactus_x, cy = 44;
+            int cx = (int)cactus_x, cy = 48;
             if (dx + 6 >= cx && dx <= cx + 6) {
                 if (dy + 8 >= cy) {
                     game_over = true;
                 }
             }
             
-            for (int x=0; x<128; x++) draw_pixel(x, 58, 1);
+            // Clouds
+            cloud_x1 -= speed * 0.2f;
+            if (cloud_x1 < -20) cloud_x1 = 128;
+            draw_text((int)cloud_x1, 15, "===", 1);
             
-            for (int i=0; i<6; i++) for (int j=0; j<8; j++) draw_pixel(dx + i, dy + j, 1);
+            // Draw Ground Detail
+            for (int x=0; x<128; x++) {
+                draw_pixel(x, 58, 1);
+                if ((x + (int)cactus_x/2) % 15 == 0) draw_pixel(x, 59, 1);
+                if ((x + (int)cactus_x/3) % 23 == 0) draw_pixel(x, 60, 1);
+            }
             
+            // Draw Dino
+            const uint8_t* dino_sprite = (dino_y < 50) ? d_run1 : ((frame_count / 3) % 2 == 0 ? d_run1 : d_run2);
+            draw_sprite8(dx, dy, dino_sprite, 8, 8);
+            
+            // Draw Cactus
             if (cx >= -6 && cx < 128) {
-                for (int i=0; i<6; i++) for (int j=0; j<10; j++) draw_pixel(cx + i, cy + j, 1);
+                draw_sprite8(cx, cy, c_cactus, 8, 10);
             }
             
             char sb[32]; snprintf(sb, sizeof(sb), "%d", score);
@@ -499,12 +555,26 @@ static void oled_eyes_task(void *arg) {
                 food_y = esp_random() % (64/3);
             }
             
+            // Draw Diamond Food
             int fx = food_x * 3, fy = food_y * 3;
-            for (int i=0; i<3; i++) for (int j=0; j<3; j++) draw_pixel(fx+i, fy+j, 1);
+            draw_pixel(fx+1, fy, 1);
+            draw_pixel(fx, fy+1, 1); draw_pixel(fx+2, fy+1, 1);
+            draw_pixel(fx+1, fy+2, 1);
             
+            // Draw Snake Detailed
             for (int k=0; k<snake_len; k++) {
                 int px = snake_x[k] * 3, py = snake_y[k] * 3;
-                for (int i=0; i<3; i++) for (int j=0; j<3; j++) draw_pixel(px+i, py+j, 1);
+                if (k == 0) {
+                    for (int i=0; i<3; i++) for (int j=0; j<3; j++) draw_pixel(px+i, py+j, 1);
+                    if (snake_dir == 0) { draw_pixel(px, py+1, 0); draw_pixel(px+2, py+1, 0); }
+                    else if (snake_dir == 1) { draw_pixel(px+1, py, 0); draw_pixel(px+1, py+2, 0); }
+                    else if (snake_dir == 2) { draw_pixel(px, py+1, 0); draw_pixel(px+2, py+1, 0); }
+                    else if (snake_dir == 3) { draw_pixel(px+1, py, 0); draw_pixel(px+1, py+2, 0); }
+                } else {
+                    draw_pixel(px+1, py, 1);
+                    draw_pixel(px, py+1, 1); draw_pixel(px+2, py+1, 1);
+                    draw_pixel(px+1, py+2, 1);
+                }
             }
             
             oled_send_buffer();
