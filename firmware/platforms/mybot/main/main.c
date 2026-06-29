@@ -24,6 +24,11 @@ bool g_btn2_state = false;
 static void button_task(void *arg) {
     bool last_btn1 = false;
     bool last_btn2 = false;
+    uint32_t btn2_press_start = 0;
+    uint32_t last_interaction_time = esp_log_timestamp();
+    int post_game_state = 0;
+    uint32_t post_game_start = 0;
+    oled_mode_t last_oled_mode = OLED_MODE_NORMAL;
 
     while (1) {
         bool btn1 = (gpio_get_level(BTN_1_GPIO) == 0);
@@ -33,6 +38,53 @@ static void button_task(void *arg) {
         g_btn2_state = btn2;
         
         oled_set_paddle_input(btn1, btn2);
+        
+        uint32_t now = esp_log_timestamp();
+        if ((btn1 && !last_btn1) || (btn2 && !last_btn2)) {
+            last_interaction_time = now;
+            post_game_state = 0; // cancel mood sequence on manual interaction
+        }
+
+        oled_mode_t current_mode = oled_get_mode();
+        if (current_mode == OLED_MODE_NORMAL && last_oled_mode != OLED_MODE_NORMAL) {
+            post_game_state = 1;
+            post_game_start = now;
+            oled_set_emotion(EYE_EMOTION_SLEEPY);
+            last_interaction_time = now;
+        }
+        last_oled_mode = current_mode;
+
+        if (current_mode != OLED_MODE_NORMAL && current_mode != OLED_MODE_MENU) {
+            if (now - last_interaction_time > 60000) {
+                oled_set_mode(OLED_MODE_NORMAL);
+            }
+        } else if (current_mode == OLED_MODE_MENU) {
+            if (now - last_interaction_time > 60000) {
+                oled_set_mode(OLED_MODE_NORMAL);
+            }
+        }
+
+        if (current_mode == OLED_MODE_NORMAL && post_game_state > 0) {
+            if (post_game_state == 1 && now - post_game_start > 30000) {
+                post_game_state = 2;
+                post_game_start = now;
+                oled_set_emotion(EYE_EMOTION_MAD);
+            } else if (post_game_state == 2 && now - post_game_start > 30000) {
+                post_game_state = 0;
+                oled_set_emotion(EYE_EMOTION_NORMAL);
+            }
+        }
+
+        if (btn2) {
+            if (!last_btn2) {
+                btn2_press_start = now;
+            } else if (now - btn2_press_start > 3000 && btn2_press_start > 0) {
+                oled_set_mode(OLED_MODE_MENU);
+                btn2_press_start = 0;
+            }
+        } else {
+            btn2_press_start = 0;
+        }
         
         if (oled_get_mode() == OLED_MODE_NORMAL) {
             if (btn1 && !last_btn1) {

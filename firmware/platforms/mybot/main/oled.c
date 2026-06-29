@@ -937,6 +937,43 @@ static void oled_eyes_task(void *arg) {
             
             oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(50));
             continue;
+        } else if (s_oled_mode == OLED_MODE_MENU) {
+            static const char* menu_opts[] = {
+                "Pong (H)", "Pong (V)", "Flappy", "Dino", "Snake", 
+                "Pacman", "Frogger", "Racing", "Math", "3D Demo", "Exit (Eyes)"
+            };
+            static const oled_mode_t menu_modes[] = {
+                OLED_MODE_PONG_H, OLED_MODE_PONG_V, OLED_MODE_FLAPPY, OLED_MODE_DINO, OLED_MODE_SNAKE,
+                OLED_MODE_PACMAN, OLED_MODE_FROGGER, OLED_MODE_RACING, OLED_MODE_MATH, OLED_MODE_3D_SHOWCASE, OLED_MODE_NORMAL
+            };
+            const int num_opts = 11;
+            static int sel = 0;
+            static bool p_left = false, p_right = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            
+            if (last_mode != s_oled_mode) { sel = 0; last_mode = s_oled_mode; }
+            
+            if (s_paddle_left && !p_left) sel = (sel + 1) % num_opts;
+            if (s_paddle_right && !p_right) {
+                s_oled_mode = menu_modes[sel];
+            }
+            p_left = s_paddle_left; p_right = s_paddle_right;
+            
+            draw_text(38, 2, "MAIN MENU", 1);
+            draw_line(0, 12, 128, 12, 1);
+            
+            for (int i = 0; i < 3; i++) {
+                int idx = sel - 1 + i;
+                if (idx >= 0 && idx < num_opts) {
+                    if (i == 1) {
+                        draw_text(2, 16 + i * 14, ">", 1);
+                    }
+                    draw_text(12, 16 + i * 14, menu_opts[idx], 1);
+                }
+            }
+            
+            oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
         }
 
         // Animated eyes

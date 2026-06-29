@@ -17,7 +17,8 @@ typedef enum {
     OLED_MODE_FROGGER = 7,
     OLED_MODE_RACING = 8,
     OLED_MODE_MATH = 9,
-    OLED_MODE_3D_SHOWCASE = 10
+    OLED_MODE_3D_SHOWCASE = 10,
+    OLED_MODE_MENU = 11
 } oled_mode_t;
 
 typedef enum {
