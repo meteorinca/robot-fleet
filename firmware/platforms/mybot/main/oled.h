@@ -12,7 +12,12 @@ typedef enum {
     OLED_MODE_PONG_V = 2,
     OLED_MODE_FLAPPY = 3,
     OLED_MODE_DINO = 4,
-    OLED_MODE_SNAKE = 5
+    OLED_MODE_SNAKE = 5,
+    OLED_MODE_PACMAN = 6,
+    OLED_MODE_FROGGER = 7,
+    OLED_MODE_RACING = 8,
+    OLED_MODE_MATH = 9,
+    OLED_MODE_3D_SHOWCASE = 10
 } oled_mode_t;
 
 typedef enum {

@@ -289,9 +289,22 @@
           <option value='3'>Flappy Bot</option>
           <option value='4'>Dino Run</option>
           <option value='5'>Snake</option>
+          <option value='6'>Pacman</option>
+          <option value='7'>Froggy Road</option>
+          <option value='8'>Racing</option>
+          <option value='9'>Times Table</option>
         </select>
         <button class='btn-led' id='game-play-btn' onclick='playSelectedGame()' style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
         <button class='btn-led' id='game-stop-btn' onclick='fetch("/game_off")' style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>3D Animation Showcase</h2>
+      <p style='color:#7b7b98; font-size:12px; margin-bottom:15px;'>Experience advanced 3D math running in real-time. Use the left/right paddle buttons on the bot to cycle through the 6 distinct 3D visualizations!</p>
+      <div style='display:flex; gap:10px; align-items:center;'>
+        <button class='btn-led' id='anim-play-btn' onclick='fetch("/anim_3d")' style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY SHOWCASE</button>
+        <button class='btn-led' id='anim-stop-btn' onclick='fetch("/game_off")' style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
       </div>
     </div>
 
@@ -430,6 +443,10 @@
       else if (g == '3') fetch('/game_flappy');
       else if (g == '4') fetch('/game_dino');
       else if (g == '5') fetch('/game_snake');
+      else if (g == '6') fetch('/game_pacman');
+      else if (g == '7') fetch('/game_frogger');
+      else if (g == '8') fetch('/game_racing');
+      else if (g == '9') fetch('/game_math');
     }
     // Polling for Ultrasonic Data and Buttons
     setInterval(function () {
@@ -451,7 +468,7 @@
         document.getElementById('btn2-ind').style.boxShadow = j.btn2 ? '0 0 8px #00e5a0' : 'none';
         
         var active_game = j.game_mode;
-        if (active_game > 0) {
+        if (active_game > 0 && active_game < 10) {
           document.getElementById('game-select').value = active_game;
           document.getElementById('game-play-btn').style.background = '#00e5a0';
           document.getElementById('game-play-btn').style.color = '#fff';
@@ -462,6 +479,18 @@
           document.getElementById('game-play-btn').style.color = '#00e5a0';
           document.getElementById('game-stop-btn').style.background = '#f7736a';
           document.getElementById('game-stop-btn').style.color = '#fff';
+        }
+        
+        if (active_game == 10) {
+          document.getElementById('anim-play-btn').style.background = '#00e5a0';
+          document.getElementById('anim-play-btn').style.color = '#fff';
+          document.getElementById('anim-stop-btn').style.background = '#1a1a35';
+          document.getElementById('anim-stop-btn').style.color = '#f7736a';
+        } else {
+          document.getElementById('anim-play-btn').style.background = '#1a1a35';
+          document.getElementById('anim-play-btn').style.color = '#00e5a0';
+          document.getElementById('anim-stop-btn').style.background = '#f7736a';
+          document.getElementById('anim-stop-btn').style.color = '#fff';
         }
       }).catch(() => { });
     }, 250);

@@ -13,6 +13,7 @@
 #include "esp_timer.h"
 #include "font5x7.h"
 #include "wifi_mgr.h"
+#include <math.h>
 
 static const char *TAG = "OLED";
 
@@ -110,6 +111,49 @@ static const uint8_t b_fall[8] = { 0x1C, 0x3E, 0x76, 0x7F, 0xFE, 0x3C, 0x00, 0x0
 static const uint8_t d_run1[8] = { 0x0E, 0x0F, 0x0C, 0x3C, 0x7C, 0x7C, 0x10, 0x40 };
 static const uint8_t d_run2[8] = { 0x0E, 0x0F, 0x0C, 0x3C, 0x7C, 0x7C, 0x40, 0x10 };
 static const uint8_t c_cactus[10]= { 0x18, 0x58, 0x5A, 0x7A, 0x1E, 0x18, 0x18, 0x18, 0x18, 0x18 };
+
+static void draw_line(int x0, int y0, int x1, int y1, int color) {
+    int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = -((y1 > y0) ? (y1 - y0) : (y0 - y1));
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, e2;
+    int max_iters = 1000;
+    while (max_iters--) {
+        if (x0 >= 0 && x0 < OLED_WIDTH && y0 >= 0 && y0 < OLED_HEIGHT) {
+            draw_pixel(x0, y0, color);
+        }
+        if (x0 == x1 && y0 == y1) break;
+        e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+typedef struct { float x, y, z; } vec3_t;
+
+static vec3_t rotate_x(vec3_t v, float angle) {
+    float s = sinf(angle), c = cosf(angle);
+    return (vec3_t){ v.x, v.y * c - v.z * s, v.y * s + v.z * c };
+}
+static vec3_t rotate_y(vec3_t v, float angle) {
+    float s = sinf(angle), c = cosf(angle);
+    return (vec3_t){ v.x * c + v.z * s, v.y, -v.x * s + v.z * c };
+}
+static vec3_t rotate_z(vec3_t v, float angle) {
+    float s = sinf(angle), c = cosf(angle);
+    return (vec3_t){ v.x * c - v.y * s, v.x * s + v.y * c, v.z };
+}
+
+static bool project_3d(vec3_t v, int *px, int *py) {
+    float focal_len = 80.0f;
+    float z_offset = 50.0f;
+    v.z += z_offset; 
+    if (v.z <= 0.1f) return false; 
+    *px = (int)(OLED_WIDTH/2 + (v.x * focal_len) / v.z);
+    *py = (int)(OLED_HEIGHT/2 - (v.y * focal_len) / v.z);
+    return true;
+}
 
 static void oled_eyes_task(void *arg) {
     int blink_timer = 0;
@@ -579,6 +623,263 @@ static void oled_eyes_task(void *arg) {
             
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_3D_SHOWCASE) {
+            static int anim_idx = 0;
+            static float angle_x = 0;
+            static float angle_y = 0;
+            static float angle_z = 0;
+            static float t = 0;
+            static bool p_left = false;
+            static bool p_right = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            
+            if (last_mode != s_oled_mode) {
+                anim_idx = 0; angle_x = 0; angle_y = 0; angle_z = 0; t = 0;
+                last_mode = s_oled_mode;
+            }
+            
+            if (s_paddle_left && !p_left) anim_idx = (anim_idx + 5) % 6;
+            if (s_paddle_right && !p_right) anim_idx = (anim_idx + 1) % 6;
+            p_left = s_paddle_left; p_right = s_paddle_right;
+            
+            angle_x += 0.05f; angle_y += 0.03f; angle_z += 0.02f; t += 0.1f;
+            
+            if (anim_idx == 0) { // Cube
+                draw_text(0, 0, "Cube", 1);
+                vec3_t pts[8] = {
+                    {-10,-10,-10}, {10,-10,-10}, {10,10,-10}, {-10,10,-10},
+                    {-10,-10,10}, {10,-10,10}, {10,10,10}, {-10,10,10}
+                };
+                int px[8], py[8];
+                for(int i=0; i<8; i++) {
+                    vec3_t v = rotate_x(rotate_y(rotate_z(pts[i], angle_z), angle_y), angle_x);
+                    project_3d(v, &px[i], &py[i]);
+                }
+                int edges[12][2] = {{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
+                for(int i=0; i<12; i++) {
+                    draw_line(px[edges[i][0]], py[edges[i][0]], px[edges[i][1]], py[edges[i][1]], 1);
+                }
+            } else if (anim_idx == 1) { // DNA
+                draw_text(0, 0, "DNA Helix", 1);
+                for(int i=-20; i<=20; i+=2) {
+                    float local_t = t + i * 0.2f;
+                    vec3_t p1 = {sinf(local_t)*10.0f, (float)i, cosf(local_t)*10.0f};
+                    vec3_t p2 = {sinf(local_t + 3.1415f)*10.0f, (float)i, cosf(local_t + 3.1415f)*10.0f};
+                    p1 = rotate_x(p1, 0.5f); p2 = rotate_x(p2, 0.5f);
+                    int x1, y1, x2, y2;
+                    project_3d(p1, &x1, &y1); project_3d(p2, &x2, &y2);
+                    draw_pixel(x1, y1, 1); draw_pixel(x2, y2, 1);
+                    if (i % 4 == 0) draw_line(x1, y1, x2, y2, 1);
+                }
+            } else if (anim_idx == 2) { // Starfield
+                draw_text(0, 0, "Starfield", 1);
+                static vec3_t stars[50];
+                static bool init = false;
+                if (!init) {
+                    for(int i=0; i<50; i++) {
+                        stars[i] = (vec3_t){(float)((esp_random()%100)-50), (float)((esp_random()%100)-50), (float)(esp_random()%100)};
+                    }
+                    init = true;
+                }
+                for(int i=0; i<50; i++) {
+                    stars[i].z -= 2.0f;
+                    if (stars[i].z < 0) { stars[i] = (vec3_t){(float)((esp_random()%100)-50), (float)((esp_random()%100)-50), 100.0f}; }
+                    int px, py, px_old, py_old;
+                    vec3_t tail = stars[i]; tail.z += 4.0f;
+                    if (project_3d(stars[i], &px, &py) && project_3d(tail, &px_old, &py_old)) {
+                        draw_line(px, py, px_old, py_old, 1);
+                    }
+                }
+            } else if (anim_idx == 3) { // Torus
+                draw_text(0, 0, "Torus", 1);
+                float R = 15.0f;
+                float r = 5.0f;
+                for(int i=0; i<12; i++) {
+                    float theta = i * 3.14159f / 6.0f;
+                    for(int j=0; j<8; j++) {
+                        float phi = j * 3.14159f / 4.0f;
+                        vec3_t p = { (R + r * cosf(phi)) * cosf(theta), (R + r * cosf(phi)) * sinf(theta), r * sinf(phi) };
+                        p = rotate_x(rotate_y(p, angle_y), angle_x);
+                        int px, py;
+                        if (project_3d(p, &px, &py)) draw_pixel(px, py, 1);
+                    }
+                }
+            } else if (anim_idx == 4) { // Wave
+                draw_text(0, 0, "Wave Grid", 1);
+                for(int x=-20; x<=20; x+=5) {
+                    for(int z=-20; z<=20; z+=5) {
+                        float y = sinf((x)*0.2f + t) * 5.0f + cosf((z)*0.2f + t) * 5.0f;
+                        vec3_t p = rotate_x(rotate_y((vec3_t){(float)x, y, (float)z}, angle_y), 0.5f);
+                        int px, py;
+                        if (project_3d(p, &px, &py)) draw_pixel(px, py, 1);
+                    }
+                }
+            } else if (anim_idx == 5) { // Spirograph
+                draw_text(0, 0, "Spirograph", 1);
+                for(float i=0; i<6.28f; i+=0.1f) {
+                    float r = 10.0f * sinf(4.0f * i + t);
+                    vec3_t p = { r * cosf(i), r * sinf(i), 5.0f * sinf(i * 3.0f + t) };
+                    p = rotate_x(rotate_y(p, angle_y), angle_x);
+                    int px, py;
+                    if (project_3d(p, &px, &py)) draw_pixel(px, py, 1);
+                }
+            }
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_PACMAN) {
+            static int px = 64, py = 32;
+            static int gx = 20, gy = 20;
+            static int score = 0;
+            static int dots_x[20], dots_y[20];
+            static bool dots_active[20];
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static bool p_left=false, p_right=false;
+            static int dir = 0;
+            
+            if (last_mode != s_oled_mode) {
+                px = 64; py = 32; gx = 20; gy = 20; score = 0; dir = 1;
+                for(int i=0; i<20; i++) { dots_x[i] = esp_random()%120; dots_y[i] = esp_random()%60; dots_active[i] = true; }
+                last_mode = s_oled_mode;
+            }
+            if (s_paddle_left && !p_left) dir = (dir + 3) % 4;
+            if (s_paddle_right && !p_right) dir = (dir + 1) % 4;
+            p_left = s_paddle_left; p_right = s_paddle_right;
+            
+            if (dir == 0) py-=2; else if (dir == 1) px+=2; else if (dir == 2) py+=2; else if (dir == 3) px-=2;
+            if (px<0) px=0;
+            if (px>128) px=128;
+            if (py<0) py=0;
+            if (py>64) py=64;
+            
+            #define ABS_MACRO(x) ((x)>0?(x):-(x))
+            
+            for(int i=0; i<20; i++) {
+                if (dots_active[i] && ABS_MACRO(px-dots_x[i])<4 && ABS_MACRO(py-dots_y[i])<4) {
+                    dots_active[i] = false; score++;
+                }
+            }
+            if (px < gx) gx--; else if (px > gx) gx++;
+            if (py < gy) gy--; else if (py > gy) gy++;
+            
+            if (ABS_MACRO(px-gx)<3 && ABS_MACRO(py-gy)<3) {
+                px = 64; py = 32; gx = 20; gy = 20; score = 0;
+                for(int i=0; i<20; i++) { dots_x[i] = esp_random()%120; dots_y[i] = esp_random()%60; dots_active[i] = true; }
+            }
+            for(int i=-3; i<=3; i++) for(int j=-3; j<=3; j++) { if(i*i+j*j<=9) draw_pixel(px+i, py+j, 1); }
+            if (dir==0) draw_line(px, py, px-3, py-3, 0); 
+            else if (dir==1) draw_line(px, py, px+3, py-3, 0);
+            else if (dir==2) draw_line(px, py, px+3, py+3, 0);
+            else if (dir==3) draw_line(px, py, px-3, py+3, 0);
+            
+            for(int i=-3; i<=3; i++) for(int j=-3; j<=3; j++) { if(j>-1 || i*i+j*j<=9) draw_pixel(gx+i, gy+j, 1); }
+            for(int i=0; i<20; i++) if (dots_active[i]) draw_pixel(dots_x[i], dots_y[i], 1);
+            
+            char sb[32]; snprintf(sb, sizeof(sb), "%d", score); draw_text(2,2,sb,1);
+            oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_FROGGER) {
+            static int fy = 60;
+            static int fx = 64;
+            static int cars_x[3] = {0, 60, 100};
+            static int cars_y[3] = {40, 20, 10};
+            static int speeds[3] = {2, -3, 4};
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static bool p_left = false;
+            static bool p_right = false;
+            static int score = 0;
+            if (last_mode != s_oled_mode) { fy = 60; fx = 64; score = 0; last_mode = s_oled_mode; }
+            
+            if (s_paddle_left && !p_left) fy -= 10;
+            if (s_paddle_right && !p_right) fx += 10;
+            p_left = s_paddle_left; p_right = s_paddle_right;
+            if (fx > 120) fx = 120;
+            if (fy < 0) { fy = 60; score++; speeds[0]+=1; speeds[1]-=1; speeds[2]+=1; }
+            
+            #define ABS_MACRO(x) ((x)>0?(x):-(x))
+            
+            for(int i=0; i<3; i++) {
+                cars_x[i] += speeds[i];
+                if (cars_x[i] > 140) cars_x[i] = -20;
+                if (cars_x[i] < -20) cars_x[i] = 140;
+                if (ABS_MACRO(fx-cars_x[i])<12 && ABS_MACRO(fy-cars_y[i])<8) {
+                    fy = 60; score = 0; speeds[0]=2; speeds[1]=-3; speeds[2]=4;
+                }
+            }
+            for(int i=-2; i<=2; i++) for(int j=-2; j<=2; j++) draw_pixel(fx+i, fy+j, 1);
+            for(int i=0; i<3; i++) {
+                for(int cx=-6; cx<=6; cx++) for(int cy=-4; cy<=4; cy++) draw_pixel(cars_x[i]+cx, cars_y[i]+cy, 1);
+            }
+            char sb[32]; snprintf(sb, sizeof(sb), "%d", score); draw_text(2,2,sb,1);
+            oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_RACING) {
+            static int car_x = 64;
+            static float track_pos = 0;
+            static int score = 0;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            if (last_mode != s_oled_mode) { car_x = 64; track_pos = 0; score = 0; last_mode = s_oled_mode; }
+            
+            if (s_paddle_left) car_x -= 3;
+            if (s_paddle_right) car_x += 3;
+            if (car_x < 0) car_x = 0;
+            if (car_x > 128) car_x = 128;
+            
+            track_pos += 0.1f;
+            float curve = sinf(track_pos * 0.5f) * 40.0f;
+            
+            int center = 64 + (int)curve;
+            #define ABS_MACRO(x) ((x)>0?(x):-(x))
+            if (ABS_MACRO(car_x - center) > 20) {
+                score = 0;
+            } else {
+                score++;
+            }
+            
+            for(int y=32; y<64; y+=4) {
+                float sc = (y - 32) / 32.0f;
+                int track_center = 64 + (int)(sinf(track_pos * 0.5f + (64-y)*0.05f) * 40.0f * sc);
+                int w = 20 + (int)(20.0f * sc);
+                draw_pixel(track_center - w, y, 1);
+                draw_pixel(track_center + w, y, 1);
+            }
+            
+            for(int i=-4; i<=4; i++) for(int j=0; j<8; j++) draw_pixel(car_x+i, 56+j, 1);
+            
+            char sb[32]; snprintf(sb, sizeof(sb), "%d", score); draw_text(2,2,sb,1);
+            oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_MATH) {
+            static int n1 = 2, n2 = 2;
+            static int ans = 4;
+            static int score = 0;
+            static bool p_left=false, p_right=false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            if (last_mode != s_oled_mode) { n1 = 2 + esp_random()%10; n2 = 2 + esp_random()%10; ans = n1*n2; score = 0; last_mode = s_oled_mode; }
+            
+            if (s_paddle_left && s_paddle_right) {
+                if (!p_left && !p_right) {
+                    if (ans == n1 * n2) {
+                        score++; n1 = 2 + esp_random()%10; n2 = 2 + esp_random()%10; ans = n1*n2 + (esp_random()%5 - 2); 
+                        if (ans < 0) ans = 0;
+                    } else {
+                        score = 0;
+                    }
+                }
+            } else {
+                if (s_paddle_left && !p_left) ans--;
+                if (s_paddle_right && !p_right) ans++;
+            }
+            p_left = s_paddle_left; p_right = s_paddle_right;
+            
+            char sb[32]; snprintf(sb, sizeof(sb), "%d x %d = ?", n1, n2);
+            draw_text(10, 20, sb, 1);
+            snprintf(sb, sizeof(sb), "%d", ans);
+            draw_text(60, 40, sb, 2);
+            snprintf(sb, sizeof(sb), "Score: %d", score); draw_text(2,2,sb,1);
+            
+            oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         }
 

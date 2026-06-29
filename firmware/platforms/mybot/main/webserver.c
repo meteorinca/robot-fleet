@@ -367,6 +367,12 @@ static esp_err_t game_snake_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t game_pacman_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_PACMAN); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t game_frogger_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_FROGGER); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t game_racing_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_RACING); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t game_math_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_MATH); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t anim_3d_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_3D_SHOWCASE); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+
 static esp_err_t game_off_handler(httpd_req_t *req) {
     oled_set_mode(OLED_MODE_NORMAL);
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -666,6 +672,11 @@ void webserver_start(void) {
         { "/game_flappy",HTTP_GET, game_flappy_handler,    NULL },
         { "/game_dino", HTTP_GET,  game_dino_handler,      NULL },
         { "/game_snake",HTTP_GET,  game_snake_handler,     NULL },
+        { "/game_pacman",HTTP_GET, game_pacman_handler,    NULL },
+        { "/game_frogger",HTTP_GET,game_frogger_handler,   NULL },
+        { "/game_racing",HTTP_GET, game_racing_handler,    NULL },
+        { "/game_math",  HTTP_GET, game_math_handler,      NULL },
+        { "/anim_3d",    HTTP_GET, anim_3d_handler,        NULL },
         { "/game_off",  HTTP_GET,  game_off_handler,       NULL },
         // ... (rest of quick actions)
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },
