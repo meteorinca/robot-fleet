@@ -662,67 +662,123 @@ static void oled_eyes_task(void *arg) {
                 }
             } else if (anim_idx == 1) { // DNA
                 draw_text(0, 0, "DNA Helix", 1);
-                for(int i=-20; i<=20; i+=2) {
-                    float local_t = t + i * 0.2f;
-                    vec3_t p1 = {sinf(local_t)*10.0f, (float)i, cosf(local_t)*10.0f};
-                    vec3_t p2 = {sinf(local_t + 3.1415f)*10.0f, (float)i, cosf(local_t + 3.1415f)*10.0f};
-                    p1 = rotate_x(p1, 0.5f); p2 = rotate_x(p2, 0.5f);
+                int px1 = 0, py1 = 0, px2 = 0, py2 = 0;
+                bool first = true;
+                for(int i=-40; i<=40; i+=2) {
+                    float local_t = t + i * 0.15f;
+                    vec3_t p1 = {(float)i, sinf(local_t)*10.0f, cosf(local_t)*10.0f};
+                    vec3_t p2 = {(float)i, sinf(local_t + 3.14159f)*10.0f, cosf(local_t + 3.14159f)*10.0f};
+                    p1 = rotate_y(p1, 0.3f); p2 = rotate_y(p2, 0.3f);
+                    p1 = rotate_x(p1, 0.2f); p2 = rotate_x(p2, 0.2f);
                     int x1, y1, x2, y2;
-                    project_3d(p1, &x1, &y1); project_3d(p2, &x2, &y2);
-                    draw_pixel(x1, y1, 1); draw_pixel(x2, y2, 1);
-                    if (i % 4 == 0) draw_line(x1, y1, x2, y2, 1);
+                    bool proj1 = project_3d(p1, &x1, &y1);
+                    bool proj2 = project_3d(p2, &x2, &y2);
+                    if (proj1 && proj2) {
+                        if (!first) {
+                            draw_line(px1, py1, x1, y1, 1);
+                            draw_line(px2, py2, x2, y2, 1);
+                        }
+                        if (i % 6 == 0) draw_line(x1, y1, x2, y2, 1);
+                        px1 = x1; py1 = y1;
+                        px2 = x2; py2 = y2;
+                        first = false;
+                    }
                 }
             } else if (anim_idx == 2) { // Starfield
                 draw_text(0, 0, "Starfield", 1);
-                static vec3_t stars[50];
+                static vec3_t stars[60];
                 static bool init = false;
                 if (!init) {
-                    for(int i=0; i<50; i++) {
-                        stars[i] = (vec3_t){(float)((esp_random()%100)-50), (float)((esp_random()%100)-50), (float)(esp_random()%100)};
+                    for(int i=0; i<60; i++) {
+                        stars[i] = (vec3_t){(float)((esp_random()%160)-80), (float)((esp_random()%160)-80), (float)(esp_random()%100)};
                     }
                     init = true;
                 }
-                for(int i=0; i<50; i++) {
-                    stars[i].z -= 2.0f;
-                    if (stars[i].z < 0) { stars[i] = (vec3_t){(float)((esp_random()%100)-50), (float)((esp_random()%100)-50), 100.0f}; }
+                for(int i=0; i<60; i++) {
+                    float speed = 2.0f + (i % 3);
+                    stars[i].z -= speed;
+                    if (stars[i].z < 0) { 
+                        stars[i] = (vec3_t){(float)((esp_random()%160)-80), (float)((esp_random()%160)-80), 100.0f}; 
+                    }
+                    vec3_t p = stars[i];
+                    vec3_t tail = stars[i]; tail.z += speed * 2.5f;
+                    p = rotate_z(p, t * 0.5f);
+                    tail = rotate_z(tail, t * 0.5f);
                     int px, py, px_old, py_old;
-                    vec3_t tail = stars[i]; tail.z += 4.0f;
-                    if (project_3d(stars[i], &px, &py) && project_3d(tail, &px_old, &py_old)) {
+                    if (project_3d(p, &px, &py) && project_3d(tail, &px_old, &py_old)) {
                         draw_line(px, py, px_old, py_old, 1);
                     }
                 }
             } else if (anim_idx == 3) { // Torus
                 draw_text(0, 0, "Torus", 1);
                 float R = 15.0f;
-                float r = 5.0f;
-                for(int i=0; i<12; i++) {
-                    float theta = i * 3.14159f / 6.0f;
-                    for(int j=0; j<8; j++) {
-                        float phi = j * 3.14159f / 4.0f;
+                float r = 6.0f;
+                const int num_theta = 12;
+                const int num_phi = 8;
+                int pts_x[12][8];
+                int pts_y[12][8];
+                bool pts_ok[12][8];
+                for(int i=0; i<num_theta; i++) {
+                    float theta = i * 6.283f / num_theta + t * 0.5f;
+                    for(int j=0; j<num_phi; j++) {
+                        float phi = j * 6.283f / num_phi + t * 2.0f;
                         vec3_t p = { (R + r * cosf(phi)) * cosf(theta), (R + r * cosf(phi)) * sinf(theta), r * sinf(phi) };
                         p = rotate_x(rotate_y(p, angle_y), angle_x);
-                        int px, py;
-                        if (project_3d(p, &px, &py)) draw_pixel(px, py, 1);
+                        pts_ok[i][j] = project_3d(p, &pts_x[i][j], &pts_y[i][j]);
                     }
                 }
-            } else if (anim_idx == 4) { // Wave
+                for(int i=0; i<num_theta; i++) {
+                    for(int j=0; j<num_phi; j++) {
+                        if (!pts_ok[i][j]) continue;
+                        int i_next = (i + 1) % num_theta;
+                        int j_next = (j + 1) % num_phi;
+                        if (pts_ok[i_next][j]) draw_line(pts_x[i][j], pts_y[i][j], pts_x[i_next][j], pts_y[i_next][j], 1);
+                        if (pts_ok[i][j_next]) draw_line(pts_x[i][j], pts_y[i][j], pts_x[i][j_next], pts_y[i][j_next], 1);
+                    }
+                }
+            } else if (anim_idx == 4) { // Wave Grid
                 draw_text(0, 0, "Wave Grid", 1);
-                for(int x=-20; x<=20; x+=5) {
-                    for(int z=-20; z<=20; z+=5) {
-                        float y = sinf((x)*0.2f + t) * 5.0f + cosf((z)*0.2f + t) * 5.0f;
-                        vec3_t p = rotate_x(rotate_y((vec3_t){(float)x, y, (float)z}, angle_y), 0.5f);
-                        int px, py;
-                        if (project_3d(p, &px, &py)) draw_pixel(px, py, 1);
+                const int grid_size = 9;
+                int pts_x[9][9];
+                int pts_y[9][9];
+                bool pts_ok[9][9];
+                int xi = 0;
+                for(int x=-24; x<=24; x+=6, xi++) {
+                    int zi = 0;
+                    for(int z=-24; z<=24; z+=6, zi++) {
+                        if (xi>=grid_size || zi>=grid_size) continue;
+                        float y = sinf((x)*0.2f + t * 2.0f) * 4.0f + cosf((z)*0.2f + t * 1.5f) * 4.0f;
+                        vec3_t p = rotate_x(rotate_y((vec3_t){(float)x, y, (float)z}, angle_y * 0.5f), 0.5f);
+                        pts_ok[xi][zi] = project_3d(p, &pts_x[xi][zi], &pts_y[xi][zi]);
+                    }
+                }
+                for(int i=0; i<grid_size; i++) {
+                    for(int j=0; j<grid_size; j++) {
+                        if (!pts_ok[i][j]) continue;
+                        if (i+1 < grid_size && pts_ok[i+1][j]) {
+                            draw_line(pts_x[i][j], pts_y[i][j], pts_x[i+1][j], pts_y[i+1][j], 1);
+                        }
+                        if (j+1 < grid_size && pts_ok[i][j+1]) {
+                            draw_line(pts_x[i][j], pts_y[i][j], pts_x[i][j+1], pts_y[i][j+1], 1);
+                        }
                     }
                 }
             } else if (anim_idx == 5) { // Spirograph
                 draw_text(0, 0, "Spirograph", 1);
-                for(float i=0; i<6.28f; i+=0.1f) {
-                    float r = 10.0f * sinf(4.0f * i + t);
-                    vec3_t p = { r * cosf(i), r * sinf(i), 5.0f * sinf(i * 3.0f + t) };
+                bool first = true;
+                int prev_px = 0, prev_py = 0;
+                for(float i=0; i<6.283f; i+=0.05f) {
+                    float r = 12.0f * sinf(5.0f * i + t);
+                    vec3_t p = { r * cosf(i), r * sinf(i), 6.0f * sinf(i * 3.0f + t * 2.0f) };
                     p = rotate_x(rotate_y(p, angle_y), angle_x);
                     int px, py;
-                    if (project_3d(p, &px, &py)) draw_pixel(px, py, 1);
+                    if (project_3d(p, &px, &py)) {
+                        if (!first) {
+                            draw_line(prev_px, prev_py, px, py, 1);
+                        }
+                        prev_px = px; prev_py = py;
+                        first = false;
+                    }
                 }
             }
             oled_send_buffer();
