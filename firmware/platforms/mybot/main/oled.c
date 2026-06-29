@@ -295,6 +295,221 @@ static void oled_eyes_task(void *arg) {
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(30)); // 30ms for faster pong
             continue;
+        } else if (s_oled_mode == OLED_MODE_FLAPPY) {
+            static float bird_y = 32;
+            static float bird_dy = 0;
+            static float pipe_x = 128;
+            static int pipe_gap_y = 32;
+            static int score = 0;
+            static bool game_over = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static bool p_btn = false;
+            
+            if (last_mode != s_oled_mode) {
+                bird_y = 32; bird_dy = 0; pipe_x = 128; pipe_gap_y = 32; score = 0; game_over = false;
+                last_mode = s_oled_mode;
+            }
+
+            if (game_over) {
+                draw_text(20, 20, "GAME OVER", 2);
+                char sb[32]; snprintf(sb, sizeof(sb), "Score: %d", score);
+                draw_text(30, 40, sb, 1);
+                oled_send_buffer();
+                vTaskDelay(pdMS_TO_TICKS(100));
+                bool btn = s_paddle_left || s_paddle_right;
+                if (btn && !p_btn) {
+                    bird_y = 32; bird_dy = 0; pipe_x = 128; pipe_gap_y = 32; score = 0; game_over = false;
+                }
+                p_btn = btn;
+                continue;
+            }
+
+            bool btn = s_paddle_left || s_paddle_right;
+            if (btn && !p_btn) {
+                bird_dy = -3.5f;
+            }
+            p_btn = btn;
+            
+            bird_dy += 0.3f;
+            bird_y += bird_dy;
+            if (bird_y < 0) { bird_y = 0; bird_dy = 0; }
+            if (bird_y > 63) { game_over = true; }
+            
+            pipe_x -= 3.0f;
+            if (pipe_x < -10) {
+                pipe_x = 128;
+                pipe_gap_y = 15 + (esp_random() % 34);
+                score++;
+            }
+            
+            int bx = 20, by = (int)bird_y;
+            int pw = 10, pg = 20;
+            if (bx + 4 >= pipe_x && bx <= pipe_x + pw) {
+                if (by <= pipe_gap_y - pg || by + 4 >= pipe_gap_y + pg) {
+                    game_over = true;
+                }
+            }
+            
+            for (int i=0; i<4; i++) for (int j=0; j<4; j++) draw_pixel(bx + i, by + j, 1);
+            
+            for (int x=0; x<pw; x++) {
+                if (pipe_x + x >= 0 && pipe_x + x < 128) {
+                    for (int y=0; y<64; y++) {
+                        if (y < pipe_gap_y - pg || y > pipe_gap_y + pg) {
+                            draw_pixel((int)pipe_x + x, y, 1);
+                        }
+                    }
+                }
+            }
+            
+            char sb[32]; snprintf(sb, sizeof(sb), "%d", score);
+            draw_text(2, 2, sb, 1);
+            
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_DINO) {
+            static float dino_y = 50;
+            static float dino_dy = 0;
+            static float cactus_x = 128;
+            static int score = 0;
+            static float speed = 3.0f;
+            static bool game_over = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static bool p_btn = false;
+            
+            if (last_mode != s_oled_mode) {
+                dino_y = 50; dino_dy = 0; cactus_x = 128; score = 0; speed = 3.0f; game_over = false;
+                last_mode = s_oled_mode;
+            }
+
+            if (game_over) {
+                draw_text(20, 20, "GAME OVER", 2);
+                char sb[32]; snprintf(sb, sizeof(sb), "Score: %d", score);
+                draw_text(30, 40, sb, 1);
+                oled_send_buffer();
+                vTaskDelay(pdMS_TO_TICKS(100));
+                bool btn = s_paddle_left || s_paddle_right;
+                if (btn && !p_btn) {
+                    dino_y = 50; dino_dy = 0; cactus_x = 128; score = 0; speed = 3.0f; game_over = false;
+                }
+                p_btn = btn;
+                continue;
+            }
+
+            bool btn = s_paddle_left || s_paddle_right;
+            if (btn && !p_btn && dino_y >= 50) {
+                dino_dy = -5.0f;
+            }
+            p_btn = btn;
+            
+            dino_dy += 0.4f;
+            dino_y += dino_dy;
+            if (dino_y > 50) { dino_y = 50; dino_dy = 0; }
+            
+            cactus_x -= speed;
+            if (cactus_x < -10) {
+                cactus_x = 128 + (esp_random() % 50);
+                score++;
+                speed += 0.1f;
+                if (speed > 8.0f) speed = 8.0f;
+            }
+            
+            int dx = 20, dy = (int)dino_y;
+            int cx = (int)cactus_x, cy = 44;
+            if (dx + 6 >= cx && dx <= cx + 6) {
+                if (dy + 8 >= cy) {
+                    game_over = true;
+                }
+            }
+            
+            for (int x=0; x<128; x++) draw_pixel(x, 58, 1);
+            
+            for (int i=0; i<6; i++) for (int j=0; j<8; j++) draw_pixel(dx + i, dy + j, 1);
+            
+            if (cx >= -6 && cx < 128) {
+                for (int i=0; i<6; i++) for (int j=0; j<10; j++) draw_pixel(cx + i, cy + j, 1);
+            }
+            
+            char sb[32]; snprintf(sb, sizeof(sb), "%d", score);
+            draw_text(90, 2, sb, 1);
+            
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_SNAKE) {
+            static int snake_x[64];
+            static int snake_y[64];
+            static int snake_len = 3;
+            static int snake_dir = 1;
+            static int food_x = 20;
+            static int food_y = 10;
+            static bool game_over = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static bool p_left = false;
+            static bool p_right = false;
+            
+            if (last_mode != s_oled_mode) {
+                snake_len = 3; snake_dir = 1; game_over = false;
+                for (int i=0; i<64; i++) { snake_x[i] = 10-i; snake_y[i] = 10; }
+                food_x = 20 + (esp_random() % 10);
+                food_y = 10 + (esp_random() % 5);
+                last_mode = s_oled_mode;
+            }
+
+            if (game_over) {
+                draw_text(20, 20, "GAME OVER", 2);
+                char sb[32]; snprintf(sb, sizeof(sb), "Score: %d", snake_len-3);
+                draw_text(30, 40, sb, 1);
+                oled_send_buffer();
+                vTaskDelay(pdMS_TO_TICKS(100));
+                if ((s_paddle_left && !p_left) || (s_paddle_right && !p_right)) {
+                    snake_len = 3; snake_dir = 1; game_over = false;
+                    for (int i=0; i<64; i++) { snake_x[i] = 10-i; snake_y[i] = 10; }
+                }
+                p_left = s_paddle_left; p_right = s_paddle_right;
+                continue;
+            }
+
+            if (s_paddle_left && !p_left) snake_dir = (snake_dir + 3) % 4;
+            if (s_paddle_right && !p_right) snake_dir = (snake_dir + 1) % 4;
+            p_left = s_paddle_left; p_right = s_paddle_right;
+            
+            for (int i=snake_len-1; i>0; i--) {
+                snake_x[i] = snake_x[i-1];
+                snake_y[i] = snake_y[i-1];
+            }
+            
+            if (snake_dir == 0) snake_y[0]--;
+            else if (snake_dir == 1) snake_x[0]++;
+            else if (snake_dir == 2) snake_y[0]++;
+            else if (snake_dir == 3) snake_x[0]--;
+            
+            if (snake_x[0] < 0 || snake_x[0] >= 128/3 || snake_y[0] < 0 || snake_y[0] >= 64/3) {
+                game_over = true;
+            }
+            
+            for (int i=1; i<snake_len; i++) {
+                if (snake_x[0] == snake_x[i] && snake_y[0] == snake_y[i]) game_over = true;
+            }
+            
+            if (snake_x[0] == food_x && snake_y[0] == food_y) {
+                if (snake_len < 64) snake_len++;
+                food_x = esp_random() % (128/3);
+                food_y = esp_random() % (64/3);
+            }
+            
+            int fx = food_x * 3, fy = food_y * 3;
+            for (int i=0; i<3; i++) for (int j=0; j<3; j++) draw_pixel(fx+i, fy+j, 1);
+            
+            for (int k=0; k<snake_len; k++) {
+                int px = snake_x[k] * 3, py = snake_y[k] * 3;
+                for (int i=0; i<3; i++) for (int j=0; j<3; j++) draw_pixel(px+i, py+j, 1);
+            }
+            
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
         }
 
         // Animated eyes

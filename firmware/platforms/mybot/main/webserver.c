@@ -346,6 +346,27 @@ static esp_err_t game_on_v_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t game_flappy_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_FLAPPY);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t game_dino_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_DINO);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t game_snake_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_SNAKE);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
 static esp_err_t game_off_handler(httpd_req_t *req) {
     oled_set_mode(OLED_MODE_NORMAL);
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -642,6 +663,9 @@ void webserver_start(void) {
         { "/btn_data",  HTTP_GET,  btn_data_handler,       NULL },
         { "/game_on_h", HTTP_GET,  game_on_h_handler,      NULL },
         { "/game_on_v", HTTP_GET,  game_on_v_handler,      NULL },
+        { "/game_flappy",HTTP_GET, game_flappy_handler,    NULL },
+        { "/game_dino", HTTP_GET,  game_dino_handler,      NULL },
+        { "/game_snake",HTTP_GET,  game_snake_handler,     NULL },
         { "/game_off",  HTTP_GET,  game_off_handler,       NULL },
         // ... (rest of quick actions)
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },
