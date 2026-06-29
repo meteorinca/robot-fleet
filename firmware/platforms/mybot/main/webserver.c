@@ -322,18 +322,25 @@ extern bool g_btn2_state;
 
 static esp_err_t btn_data_handler(httpd_req_t *req) {
     char resp[128];
-    int len = snprintf(resp, sizeof(resp), "{\"btn1\":%s,\"btn2\":%s,\"game_mode\":%s}", 
+    int len = snprintf(resp, sizeof(resp), "{\"btn1\":%s,\"btn2\":%s,\"game_mode\":%d}", 
         g_btn1_state ? "true" : "false",
         g_btn2_state ? "true" : "false",
-        oled_get_mode() == OLED_MODE_PONG ? "true" : "false");
+        (int)oled_get_mode());
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, resp, len);
     return ESP_OK;
 }
 
-static esp_err_t game_on_handler(httpd_req_t *req) {
-    oled_set_mode(OLED_MODE_PONG);
+static esp_err_t game_on_h_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_PONG_H);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t game_on_v_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_PONG_V);
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
@@ -633,7 +640,8 @@ void webserver_start(void) {
         { "/us_data",   HTTP_GET,  us_data_handler,        NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },
         { "/btn_data",  HTTP_GET,  btn_data_handler,       NULL },
-        { "/game_on",   HTTP_GET,  game_on_handler,        NULL },
+        { "/game_on_h", HTTP_GET,  game_on_h_handler,      NULL },
+        { "/game_on_v", HTTP_GET,  game_on_v_handler,      NULL },
         { "/game_off",  HTTP_GET,  game_off_handler,       NULL },
         // ... (rest of quick actions)
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },

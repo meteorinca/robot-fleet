@@ -282,9 +282,10 @@
           <span>Button 2</span>
         </div>
       </div>
-      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr;'>
-        <button class='btn-led' id='pong-on-btn' onclick='fetch("/game_on")' style='color:#00e5a0;border-color:#00e5a0;'>PLAY PONG</button>
-        <button class='btn-led' id='pong-off-btn' onclick='fetch("/game_off")' style='color:#f7736a;border-color:#f7736a;'>STOP GAME</button>
+      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr 1fr;'>
+        <button class='btn-led' id='pong-on-h-btn' onclick='fetch("/game_on_h")' style='color:#00e5a0;border-color:#00e5a0;'>PONG (H)</button>
+        <button class='btn-led' id='pong-on-v-btn' onclick='fetch("/game_on_v")' style='color:#00e5a0;border-color:#00e5a0;'>PONG (V)</button>
+        <button class='btn-led' id='pong-off-btn' onclick='fetch("/game_off")' style='color:#f7736a;border-color:#f7736a;'>STOP</button>
       </div>
     </div>
 
@@ -435,14 +436,25 @@
         document.getElementById('btn1-ind').style.boxShadow = j.btn1 ? '0 0 8px #00e5a0' : 'none';
         document.getElementById('btn2-ind').style.boxShadow = j.btn2 ? '0 0 8px #00e5a0' : 'none';
         
-        if (j.game_mode) {
-          document.getElementById('pong-on-btn').style.background = '#00e5a0';
-          document.getElementById('pong-on-btn').style.color = '#fff';
+        if (j.game_mode === 1) {
+          document.getElementById('pong-on-h-btn').style.background = '#00e5a0';
+          document.getElementById('pong-on-h-btn').style.color = '#fff';
+          document.getElementById('pong-on-v-btn').style.background = '#1a1a35';
+          document.getElementById('pong-on-v-btn').style.color = '#00e5a0';
+          document.getElementById('pong-off-btn').style.background = '#1a1a35';
+          document.getElementById('pong-off-btn').style.color = '#f7736a';
+        } else if (j.game_mode === 2) {
+          document.getElementById('pong-on-h-btn').style.background = '#1a1a35';
+          document.getElementById('pong-on-h-btn').style.color = '#00e5a0';
+          document.getElementById('pong-on-v-btn').style.background = '#00e5a0';
+          document.getElementById('pong-on-v-btn').style.color = '#fff';
           document.getElementById('pong-off-btn').style.background = '#1a1a35';
           document.getElementById('pong-off-btn').style.color = '#f7736a';
         } else {
-          document.getElementById('pong-on-btn').style.background = '#1a1a35';
-          document.getElementById('pong-on-btn').style.color = '#00e5a0';
+          document.getElementById('pong-on-h-btn').style.background = '#1a1a35';
+          document.getElementById('pong-on-h-btn').style.color = '#00e5a0';
+          document.getElementById('pong-on-v-btn').style.background = '#1a1a35';
+          document.getElementById('pong-on-v-btn').style.color = '#00e5a0';
           document.getElementById('pong-off-btn').style.background = '#f7736a';
           document.getElementById('pong-off-btn').style.color = '#fff';
         }

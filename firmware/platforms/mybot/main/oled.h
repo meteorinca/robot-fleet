@@ -8,7 +8,11 @@ extern "C" {
 
 typedef enum {
     OLED_MODE_NORMAL = 0,
-    OLED_MODE_PONG
+    OLED_MODE_PONG_H = 1,
+    OLED_MODE_PONG_V = 2,
+    OLED_MODE_FLAPPY = 3,
+    OLED_MODE_DINO = 4,
+    OLED_MODE_SNAKE = 5
 } oled_mode_t;
 
 typedef enum {

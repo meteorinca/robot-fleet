@@ -165,70 +165,126 @@ static void oled_eyes_task(void *arg) {
             // fallthrough to eyes
         }
 
-        if (s_oled_mode == OLED_MODE_PONG) {
+        if (s_oled_mode == OLED_MODE_PONG_V || s_oled_mode == OLED_MODE_PONG_H) {
             static float ball_x = OLED_WIDTH / 2;
             static float ball_y = OLED_HEIGHT / 2;
             static float ball_dx = 2.0f;
             static float ball_dy = 2.0f;
-            static float paddle_player_x = OLED_WIDTH / 2;
-            static float paddle_ai_x = OLED_WIDTH / 2;
-            const int paddle_w = 20;
-            const int paddle_h = 4;
+            static float paddle_player_pos = OLED_WIDTH / 2;
+            static float paddle_ai_pos = OLED_WIDTH / 2;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            
+            bool is_h = (s_oled_mode == OLED_MODE_PONG_H);
+            
+            const int paddle_len = 20;
+            const int paddle_thick = 4;
             const int ball_size = 4;
             
+            int max_pos = is_h ? OLED_HEIGHT : OLED_WIDTH;
+            
+            if (last_mode != s_oled_mode) {
+                ball_x = OLED_WIDTH / 2;
+                ball_y = OLED_HEIGHT / 2;
+                paddle_player_pos = max_pos / 2;
+                paddle_ai_pos = max_pos / 2;
+                last_mode = s_oled_mode;
+            }
+
             // Move player
-            if (s_paddle_left) paddle_player_x -= 3.0f;
-            if (s_paddle_right) paddle_player_x += 3.0f;
-            if (paddle_player_x < paddle_w/2) paddle_player_x = paddle_w/2;
-            if (paddle_player_x > OLED_WIDTH - paddle_w/2) paddle_player_x = OLED_WIDTH - paddle_w/2;
+            if (s_paddle_left) paddle_player_pos -= 3.0f;
+            if (s_paddle_right) paddle_player_pos += 3.0f;
+            if (paddle_player_pos < paddle_len/2) paddle_player_pos = paddle_len/2;
+            if (paddle_player_pos > max_pos - paddle_len/2) paddle_player_pos = max_pos - paddle_len/2;
             
             // Move AI
-            if (ball_x < paddle_ai_x - 4) paddle_ai_x -= 1.5f;
-            else if (ball_x > paddle_ai_x + 4) paddle_ai_x += 1.5f;
-            if (paddle_ai_x < paddle_w/2) paddle_ai_x = paddle_w/2;
-            if (paddle_ai_x > OLED_WIDTH - paddle_w/2) paddle_ai_x = OLED_WIDTH - paddle_w/2;
+            float ball_pos_for_ai = is_h ? ball_y : ball_x;
+            if (ball_pos_for_ai < paddle_ai_pos - 4) paddle_ai_pos -= 1.5f;
+            else if (ball_pos_for_ai > paddle_ai_pos + 4) paddle_ai_pos += 1.5f;
+            if (paddle_ai_pos < paddle_len/2) paddle_ai_pos = paddle_len/2;
+            if (paddle_ai_pos > max_pos - paddle_len/2) paddle_ai_pos = max_pos - paddle_len/2;
             
             // Move ball
             ball_x += ball_dx;
             ball_y += ball_dy;
             
-            // Bounce walls
-            if (ball_x < 0) { ball_x = 0; ball_dx = -ball_dx; }
-            if (ball_x > OLED_WIDTH - ball_size) { ball_x = OLED_WIDTH - ball_size; ball_dx = -ball_dx; }
-            
-            // Bounce paddles
-            // Player paddle is at y = OLED_HEIGHT - paddle_h - 2
-            int py = OLED_HEIGHT - paddle_h - 2;
-            if (ball_y + ball_size >= py && ball_y <= py + paddle_h) {
-                if (ball_x + ball_size >= paddle_player_x - paddle_w/2 && ball_x <= paddle_player_x + paddle_w/2) {
-                    ball_y = py - ball_size;
+            if (is_h) {
+                // Horizontal pong (paddles left/right)
+                // Bounce top/bottom walls
+                if (ball_y < 0) { ball_y = 0; ball_dy = -ball_dy; }
+                if (ball_y > OLED_HEIGHT - ball_size) { ball_y = OLED_HEIGHT - ball_size; ball_dy = -ball_dy; }
+                
+                // Player paddle is on the Right side
+                int px = OLED_WIDTH - paddle_thick - 2;
+                if (ball_x + ball_size >= px && ball_x <= px + paddle_thick) {
+                    if (ball_y + ball_size >= paddle_player_pos - paddle_len/2 && ball_y <= paddle_player_pos + paddle_len/2) {
+                        ball_x = px - ball_size;
+                        ball_dx = -ball_dx;
+                        ball_dy = (ball_y - paddle_player_pos) * 0.2f;
+                    }
+                }
+                // AI paddle is on the Left side
+                int ax = 2;
+                if (ball_x <= ax + paddle_thick && ball_x + ball_size >= ax) {
+                    if (ball_y + ball_size >= paddle_ai_pos - paddle_len/2 && ball_y <= paddle_ai_pos + paddle_len/2) {
+                        ball_x = ax + paddle_thick;
+                        ball_dx = -ball_dx;
+                    }
+                }
+                
+                // Score
+                if (ball_x < 0 || ball_x > OLED_WIDTH) {
+                    ball_x = OLED_WIDTH / 2;
+                    ball_y = OLED_HEIGHT / 2;
+                    ball_dx = -ball_dx;
+                }
+                
+                // Draw paddles
+                for (int i=0; i<paddle_thick; i++) {
+                    for (int j=0; j<paddle_len; j++) {
+                        draw_pixel(px + i, (int)paddle_player_pos - paddle_len/2 + j, 1);
+                        draw_pixel(ax + i, (int)paddle_ai_pos - paddle_len/2 + j, 1);
+                    }
+                }
+            } else {
+                // Vertical pong (paddles top/bottom)
+                // Bounce left/right walls
+                if (ball_x < 0) { ball_x = 0; ball_dx = -ball_dx; }
+                if (ball_x > OLED_WIDTH - ball_size) { ball_x = OLED_WIDTH - ball_size; ball_dx = -ball_dx; }
+                
+                // Player paddle at bottom
+                int py = OLED_HEIGHT - paddle_thick - 2;
+                if (ball_y + ball_size >= py && ball_y <= py + paddle_thick) {
+                    if (ball_x + ball_size >= paddle_player_pos - paddle_len/2 && ball_x <= paddle_player_pos + paddle_len/2) {
+                        ball_y = py - ball_size;
+                        ball_dy = -ball_dy;
+                        ball_dx = (ball_x - paddle_player_pos) * 0.2f;
+                    }
+                }
+                // AI paddle at top
+                int ay = 2;
+                if (ball_y <= ay + paddle_thick && ball_y + ball_size >= ay) {
+                    if (ball_x + ball_size >= paddle_ai_pos - paddle_len/2 && ball_x <= paddle_ai_pos + paddle_len/2) {
+                        ball_y = ay + paddle_thick;
+                        ball_dy = -ball_dy;
+                    }
+                }
+                
+                // Score
+                if (ball_y < 0 || ball_y > OLED_HEIGHT) {
+                    ball_x = OLED_WIDTH / 2;
+                    ball_y = OLED_HEIGHT / 2;
                     ball_dy = -ball_dy;
-                    ball_dx = (ball_x - paddle_player_x) * 0.2f;
                 }
-            }
-            // AI paddle is at y = 2
-            int ay = 2;
-            if (ball_y <= ay + paddle_h && ball_y + ball_size >= ay) {
-                if (ball_x + ball_size >= paddle_ai_x - paddle_w/2 && ball_x <= paddle_ai_x + paddle_w/2) {
-                    ball_y = ay + paddle_h;
-                    ball_dy = -ball_dy;
+                
+                // Draw paddles
+                for (int i=0; i<paddle_len; i++) {
+                    for (int j=0; j<paddle_thick; j++) {
+                        draw_pixel((int)paddle_player_pos - paddle_len/2 + i, py + j, 1);
+                        draw_pixel((int)paddle_ai_pos - paddle_len/2 + i, ay + j, 1);
+                    }
                 }
             }
             
-            // Score / reset
-            if (ball_y < 0 || ball_y > OLED_HEIGHT) {
-                ball_x = OLED_WIDTH / 2;
-                ball_y = OLED_HEIGHT / 2;
-                ball_dy = -ball_dy;
-            }
-            
-            // Draw paddles
-            for (int i=0; i<paddle_w; i++) {
-                for (int j=0; j<paddle_h; j++) {
-                    draw_pixel((int)paddle_player_x - paddle_w/2 + i, py + j, 1);
-                    draw_pixel((int)paddle_ai_x - paddle_w/2 + i, ay + j, 1);
-                }
-            }
             // Draw ball
             for (int i=0; i<ball_size; i++) {
                 for (int j=0; j<ball_size; j++) {
