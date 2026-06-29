@@ -271,6 +271,24 @@
     </div>
 
     <div class='card'>
+      <h2>Buttons & Game</h2>
+      <div style='display:flex;justify-content:space-between;margin-bottom:15px;align-items:center;'>
+        <div>
+          <span id='btn1-ind' style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
+          <span>Button 1</span>
+        </div>
+        <div>
+          <span id='btn2-ind' style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
+          <span>Button 2</span>
+        </div>
+      </div>
+      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr;'>
+        <button class='btn-led' id='pong-on-btn' onclick='fetch("/game_on")' style='color:#00e5a0;border-color:#00e5a0;'>PLAY PONG</button>
+        <button class='btn-led' id='pong-off-btn' onclick='fetch("/game_off")' style='color:#f7736a;border-color:#f7736a;'>STOP GAME</button>
+      </div>
+    </div>
+
+    <div class='card'>
       <h2>Schedule Action</h2>
       <div style='display:flex;gap:10px;'>
         <input type='number' id='sched-delay' placeholder='Delay (sec)' value='5' style='flex:1; margin-bottom:0;'>
@@ -398,7 +416,7 @@
       err.textContent = 'Sending...';
       fetch('/oled?text=' + encodeURIComponent(t)).then(function () { err.textContent = ''; }).catch(function (e) { err.textContent = e; });
     }
-    // Polling for Ultrasonic Data
+    // Polling for Ultrasonic Data and Buttons
     setInterval(function () {
       fetch('/us_data').then(r => r.json()).then(j => {
         if (j.active) {
@@ -408,6 +426,25 @@
         } else {
           document.getElementById('us-val').textContent = '-- cm';
           document.getElementById('us-bar').style.width = '0%';
+        }
+      }).catch(() => { });
+      
+      fetch('/btn_data').then(r => r.json()).then(j => {
+        document.getElementById('btn1-ind').style.background = j.btn1 ? '#00e5a0' : '#444';
+        document.getElementById('btn2-ind').style.background = j.btn2 ? '#00e5a0' : '#444';
+        document.getElementById('btn1-ind').style.boxShadow = j.btn1 ? '0 0 8px #00e5a0' : 'none';
+        document.getElementById('btn2-ind').style.boxShadow = j.btn2 ? '0 0 8px #00e5a0' : 'none';
+        
+        if (j.game_mode) {
+          document.getElementById('pong-on-btn').style.background = '#00e5a0';
+          document.getElementById('pong-on-btn').style.color = '#fff';
+          document.getElementById('pong-off-btn').style.background = '#1a1a35';
+          document.getElementById('pong-off-btn').style.color = '#f7736a';
+        } else {
+          document.getElementById('pong-on-btn').style.background = '#1a1a35';
+          document.getElementById('pong-on-btn').style.color = '#00e5a0';
+          document.getElementById('pong-off-btn').style.background = '#f7736a';
+          document.getElementById('pong-off-btn').style.color = '#fff';
         }
       }).catch(() => { });
     }, 250);

@@ -18,20 +18,65 @@
 #include "freertos/queue.h"
 
 
+bool g_btn1_state = false;
+bool g_btn2_state = false;
 
 static void button_task(void *arg) {
+    bool last_btn1 = false;
+    bool last_btn2 = false;
+
     while (1) {
+        bool btn1 = (gpio_get_level(BTN_1_GPIO) == 0);
+        bool btn2 = (gpio_get_level(BTN_2_GPIO) == 0);
+        
+        g_btn1_state = btn1;
+        g_btn2_state = btn2;
+        
+        oled_set_paddle_input(btn1, btn2);
+        
+        if (oled_get_mode() == OLED_MODE_NORMAL) {
+            if (btn1 && !last_btn1) {
+                eye_emotion_t emo = oled_get_emotion();
+                emo = (emo + 1) % EYE_EMOTION_COUNT;
+                oled_set_emotion(emo);
+                
+#ifdef WS2812_NUM_LEDS
+                if (emo == EYE_EMOTION_NORMAL) ws2812_set_all(0x000000);
+                else if (emo == EYE_EMOTION_MAD) ws2812_set_all(0xFF0000);
+                else if (emo == EYE_EMOTION_SAD) ws2812_set_all(0x0000FF);
+                else if (emo == EYE_EMOTION_SLEEPY) ws2812_set_all(0x00FF00);
+                else if (emo == EYE_EMOTION_SURPRISED) ws2812_set_all(0xFFFF00);
+                ws2812_show();
+#endif
+                ESP_LOGI("BTN", "Emotion forward to %d", emo);
+            }
+            if (btn2 && !last_btn2) {
+                eye_emotion_t emo = oled_get_emotion();
+                if (emo == 0) emo = EYE_EMOTION_COUNT - 1;
+                else emo--;
+                oled_set_emotion(emo);
+                
+#ifdef WS2812_NUM_LEDS
+                if (emo == EYE_EMOTION_NORMAL) ws2812_set_all(0x000000);
+                else if (emo == EYE_EMOTION_MAD) ws2812_set_all(0xFF0000);
+                else if (emo == EYE_EMOTION_SAD) ws2812_set_all(0x0000FF);
+                else if (emo == EYE_EMOTION_SLEEPY) ws2812_set_all(0x00FF00);
+                else if (emo == EYE_EMOTION_SURPRISED) ws2812_set_all(0xFFFF00);
+                ws2812_show();
+#endif
+                ESP_LOGI("BTN", "Emotion backward to %d", emo);
+            }
+        }
+        
+        last_btn1 = btn1;
+        last_btn2 = btn2;
+
         if (gpio_get_level(BTN_BOOT_GPIO) == 0) {
             ESP_LOGI("BTN", "Boot button pressed -> Servo Hi");
             servo_quick_action(1, 40, 90);
             vTaskDelay(pdMS_TO_TICKS(500));
         }
-        if (gpio_get_level(BTN_1_GPIO) == 0) {
-            ESP_LOGI("BTN", "Button 1 pressed -> Servo 1 ON");
-            servo_quick_action(1, POS1_ON, POS1_NEUTRAL);
-            vTaskDelay(pdMS_TO_TICKS(500));
-        }
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(30)); // fast poll for games
     }
 }
 

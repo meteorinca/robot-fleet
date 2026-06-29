@@ -28,6 +28,18 @@ static uint8_t s_buffer[OLED_WIDTH * OLED_HEIGHT / 8];
 static char s_oled_text_msg[64] = {0};
 static volatile int s_oled_text_timer = 0;
 
+static volatile oled_mode_t s_oled_mode = OLED_MODE_NORMAL;
+static volatile eye_emotion_t s_eye_emotion = EYE_EMOTION_NORMAL;
+static volatile bool s_paddle_left = false;
+static volatile bool s_paddle_right = false;
+
+void oled_set_mode(oled_mode_t mode) { s_oled_mode = mode; }
+oled_mode_t oled_get_mode(void) { return s_oled_mode; }
+void oled_set_emotion(eye_emotion_t emotion) { s_eye_emotion = emotion; }
+eye_emotion_t oled_get_emotion(void) { return s_eye_emotion; }
+void oled_set_paddle_input(bool left, bool right) { s_paddle_left = left; s_paddle_right = right; }
+
+
 void oled_set_text(const char* msg, int duration_ms) {
     strncpy(s_oled_text_msg, msg, sizeof(s_oled_text_msg) - 1);
     s_oled_text_timer = duration_ms / 60; // ~60ms per frame
@@ -153,6 +165,82 @@ static void oled_eyes_task(void *arg) {
             // fallthrough to eyes
         }
 
+        if (s_oled_mode == OLED_MODE_PONG) {
+            static float ball_x = OLED_WIDTH / 2;
+            static float ball_y = OLED_HEIGHT / 2;
+            static float ball_dx = 2.0f;
+            static float ball_dy = 2.0f;
+            static float paddle_player_x = OLED_WIDTH / 2;
+            static float paddle_ai_x = OLED_WIDTH / 2;
+            const int paddle_w = 20;
+            const int paddle_h = 4;
+            const int ball_size = 4;
+            
+            // Move player
+            if (s_paddle_left) paddle_player_x -= 3.0f;
+            if (s_paddle_right) paddle_player_x += 3.0f;
+            if (paddle_player_x < paddle_w/2) paddle_player_x = paddle_w/2;
+            if (paddle_player_x > OLED_WIDTH - paddle_w/2) paddle_player_x = OLED_WIDTH - paddle_w/2;
+            
+            // Move AI
+            if (ball_x < paddle_ai_x - 4) paddle_ai_x -= 1.5f;
+            else if (ball_x > paddle_ai_x + 4) paddle_ai_x += 1.5f;
+            if (paddle_ai_x < paddle_w/2) paddle_ai_x = paddle_w/2;
+            if (paddle_ai_x > OLED_WIDTH - paddle_w/2) paddle_ai_x = OLED_WIDTH - paddle_w/2;
+            
+            // Move ball
+            ball_x += ball_dx;
+            ball_y += ball_dy;
+            
+            // Bounce walls
+            if (ball_x < 0) { ball_x = 0; ball_dx = -ball_dx; }
+            if (ball_x > OLED_WIDTH - ball_size) { ball_x = OLED_WIDTH - ball_size; ball_dx = -ball_dx; }
+            
+            // Bounce paddles
+            // Player paddle is at y = OLED_HEIGHT - paddle_h - 2
+            int py = OLED_HEIGHT - paddle_h - 2;
+            if (ball_y + ball_size >= py && ball_y <= py + paddle_h) {
+                if (ball_x + ball_size >= paddle_player_x - paddle_w/2 && ball_x <= paddle_player_x + paddle_w/2) {
+                    ball_y = py - ball_size;
+                    ball_dy = -ball_dy;
+                    ball_dx = (ball_x - paddle_player_x) * 0.2f;
+                }
+            }
+            // AI paddle is at y = 2
+            int ay = 2;
+            if (ball_y <= ay + paddle_h && ball_y + ball_size >= ay) {
+                if (ball_x + ball_size >= paddle_ai_x - paddle_w/2 && ball_x <= paddle_ai_x + paddle_w/2) {
+                    ball_y = ay + paddle_h;
+                    ball_dy = -ball_dy;
+                }
+            }
+            
+            // Score / reset
+            if (ball_y < 0 || ball_y > OLED_HEIGHT) {
+                ball_x = OLED_WIDTH / 2;
+                ball_y = OLED_HEIGHT / 2;
+                ball_dy = -ball_dy;
+            }
+            
+            // Draw paddles
+            for (int i=0; i<paddle_w; i++) {
+                for (int j=0; j<paddle_h; j++) {
+                    draw_pixel((int)paddle_player_x - paddle_w/2 + i, py + j, 1);
+                    draw_pixel((int)paddle_ai_x - paddle_w/2 + i, ay + j, 1);
+                }
+            }
+            // Draw ball
+            for (int i=0; i<ball_size; i++) {
+                for (int j=0; j<ball_size; j++) {
+                    draw_pixel((int)ball_x + i, (int)ball_y + j, 1);
+                }
+            }
+            
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30)); // 30ms for faster pong
+            continue;
+        }
+
         // Animated eyes
         blink_timer++;
         if (!blinking && blink_timer > next_blink) {
@@ -208,7 +296,16 @@ static void oled_eyes_task(void *arg) {
                         // Pupil (black)
                     } else {
                         // Sclera (white)
-                        draw_pixel(x, y, 1);
+                        bool draw_it = true;
+                        if (s_eye_emotion == EYE_EMOTION_MAD) {
+                            if (dy < ((ei == 0) ? dx : -dx) / 2 - 4) draw_it = false;
+                        } else if (s_eye_emotion == EYE_EMOTION_SAD) {
+                            if (dy < ((ei == 0) ? -dx : dx) / 2 - 4) draw_it = false;
+                        } else if (s_eye_emotion == EYE_EMOTION_SLEEPY) {
+                            if (dy < 6) draw_it = false;
+                        }
+                        
+                        if (draw_it) draw_pixel(x, y, 1);
                     }
                     break;
                 }

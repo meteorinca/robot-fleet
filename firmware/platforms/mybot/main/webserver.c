@@ -317,6 +317,35 @@ static void github_tts_task(void *arg) {
 }
 #endif // ENABLE_GITHUB_TTS
 
+extern bool g_btn1_state;
+extern bool g_btn2_state;
+
+static esp_err_t btn_data_handler(httpd_req_t *req) {
+    char resp[128];
+    int len = snprintf(resp, sizeof(resp), "{\"btn1\":%s,\"btn2\":%s,\"game_mode\":%s}", 
+        g_btn1_state ? "true" : "false",
+        g_btn2_state ? "true" : "false",
+        oled_get_mode() == OLED_MODE_PONG ? "true" : "false");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, resp, len);
+    return ESP_OK;
+}
+
+static esp_err_t game_on_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_PONG);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t game_off_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_NORMAL);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
 // /schedule — queue an action at an exact wall-clock time or relative delay.
 //
 // Params (all GET query string):
@@ -603,6 +632,9 @@ void webserver_start(void) {
         { "/schedule",  HTTP_GET,  schedule_handler,       NULL },
         { "/us_data",   HTTP_GET,  us_data_handler,        NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },
+        { "/btn_data",  HTTP_GET,  btn_data_handler,       NULL },
+        { "/game_on",   HTTP_GET,  game_on_handler,        NULL },
+        { "/game_off",  HTTP_GET,  game_off_handler,       NULL },
         // ... (rest of quick actions)
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },
         { "/l1off",     HTTP_GET,  quick_action_handler,   NULL },
