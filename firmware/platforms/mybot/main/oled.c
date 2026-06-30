@@ -13,6 +13,7 @@
 #include "esp_timer.h"
 #include "font5x7.h"
 #include "wifi_mgr.h"
+#include "buzzer.h"
 #include <math.h>
 
 static const char *TAG = "OLED";
@@ -122,6 +123,53 @@ static void draw_line(int x0, int y0, int x1, int y1, int color) {
     while (max_iters--) {
         if (x0 >= 0 && x0 < OLED_WIDTH && y0 >= 0 && y0 < OLED_HEIGHT) {
             draw_pixel(x0, y0, color);
+        }
+        if (x0 == x1 && y0 == y1) break;
+        e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+static void draw_pixel_portrait(int x, int y, int color) {
+    draw_pixel(y, 63 - x, color);
+}
+
+static void draw_text_portrait(int start_x, int start_y, const char* text, int scale) {
+    int fw = 5 * scale;
+    int char_space = 1 * scale;
+    int len = strlen(text);
+    
+    for (int i = 0; i < len; i++) {
+        char c = text[i];
+        if (c < 32 || c > 126) c = 32;
+        const uint8_t *glyph = &font5x7[(c - 32) * 8];
+        int cx = start_x + i * (fw + char_space);
+        for (int gx = 0; gx < 5; gx++) {
+            uint8_t col = glyph[gx];
+            for (int gy = 0; gy < 7; gy++) {
+                if (col & (1 << gy)) {
+                    for (int dx = 0; dx < scale; dx++) {
+                        for (int dy = 0; dy < scale; dy++) {
+                            draw_pixel_portrait(cx + gx * scale + dx, start_y + gy * scale + dy, 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void draw_line_portrait(int x0, int y0, int x1, int y1, int color) {
+    int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = -((y1 > y0) ? (y1 - y0) : (y0 - y1));
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, e2;
+    int max_iters = 1000;
+    while (max_iters--) {
+        if (x0 >= 0 && x0 < 64 && y0 >= 0 && y0 < 128) {
+            draw_pixel_portrait(x0, y0, color);
         }
         if (x0 == x1 && y0 == y1) break;
         e2 = 2 * err;
@@ -281,6 +329,7 @@ static void oled_eyes_task(void *arg) {
                         ball_x = px - ball_size;
                         ball_dx = -ball_dx;
                         ball_dy = (ball_y - paddle_player_pos) * 0.2f;
+                        buzzer_play_tone(800, 20);
                     }
                 }
                 int ax = 2;
@@ -288,12 +337,13 @@ static void oled_eyes_task(void *arg) {
                     if (ball_y + ball_size >= paddle_ai_pos - paddle_len/2 && ball_y <= paddle_ai_pos + paddle_len/2) {
                         ball_x = ax + paddle_thick;
                         ball_dx = -ball_dx;
+                        buzzer_play_tone(600, 20);
                     }
                 }
                 
                 // Score
-                if (ball_x < 0) { score_p++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dx = 2.0f; }
-                if (ball_x > OLED_WIDTH) { score_ai++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dx = -2.0f; }
+                if (ball_x < 0) { score_p++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dx = 2.0f; buzzer_play_tone(1500, 100); }
+                if (ball_x > OLED_WIDTH) { score_ai++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dx = -2.0f; buzzer_play_tone(200, 300); }
                 
                 // Center Line
                 for (int y = 0; y < OLED_HEIGHT; y += 4) draw_pixel(OLED_WIDTH/2, y, 1);
@@ -321,6 +371,7 @@ static void oled_eyes_task(void *arg) {
                         ball_y = py - ball_size;
                         ball_dy = -ball_dy;
                         ball_dx = (ball_x - paddle_player_pos) * 0.2f;
+                        buzzer_play_tone(800, 20);
                     }
                 }
                 int ay = 2;
@@ -328,12 +379,13 @@ static void oled_eyes_task(void *arg) {
                     if (ball_x + ball_size >= paddle_ai_pos - paddle_len/2 && ball_x <= paddle_ai_pos + paddle_len/2) {
                         ball_y = ay + paddle_thick;
                         ball_dy = -ball_dy;
+                        buzzer_play_tone(600, 20);
                     }
                 }
                 
                 // Score
-                if (ball_y < 0) { score_p++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dy = 2.0f; }
-                if (ball_y > OLED_HEIGHT) { score_ai++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dy = -2.0f; }
+                if (ball_y < 0) { score_p++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dy = 2.0f; buzzer_play_tone(1500, 100); }
+                if (ball_y > OLED_HEIGHT) { score_ai++; ball_x = OLED_WIDTH/2; ball_y = OLED_HEIGHT/2; ball_dy = -2.0f; buzzer_play_tone(200, 300); }
                 
                 // Center Line
                 for (int x = 0; x < OLED_WIDTH; x += 4) draw_pixel(x, OLED_HEIGHT/2, 1);
@@ -395,25 +447,31 @@ static void oled_eyes_task(void *arg) {
             bool btn = s_paddle_left || s_paddle_right;
             if (btn && !p_btn) {
                 bird_dy = -3.5f;
+                buzzer_play_tone(800, 30);
             }
             p_btn = btn;
             
             bird_dy += 0.3f;
             bird_y += bird_dy;
             if (bird_y < 0) { bird_y = 0; bird_dy = 0; }
-            if (bird_y > 63) { game_over = true; }
+            if (bird_y > 63) { 
+                if (!game_over) buzzer_demo_gameover();
+                game_over = true; 
+            }
             
             pipe_x -= 3.0f;
             if (pipe_x < -14) {
                 pipe_x = 128;
                 pipe_gap_y = 15 + (esp_random() % 34);
                 score++;
+                buzzer_play_tone(1500, 50);
             }
             
             int bx = 20, by = (int)bird_y;
             int pw = 14, pg = 20;
             if (bx + 8 >= pipe_x && bx <= pipe_x + pw) {
                 if (by <= pipe_gap_y - pg || by + 6 >= pipe_gap_y + pg) {
+                    if (!game_over) buzzer_demo_gameover();
                     game_over = true;
                 }
             }
@@ -487,6 +545,7 @@ static void oled_eyes_task(void *arg) {
             bool btn = s_paddle_left || s_paddle_right;
             if (btn && !p_btn && dino_y >= 50) {
                 dino_dy = -5.0f;
+                buzzer_play_tone(600, 30);
             }
             p_btn = btn;
             
@@ -500,12 +559,14 @@ static void oled_eyes_task(void *arg) {
                 score++;
                 speed += 0.1f;
                 if (speed > 8.0f) speed = 8.0f;
+                if (score % 10 == 0) buzzer_play_tone(1500, 100);
             }
             
             int dx = 20, dy = (int)dino_y;
             int cx = (int)cactus_x, cy = 48;
             if (dx + 6 >= cx && dx <= cx + 6) {
                 if (dy + 8 >= cy) {
+                    if (!game_over) buzzer_demo_gameover();
                     game_over = true;
                 }
             }
@@ -586,17 +647,22 @@ static void oled_eyes_task(void *arg) {
             else if (snake_dir == 3) snake_x[0]--;
             
             if (snake_x[0] < 0 || snake_x[0] >= 128/3 || snake_y[0] < 0 || snake_y[0] >= 64/3) {
+                if (!game_over) buzzer_demo_gameover();
                 game_over = true;
             }
             
             for (int i=1; i<snake_len; i++) {
-                if (snake_x[0] == snake_x[i] && snake_y[0] == snake_y[i]) game_over = true;
+                if (snake_x[0] == snake_x[i] && snake_y[0] == snake_y[i]) {
+                    if (!game_over) buzzer_demo_gameover();
+                    game_over = true;
+                }
             }
             
             if (snake_x[0] == food_x && snake_y[0] == food_y) {
                 if (snake_len < 64) snake_len++;
                 food_x = esp_random() % (128/3);
                 food_y = esp_random() % (64/3);
+                buzzer_play_tone(1800, 30);
             }
             
             // Draw Diamond Food
@@ -908,45 +974,653 @@ static void oled_eyes_task(void *arg) {
             continue;
         } else if (s_oled_mode == OLED_MODE_MATH) {
             static int n1 = 2, n2 = 2;
-            static int ans = 4;
+            static int options[3];
+            static int sel = 0;
             static int score = 0;
+            static int timer = 100;
             static bool p_left=false, p_right=false;
             static oled_mode_t last_mode = OLED_MODE_NORMAL;
-            if (last_mode != s_oled_mode) { n1 = 2 + esp_random()%10; n2 = 2 + esp_random()%10; ans = n1*n2; score = 0; last_mode = s_oled_mode; }
             
-            if (s_paddle_left && s_paddle_right) {
-                if (!p_left && !p_right) {
-                    if (ans == n1 * n2) {
-                        score++; n1 = 2 + esp_random()%10; n2 = 2 + esp_random()%10; ans = n1*n2 + (esp_random()%5 - 2); 
-                        if (ans < 0) ans = 0;
-                    } else {
-                        score = 0;
-                    }
+            if (last_mode != s_oled_mode) { 
+                n1 = 2 + esp_random() % 19; 
+                n2 = 2 + esp_random() % 19; 
+                sel = 0; score = 0; timer = 150;
+                int correct_idx = esp_random() % 3;
+                options[correct_idx] = n1 * n2;
+                options[(correct_idx + 1) % 3] = n1 * n2 + (esp_random() % 10 + 1);
+                options[(correct_idx + 2) % 3] = n1 * n2 - (esp_random() % 10 + 1);
+                if (options[(correct_idx + 2) % 3] < 0) options[(correct_idx + 2) % 3] += 20;
+                last_mode = s_oled_mode; 
+            }
+            
+            if (timer <= 0) {
+                // Game over
+                draw_text_portrait(8, 50, "TIME UP!", 1);
+                char sb[32]; snprintf(sb, sizeof(sb), "Score: %d", score);
+                draw_text_portrait(10, 70, sb, 1);
+                oled_send_buffer();
+                vTaskDelay(pdMS_TO_TICKS(100));
+                if ((s_paddle_left && !p_left) || (s_paddle_right && !p_right)) {
+                    score = 0; timer = 150;
+                    n1 = 2 + esp_random() % 19; n2 = 2 + esp_random() % 19; 
+                    int correct_idx = esp_random() % 3;
+                    options[correct_idx] = n1 * n2;
+                    options[(correct_idx + 1) % 3] = n1 * n2 + (esp_random() % 10 + 1);
+                    options[(correct_idx + 2) % 3] = n1 * n2 - (esp_random() % 10 + 1);
+                    if (options[(correct_idx + 2) % 3] < 0) options[(correct_idx + 2) % 3] += 20;
                 }
-            } else {
-                if (s_paddle_left && !p_left) ans--;
-                if (s_paddle_right && !p_right) ans++;
+                p_left = s_paddle_left; p_right = s_paddle_right;
+                continue;
+            }
+            
+            timer--;
+            
+            if (s_paddle_left && !p_left) sel = (sel + 1) % 3;
+            if (s_paddle_right && !p_right) {
+                if (options[sel] == n1 * n2) {
+                    score++; timer += 30; if (timer > 150) timer = 150;
+                    buzzer_play_tone(1500, 100);
+                    n1 = 2 + esp_random() % 19; n2 = 2 + esp_random() % 19; 
+                    sel = 0;
+                    int correct_idx = esp_random() % 3;
+                    options[correct_idx] = n1 * n2;
+                    options[(correct_idx + 1) % 3] = n1 * n2 + (esp_random() % 10 + 1);
+                    options[(correct_idx + 2) % 3] = n1 * n2 - (esp_random() % 10 + 1);
+                    if (options[(correct_idx + 2) % 3] < 0) options[(correct_idx + 2) % 3] += 20;
+                } else {
+                    buzzer_demo_gameover();
+                    timer = 0;
+                }
             }
             p_left = s_paddle_left; p_right = s_paddle_right;
             
-            char sb[32]; snprintf(sb, sizeof(sb), "%d x %d = ?", n1, n2);
-            draw_text(10, 20, sb, 1);
-            snprintf(sb, sizeof(sb), "%d", ans);
-            draw_text(60, 40, sb, 2);
-            snprintf(sb, sizeof(sb), "Score: %d", score); draw_text(2,2,sb,1);
+            char sb[32]; snprintf(sb, sizeof(sb), "%dx%d=?", n1, n2);
+            draw_text_portrait(5, 15, sb, 2);
+            
+            for (int i=0; i<3; i++) {
+                snprintf(sb, sizeof(sb), "%c %d", (i==sel)?'>':' ', options[i]);
+                draw_text_portrait(10, 45 + i*20, sb, 2);
+            }
+            snprintf(sb, sizeof(sb), "Score:%d", score); draw_text_portrait(2,2,sb,1);
+            
+            // Draw timer bar
+            draw_line_portrait(0, 126, (timer * 64) / 150, 126, 1);
+            draw_line_portrait(0, 127, (timer * 64) / 150, 127, 1);
+            
+            oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_US_SHOOTER) {
+            static float ship_y = 32.0f;
+            static float asteroids_x[3] = {128, 160, 200};
+            static float asteroids_y[3] = {10, 30, 50};
+            static bool asteroids_active[3] = {true, true, true};
+            static float lasers_x[3] = {0};
+            static float lasers_y[3] = {0};
+            static bool lasers_active[3] = {false};
+            static int score = 0;
+            static bool p_btn1 = false;
+            static bool game_over = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            
+            if (last_mode != s_oled_mode) {
+                ship_y = 32.0f; score = 0; game_over = false;
+                for(int i=0; i<3; i++) {
+                    asteroids_x[i] = 128 + i*40; asteroids_y[i] = esp_random()%54; asteroids_active[i] = true;
+                    lasers_active[i] = false;
+                }
+                last_mode = s_oled_mode;
+            }
+            
+            if (game_over) {
+                draw_text(20, 20, "GAME OVER", 2);
+                char sb[32]; snprintf(sb, sizeof(sb), "Score: %d", score);
+                draw_text(30, 40, sb, 1);
+                oled_send_buffer();
+                vTaskDelay(pdMS_TO_TICKS(100));
+                if ((s_paddle_left && !p_btn1) || s_paddle_right) {
+                    game_over = false; score = 0;
+                    for(int i=0; i<3; i++) {
+                        asteroids_x[i] = 128 + i*40; asteroids_y[i] = esp_random()%54; asteroids_active[i] = true;
+                        lasers_active[i] = false;
+                    }
+                }
+                p_btn1 = s_paddle_left;
+                continue;
+            }
+            
+            extern float ultrasonic_get_distance(void);
+            float dist = ultrasonic_get_distance();
+            if (dist > 2.0f && dist < 30.0f) {
+                ship_y = ((dist - 2.0f) / 28.0f) * 60.0f;
+            }
+            if (ship_y < 0) ship_y = 0;
+            if (ship_y > 60) ship_y = 60;
+            
+            if (s_paddle_left && !p_btn1) {
+                for(int i=0; i<3; i++) {
+                    if (!lasers_active[i]) {
+                        lasers_active[i] = true;
+                        lasers_x[i] = 12;
+                        lasers_y[i] = ship_y + 2;
+                        buzzer_play_tone(1500, 20);
+                        break;
+                    }
+                }
+            }
+            p_btn1 = s_paddle_left;
+            
+            for(int i=0; i<3; i++) {
+                if (lasers_active[i]) {
+                    lasers_x[i] += 5.0f;
+                    if (lasers_x[i] > 128) lasers_active[i] = false;
+                    draw_line(lasers_x[i], lasers_y[i], lasers_x[i]-4, lasers_y[i], 1);
+                }
+            }
+            
+            #define ABS_MACRO(x) ((x)>0?(x):-(x))
+            for(int i=0; i<3; i++) {
+                if (asteroids_active[i]) {
+                    asteroids_x[i] -= (2.0f + score*0.1f);
+                    if (asteroids_x[i] < -10) {
+                        asteroids_x[i] = 128 + (esp_random()%40);
+                        asteroids_y[i] = esp_random()%54;
+                    }
+                    
+                    for (int ax=-2; ax<=2; ax++) for (int ay=-2; ay<=2; ay++) {
+                        if (ax*ax + ay*ay <= 4) draw_pixel(asteroids_x[i]+ax, asteroids_y[i]+ay, 1);
+                    }
+                    
+                    for(int L=0; L<3; L++) {
+                        if (lasers_active[L] && ABS_MACRO(lasers_x[L] - asteroids_x[i]) < 6 && ABS_MACRO(lasers_y[L] - asteroids_y[i]) < 6) {
+                            asteroids_active[i] = false;
+                            lasers_active[L] = false;
+                            score++;
+                            buzzer_play_tone(400, 30);
+                            break;
+                        }
+                    }
+                    
+                    if (asteroids_active[i] && asteroids_x[i] < 12 && ABS_MACRO(ship_y + 2 - asteroids_y[i]) < 6) {
+                        buzzer_demo_gameover();
+                        game_over = true;
+                    }
+                } else {
+                    asteroids_x[i] = 128 + (esp_random()%40);
+                    asteroids_y[i] = esp_random()%54;
+                    asteroids_active[i] = true;
+                }
+            }
+            
+            draw_line(2, ship_y, 10, ship_y+2, 1);
+            draw_line(2, ship_y+4, 10, ship_y+2, 1);
+            draw_line(2, ship_y, 2, ship_y+4, 1);
+            
+            char sb[32]; snprintf(sb, sizeof(sb), "%d", score); draw_text(110,2,sb,1);
+            
+            oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+        } else if (s_oled_mode == OLED_MODE_MARIO_DANCE) {
+            // ── Pixelated Mario Dancing ──────────────────────────────────────
+            // Mario sprite: 16 wide x 16 tall, two frames for dance animation.
+            // Each row is 2 bytes (MSB = left). Drawn with 4x scale = 64x64 px.
+            static const uint16_t mario_frame0[16] = {
+                // Hat + hair
+                0x03C0, // ..0011 1100..
+                0x07E0, // ..0111 1110..
+                // Face (skin tone pixels)
+                0x1FF8, // .001 1111 1111 1000
+                0x3CF8, // 0011 1100 1111 1000
+                0x3FF8, // 0011 1111 1111 1000
+                // Body / overalls
+                0x0FF0, // .0000 1111 1111 0...
+                0x3CF0, // 0011 1100 1111 0...
+                0x3FF0, // 0011 1111 1111 0...
+                0x0FC0, // .0000 1111 1100 0...
+                0x03C0, // ..0011 1100 0...
+                // Legs
+                0x1DB0, // .001 1011 1011 0...
+                0x3DB8, // 0011 1011 1011 1...
+                0x3DB8,
+                // Feet
+                0x1C38, // .001 1100 0011 1...
+                0x1C38,
+                0x0000,
+            };
+            static const uint16_t mario_frame1[16] = {
+                // Same hat, arms raised
+                0x03C0,
+                0x07E0,
+                0x1FF8,
+                0x3CF8,
+                0x3FF8,
+                0x0FF0,
+                0x7CF8, // arms out wide
+                0x7FF8,
+                0x0FC0,
+                0x0FC0,
+                0x1BB0,
+                0x3BB8,
+                0x3BB8,
+                0x0E18, // feet spread
+                0x0E18,
+                0x0000,
+            };
+
+            static int anim_frame = 0;
+            static int anim_tick = 0;
+            static float star_x[6];
+            static float star_y[6];
+            static bool stars_init = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static int coin_timer = 0;
+
+            if (last_mode != s_oled_mode) {
+                anim_frame = 0; anim_tick = 0; stars_init = false; coin_timer = 0;
+                last_mode = s_oled_mode;
+            }
+
+            // Init sparkle stars around mario
+            if (!stars_init) {
+                for (int i = 0; i < 6; i++) {
+                    float angle = i * 1.047f; // 60deg apart
+                    star_x[i] = 64 + cosf(angle) * 30.0f;
+                    star_y[i] = 32 + sinf(angle) * 20.0f;
+                }
+                stars_init = true;
+            }
+
+            // Play coin every ~40 frames
+            coin_timer++;
+            if (coin_timer == 1) {
+                buzzer_play_tone(988, 60);
+            } else if (coin_timer == 5) {
+                buzzer_play_tone(1319, 100);
+            } else if (coin_timer >= 40) {
+                coin_timer = 0;
+            }
+
+            // Flip frame every 8 ticks (~240ms at 30ms frame)
+            anim_tick++;
+            if (anim_tick >= 8) {
+                anim_frame ^= 1;
+                anim_tick = 0;
+            }
+
+            const uint16_t *sprite = (anim_frame == 0) ? mario_frame0 : mario_frame1;
+
+            // Bounce offset: mario bobs up/down
+            int bob = (int)(sinf(frame_count * 0.25f) * 3.0f);
+
+            // Draw mario at center-ish, 4x scale each pixel = 2 pixels wide (compact)
+            // Each bit in 16-bit row → draw 3x3 block
+            int mx = 32, my = 4 + bob; // top-left of mario on 128x64 OLED
+            for (int row = 0; row < 16; row++) {
+                uint16_t bits = sprite[row];
+                for (int col = 0; col < 16; col++) {
+                    if (bits & (1 << (15 - col))) {
+                        // Draw 3x3 block per mario pixel
+                        for (int dy2 = 0; dy2 < 3; dy2++)
+                            for (int dx2 = 0; dx2 < 3; dx2++)
+                                draw_pixel(mx + col*3 + dx2, my + row*3 + dy2, 1);
+                    }
+                }
+            }
+
+            // Spinning stars around mario
+            float t_star = frame_count * 0.12f;
+            for (int i = 0; i < 6; i++) {
+                float base_angle = i * 1.047f + t_star;
+                int sx = 72 + (int)(cosf(base_angle) * 22.0f);
+                int sy = 32 + (int)(sinf(base_angle) * 16.0f);
+                // Draw a little star: +
+                draw_pixel(sx,   sy,   1);
+                draw_pixel(sx+1, sy,   1);
+                draw_pixel(sx,   sy+1, 1);
+                draw_pixel(sx+1, sy+1, 1);
+            }
+
+            // Score text "MARIO!" at top
+            draw_text(2, 2, "MARIO!", 1);
+
+            // Coin label bottom right
+            draw_text(88, 54, "DANCE!", 1);
+
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+
+        } else if (s_oled_mode == OLED_MODE_FIREWORKS) {
+            // ── Fireworks! ──────────────────────────────────────────────────
+            #define FW_MAX 8
+            typedef struct { float x, y, dx, dy; float life; bool active; } particle_t;
+            static particle_t particles[FW_MAX * 12]; // 8 rockets * 12 sparks
+            static float rocket_x[FW_MAX], rocket_y[FW_MAX], rocket_dy[FW_MAX];
+            static bool rocket_active[FW_MAX];
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+            static int spawn_timer = 0;
+
+            if (last_mode != s_oled_mode) {
+                for (int i = 0; i < FW_MAX; i++) rocket_active[i] = false;
+                for (int i = 0; i < FW_MAX * 12; i++) particles[i].active = false;
+                spawn_timer = 0;
+                last_mode = s_oled_mode;
+            }
+
+            // Spawn new rocket periodically
+            spawn_timer++;
+            if (spawn_timer >= 15) {
+                spawn_timer = 0;
+                for (int i = 0; i < FW_MAX; i++) {
+                    if (!rocket_active[i]) {
+                        rocket_x[i] = 10 + (esp_random() % 108);
+                        rocket_y[i] = 63;
+                        rocket_dy[i] = -(2.5f + (esp_random() % 10) * 0.3f);
+                        rocket_active[i] = true;
+                        break;
+                    }
+                }
+            }
+
+            // Update rockets
+            for (int i = 0; i < FW_MAX; i++) {
+                if (!rocket_active[i]) continue;
+                rocket_y[i] += rocket_dy[i];
+                draw_pixel((int)rocket_x[i], (int)rocket_y[i], 1);
+                draw_pixel((int)rocket_x[i], (int)rocket_y[i]+1, 1);
+
+                // Explode when reaching upper area
+                if (rocket_y[i] < 8 + (esp_random() % 20)) {
+                    rocket_active[i] = false;
+                    buzzer_play_tone(600 + (esp_random() % 800), 50);
+                    // Spawn sparks
+                    int base = i * 12;
+                    for (int p = 0; p < 12; p++) {
+                        if (!particles[base + p].active) {
+                            particles[base + p].active = true;
+                            particles[base + p].x = rocket_x[i];
+                            particles[base + p].y = rocket_y[i];
+                            float angle = p * 0.5236f; // 30deg
+                            float speed = 1.5f + (esp_random() % 10) * 0.2f;
+                            particles[base + p].dx = cosf(angle) * speed;
+                            particles[base + p].dy = sinf(angle) * speed * 0.6f;
+                            particles[base + p].life = 1.0f;
+                        }
+                    }
+                }
+            }
+
+            // Update & draw sparks
+            for (int p = 0; p < FW_MAX * 12; p++) {
+                if (!particles[p].active) continue;
+                particles[p].x += particles[p].dx;
+                particles[p].y += particles[p].dy;
+                particles[p].dy += 0.08f; // gravity
+                particles[p].life -= 0.05f;
+                if (particles[p].life <= 0) { particles[p].active = false; continue; }
+                if (particles[p].life > 0.5f) {
+                    draw_pixel((int)particles[p].x, (int)particles[p].y, 1);
+                    draw_pixel((int)particles[p].x+1, (int)particles[p].y, 1);
+                } else {
+                    draw_pixel((int)particles[p].x, (int)particles[p].y, 1);
+                }
+            }
+
+            draw_text(28, 56, "FIREWORKS!", 1);
+
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+
+        } else if (s_oled_mode == OLED_MODE_MATRIX_RAIN) {
+            // ── Matrix Digital Rain ───────────────────────────────────────────
+            #define MATRIX_COLS 21  // 128/6 columns ~21
+            static int8_t col_heads[MATRIX_COLS];   // y position of head
+            static int8_t col_lengths[MATRIX_COLS];  // trail length
+            static int8_t col_speeds[MATRIX_COLS];   // frames per step
+            static int8_t col_timers[MATRIX_COLS];
+            static char   col_chars[MATRIX_COLS][32]; // chars in each trail
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+
+            if (last_mode != s_oled_mode) {
+                for (int c = 0; c < MATRIX_COLS; c++) {
+                    col_heads[c]   = -(esp_random() % 40);
+                    col_lengths[c] = 5 + (esp_random() % 10);
+                    col_speeds[c]  = 1 + (esp_random() % 3);
+                    col_timers[c]  = 0;
+                    for (int r = 0; r < 32; r++)
+                        col_chars[c][r] = 33 + (esp_random() % 93); // printable ASCII
+                }
+                last_mode = s_oled_mode;
+            }
+
+            // Scroll each column
+            for (int c = 0; c < MATRIX_COLS; c++) {
+                col_timers[c]++;
+                if (col_timers[c] >= col_speeds[c]) {
+                    col_timers[c] = 0;
+                    col_heads[c]++;
+                    if (col_heads[c] > 64 + col_lengths[c]) {
+                        col_heads[c]   = -(esp_random() % 30);
+                        col_lengths[c] = 5 + (esp_random() % 10);
+                        col_speeds[c]  = 1 + (esp_random() % 3);
+                        for (int r = 0; r < 32; r++)
+                            col_chars[c][r] = 33 + (esp_random() % 93);
+                    }
+                    // Randomly mutate chars in column
+                    col_chars[c][esp_random() % 32] = 33 + (esp_random() % 93);
+                }
+            }
+
+            // Draw each column trail (each char is 8px tall in our 1x scale)
+            for (int c = 0; c < MATRIX_COLS; c++) {
+                int x = c * 6;
+                int head_y = col_heads[c];
+                for (int t = 0; t < col_lengths[c]; t++) {
+                    int y = head_y - t * 8;
+                    if (y < 0 || y > 56) continue;
+                    char ch_buf[2] = { col_chars[c][t % 32], 0 };
+                    // Head pixel is bright (drawn normally), trail gets dimmer (skip pixels)
+                    if (t == 0) {
+                        draw_text(x, y, ch_buf, 1);
+                    } else if (t < 3) {
+                        draw_text(x, y, ch_buf, 1);
+                    } else if (t % 2 == 0) {
+                        // Dimmer: just draw a dot
+                        draw_pixel(x + 2, y + 3, 1);
+                    }
+                }
+            }
+
+            draw_text(22, 56, "MATRIX RAIN", 1);
+
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+
+        } else if (s_oled_mode == OLED_MODE_SPACE_INVADER) {
+            // ── Space Invader Parade ──────────────────────────────────────────
+            // Classic 11x8 invader sprites, 3 types, marching left-right
+            static const uint8_t inv_a0[8] = { 0x18, 0x3C, 0x7E, 0xDB, 0xFF, 0x24, 0x5A, 0xA5 };
+            static const uint8_t inv_a1[8] = { 0x18, 0x3C, 0x7E, 0xDB, 0xFF, 0x24, 0x42, 0x81 };
+            static const uint8_t inv_b0[8] = { 0x0C, 0x7E, 0xDB, 0xFF, 0x5A, 0x24, 0x66, 0x00 };
+            static const uint8_t inv_b1[8] = { 0x30, 0x7E, 0xDB, 0xFF, 0x5A, 0x24, 0x66, 0x00 };
+            static const uint8_t inv_c0[8] = { 0x3C, 0x7E, 0xC3, 0xFF, 0x24, 0x66, 0xFF, 0x66 };
+            static const uint8_t inv_c1[8] = { 0x3C, 0x7E, 0xC3, 0xFF, 0x24, 0x66, 0xFF, 0x24 };
+
+            static int parade_x = 0;
+            static int parade_dir = 1;
+            static int parade_frame = 0;
+            static int parade_tick = 0;
+            static int laser_x = -1, laser_y = -1;
+            static int shoot_timer = 0;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+
+            if (last_mode != s_oled_mode) {
+                parade_x = 0; parade_dir = 1; parade_frame = 0; parade_tick = 0;
+                laser_x = -1; laser_y = -1; shoot_timer = 0;
+                last_mode = s_oled_mode;
+            }
+
+            parade_tick++;
+            if (parade_tick >= 6) {
+                parade_tick = 0;
+                parade_frame ^= 1;
+                parade_x += parade_dir * 2;
+                if (parade_x > 30 || parade_x < -2) {
+                    parade_dir = -parade_dir;
+                    // Drop down (bounce y instead of actual drop for screen room)
+                }
+            }
+
+            // Draw 3 rows of invaders
+            const uint8_t *sprites0[3][2] = {{inv_c0, inv_c1}, {inv_b0, inv_b1}, {inv_a0, inv_a1}};
+            for (int row = 0; row < 3; row++) {
+                for (int col = 0; col < 4; col++) {
+                    int ix = parade_x + col * 26;
+                    int iy = 2 + row * 16;
+                    if (ix < 0 || ix > 120) continue;
+                    draw_sprite8(ix, iy, sprites0[row][parade_frame], 8, 8);
+                }
+            }
+
+            // Laser shoot from bottom
+            shoot_timer++;
+            if (shoot_timer >= 25) {
+                shoot_timer = 0;
+                laser_x = 60 + (esp_random() % 20);
+                laser_y = 63;
+                buzzer_play_tone(300, 30);
+            }
+            if (laser_x >= 0) {
+                laser_y -= 4;
+                draw_pixel(laser_x, laser_y, 1);
+                draw_pixel(laser_x, laser_y - 1, 1);
+                draw_pixel(laser_x, laser_y - 2, 1);
+                if (laser_y < 0) laser_x = -1;
+            }
+
+            // Player ship at bottom
+            draw_sprite8(54, 55, inv_a0, 8, 8);
+
+            draw_text(2, 56, "SPACE", 1);
+
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+
+        } else if (s_oled_mode == OLED_MODE_HEARTBEAT) {
+            // ── Heartbeat / Love ─────────────────────────────────────────────
+            static float heart_scale = 1.0f;
+            static float scale_target = 1.4f;
+            static int beat_timer = 0;
+            static int note_state = 0;
+            static float float_x[5], float_y[5], float_vy[5];
+            static bool hearts_init = false;
+            static oled_mode_t last_mode = OLED_MODE_NORMAL;
+
+            if (last_mode != s_oled_mode) {
+                heart_scale = 1.0f; scale_target = 1.4f; beat_timer = 0; note_state = 0;
+                hearts_init = false;
+                last_mode = s_oled_mode;
+            }
+
+            if (!hearts_init) {
+                for (int i = 0; i < 5; i++) {
+                    float_x[i] = 5 + i * 24;
+                    float_y[i] = 55 - (esp_random() % 20);
+                    float_vy[i] = -(0.3f + (i % 3) * 0.15f);
+                }
+                hearts_init = true;
+            }
+
+            // Beat: scale pulses and buzzer plays ♥ rhythm
+            beat_timer++;
+            if (beat_timer == 1) {
+                scale_target = 1.5f;
+                // Two-beat: lub-dub
+                if (note_state == 0) {
+                    buzzer_play_tone(220, 80);
+                    note_state = 1;
+                } else if (note_state == 1) {
+                    buzzer_play_tone(196, 60);
+                    note_state = 2;
+                }
+            }
+            if (beat_timer >= 5) scale_target = 1.0f;
+            if (beat_timer >= 60) { beat_timer = 0; note_state = 0; }
+
+            // Smooth scale
+            if (heart_scale < scale_target) heart_scale += 0.05f;
+            else if (heart_scale > scale_target) heart_scale -= 0.05f;
+
+            // Draw big central heart (parametric)
+            int hcx = 64, hcy = 30;
+            float r = 12.0f * heart_scale;
+            for (float t2 = 0; t2 < 6.2832f; t2 += 0.06f) {
+                float hx = r * 16.0f * powf(sinf(t2), 3.0f) / 16.0f;
+                float hy = -r * (13.0f * cosf(t2) - 5.0f * cosf(2*t2) - 2.0f * cosf(3*t2) - cosf(4*t2)) / 16.0f;
+                draw_pixel(hcx + (int)hx, hcy + (int)hy, 1);
+            }
+
+            // Floating small hearts drifting up
+            for (int i = 0; i < 5; i++) {
+                float_y[i] += float_vy[i];
+                if (float_y[i] < -4) {
+                    float_y[i] = 63;
+                    float_x[i] = 5 + (esp_random() % 118);
+                }
+                // Small heart: 5x4
+                int fx = (int)float_x[i], fy = (int)float_y[i];
+                // Two bumps + V shape
+                draw_pixel(fx+1, fy,   1); draw_pixel(fx+3, fy,   1);
+                draw_pixel(fx,   fy+1, 1); draw_pixel(fx+2, fy+1, 1); draw_pixel(fx+4, fy+1, 1);
+                draw_pixel(fx+1, fy+2, 1); draw_pixel(fx+3, fy+2, 1);
+                draw_pixel(fx+2, fy+3, 1);
+            }
+
+            draw_text(32, 56, "<3 LOVE <3", 1);
+
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
+
+        } else if (s_oled_mode == OLED_MODE_BUZZER_PIANO) {
+            static bool p_left = false;
+            static bool p_right = false;
+            
+            if (s_paddle_left && s_paddle_right) {
+                if (!p_left || !p_right) buzzer_play_tone(784, 500); // G5
+            } else if (s_paddle_left) {
+                if (!p_left) buzzer_play_tone(523, 500); // C5
+            } else if (s_paddle_right) {
+                if (!p_right) buzzer_play_tone(659, 500); // E5
+            } else {
+                if (p_left || p_right) buzzer_play_tone(0, 50); // Stop tone early
+            }
+            
+            p_left = s_paddle_left; p_right = s_paddle_right;
+            
+            draw_text(10, 10, "Buzzer Piano", 1);
+            draw_text(10, 30, s_paddle_left ? "[X] Left" : "[ ] Left", 1);
+            draw_text(10, 45, s_paddle_right ? "[X] Right" : "[ ] Right", 1);
             
             oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         } else if (s_oled_mode == OLED_MODE_MENU) {
             static const char* menu_opts[] = {
                 "Pong (H)", "Pong (V)", "Flappy", "Dino", "Snake", 
-                "Pacman", "Frogger", "Racing", "Math", "3D Demo", "Exit (Eyes)"
+                "Pacman", "Frogger", "Racing", "Math", "US Shooter", "Piano", "3D Demo",
+                "Mario Dance", "Fireworks", "Matrix Rain", "Space Inv", "Heartbeat",
+                "Exit (Eyes)"
             };
             static const oled_mode_t menu_modes[] = {
                 OLED_MODE_PONG_H, OLED_MODE_PONG_V, OLED_MODE_FLAPPY, OLED_MODE_DINO, OLED_MODE_SNAKE,
-                OLED_MODE_PACMAN, OLED_MODE_FROGGER, OLED_MODE_RACING, OLED_MODE_MATH, OLED_MODE_3D_SHOWCASE, OLED_MODE_NORMAL
+                OLED_MODE_PACMAN, OLED_MODE_FROGGER, OLED_MODE_RACING, OLED_MODE_MATH, OLED_MODE_US_SHOOTER,
+                OLED_MODE_BUZZER_PIANO, OLED_MODE_3D_SHOWCASE,
+                OLED_MODE_MARIO_DANCE, OLED_MODE_FIREWORKS, OLED_MODE_MATRIX_RAIN, OLED_MODE_SPACE_INVADER, OLED_MODE_HEARTBEAT,
+                OLED_MODE_NORMAL
             };
-            const int num_opts = 11;
+            const int num_opts = 18;
             static int sel = 0;
             static bool p_left = false, p_right = false;
             static oled_mode_t last_mode = OLED_MODE_NORMAL;

@@ -1,6 +1,7 @@
 #include "wifi_mgr.h"
 #include "webserver.h"
 #include "config.h"
+#include "buzzer.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -124,6 +125,7 @@ static void on_ip_event(void *arg, esp_event_base_t base,
         // STA connected — cancel the AP fallback timer
         if (s_ap_timer) xTimerStop(s_ap_timer, 0);
         xEventGroupSetBits(s_wifi_events, WIFI_CONNECTED_BIT);
+        buzzer_demo_wifi_connected();
         webserver_start();
     }
 }

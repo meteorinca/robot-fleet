@@ -206,6 +206,21 @@
       transform: scale(1.2);
       background: #5b4de8;
     }
+    
+    .piano-key {
+      flex: 1;
+      background: #f0f0f0;
+      border: 1px solid #333;
+      border-radius: 0 0 6px 6px;
+      box-shadow: 0 4px 0 #bbb;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .piano-key:active {
+      background: #d0d0d0;
+      box-shadow: 0 1px 0 #bbb;
+      transform: translateY(3px);
+    }
   </style>
 </head>
 
@@ -227,7 +242,12 @@
         <button class='btn-led' onclick='led("l1off")'>OFF</button>
         <button class='btn-led' onclick='led("toggle")'>TOGGLE</button>
       </div>
-      <div style='margin-bottom: 8px; font-size: 12px; color: #a0a0d0;'>External LEDs</div>
+      <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;'>
+        <div style='font-size: 12px; color: #a0a0d0;'>External LEDs</div>
+        <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
+          <input type='checkbox' id='led-direct' checked onchange='fetch("/led_direct?on="+(this.checked?1:0))' style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Direct Mode
+        </label>
+      </div>
       <div class='btn-led-grid' style='grid-template-columns: 1fr 1fr 1fr; margin-bottom: 12px;'>
         <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grnon")'>GRN ON</button>
         <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grnoff")'>GRN OFF</button>
@@ -271,14 +291,24 @@
     </div>
 
     <div class='card'>
-      <h2>NeoPixel Animations</h2>
-      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr 1fr;'>
-        <button class='btn-led' onclick='np_rbw()' style='color:#ff55ff;border-color:#ff55ff;'>RAINBOW</button>
-        <button class='btn-led' onclick='np_plc()' style='color:#5555ff;border-color:#5555ff;'>POLICE</button>
-        <button class='btn-led' onclick='np_dsc()' style='color:#55ff55;border-color:#55ff55;'>DISCO</button>
-        <button class='btn-led' onclick='np_pac()' style='color:#55ffff;border-color:#55ffff;'>PACIFICA</button>
-        <button class='btn-led' onclick='np_on()' style='color:#ffffff;border-color:#ffffff;'>ON</button>
-        <button class='btn-led' onclick='np_clr()' style='color:#a0a0a0;'>OFF</button>
+      <h2>Buzzer Demos & Mini Piano</h2>
+      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr 1fr; margin-bottom: 12px;'>
+        <button class='btn-led' onclick='fetch("/demo?type=coin")' style='color:#ffdd55;border-color:#ffdd55;'>COIN</button>
+        <button class='btn-led' onclick='fetch("/demo?type=gameover")' style='color:#f7736a;border-color:#f7736a;'>GAME OVER</button>
+        <button class='btn-led' onclick='fetch("/demo?type=siren")' style='color:#5555ff;border-color:#5555ff;'>SIREN</button>
+        <button class='btn-led' onclick='fetch("/demo?type=laser")' style='color:#55ff55;border-color:#55ff55;'>LASER</button>
+        <button class='btn-led' onclick='fetch("/demo?type=mario")' style='color:#ff5555;border-color:#ff5555;'>🍄 MARIO</button>
+        <button class='btn-led' onclick='fetch("/demo?type=1up")' style='color:#00ffcc;border-color:#00ffcc;'>1-UP</button>
+      </div>
+      <div style='display:flex; gap:2px; height:80px;'>
+        <div class='piano-key' onclick='fetch("/tone?f=261&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=293&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=329&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=349&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=392&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=440&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=493&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=523&d=200")'></div>
       </div>
     </div>
 
@@ -305,6 +335,8 @@
           <option value='7'>Froggy Road</option>
           <option value='8'>Racing</option>
           <option value='9'>Times Table</option>
+          <option value='12'>US Shooter</option>
+          <option value='13'>Buzzer Piano</option>
         </select>
         <button class='btn-led' id='game-play-btn' onclick='playSelectedGame()' style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
         <button class='btn-led' id='game-stop-btn' onclick='fetch("/game_off")' style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
@@ -375,25 +407,7 @@
       document.getElementById('s' + n + '-val').textContent = a;
       fetch('/s' + n + '_' + a);
     }
-    var npT = 0; function np_clr() { clearInterval(npT); fetch('/neopixel_clear'); }
-    function np_on() { clearInterval(npT); fetch('/neopixel_all?r=255&g=255&b=255'); }
-    function np_pac() { clearInterval(npT); fetch('/neopixel_pacifica'); }
-    function np_rbw() {
-      clearInterval(npT); var h = 0; npT = setInterval(function () {
-        h = (h + 15) % 360; var f = function (n) { var k = (n + h / 60) % 6; return 255 - Math.round(255 * Math.max(0, Math.min(k, 4 - k, 1))); };
-        fetch('/neopixel_all?r=' + f(5) + '&g=' + f(3) + '&b=' + f(1));
-      }, 200);
-    }
-    function np_plc() {
-      clearInterval(npT); var t = 0; npT = setInterval(function () {
-        t = !t; if (t) fetch('/neopixel_all?r=255&g=0&b=0'); else fetch('/neopixel_all?r=0&g=0&b=255');
-      }, 250);
-    }
-    function np_dsc() {
-      clearInterval(npT); npT = setInterval(function () {
-        fetch('/neopixel_all?r=' + Math.floor(Math.random() * 255) + '&g=' + Math.floor(Math.random() * 255) + '&b=' + Math.floor(Math.random() * 255));
-      }, 150);
-    }
+
     function scheduleAction() {
       var d = document.getElementById('sched-delay').value;
       var a = document.getElementById('sched-action').value;
@@ -459,6 +473,8 @@
       else if (g == '7') fetch('/game_frogger');
       else if (g == '8') fetch('/game_racing');
       else if (g == '9') fetch('/game_math');
+      else if (g == '12') fetch('/game_us_shooter');
+      else if (g == '13') fetch('/game_piano');
     }
     // Polling for Ultrasonic Data and Buttons
     setInterval(function () {

@@ -33,15 +33,13 @@ You can queue an action to happen at an exact Unix timestamp across all bots sim
 - **Push text to connected browsers**: `GET /sendtts:Hello%20World` or `GET /tts?say=Hello%20World`
   - *Broadcasts the text to any browser listening on `/events`.*
 
-## 🌈 NeoPixel Strip Control (WS2812 — 10 pixels)
-Requires `WS2812_DATA_GPIO` and `WS2812_NUM_LEDS` to be defined in `board_config.h`.
+## 🎵 Buzzer Control
+Requires `BUZZER_PIN` to be defined in `board_config.h`.
 
-- **Set one pixel**: `GET /neopixel?pixel=N&r=R&g=G&b=B`
-  - *`pixel`: 0–9 · `r`,`g`,`b`: 0–255 · Sets pixel N to the given RGB color.*
-- **Set all pixels**: `GET /neopixel_all?r=R&g=G&b=B`
-  - *Sets every pixel on the strip to a single color.*
-- **Clear all pixels**: `GET /neopixel_clear`
-  - *Turns every pixel off (all black).*
+- **Play Tone**: `GET /tone?f=1000&d=100`
+  - *`f`: Frequency in Hz (e.g., 1000) · `d`: Duration in ms (e.g., 100)*
+- **Play Demo Melody**: `GET /demo?type=coin`
+  - *`type`: 'coin', 'gameover', 'siren', 'laser', 'mario', '1up'*
 
 ## ⏱️ System & Status
 - **Get Status**: `GET /status`
@@ -51,4 +49,23 @@ Requires `WS2812_DATA_GPIO` and `WS2812_NUM_LEDS` to be defined in `board_config
 
 ---
 
-*Tip: You can test any of these by just typing them into your browser's address bar! Example: `http://mybot5.local/schedule?action=toggle&delay=3`*
+## 🕹️ Fun OLED Animations (Physical Buttons)
+
+| Button | Behavior |
+|--------|----------|
+| **BTN_1** (short press, in Normal mode) | Launch **Dancing Mario** — pixelated sprite dances with coin SFX and spinning stars |
+| **BTN_2** (short press, in Normal mode) | Cycle through fun animations: Fireworks → Matrix Rain → Space Invaders → Heartbeat → Normal |
+| **BTN_2** (hold 3 s) | Open the full **OLED Menu** |
+
+## 🎬 OLED Animations via API
+
+- **Dancing Mario**: `GET /anim_mario`
+- **Fireworks**: `GET /anim_fireworks`
+- **Matrix Rain**: `GET /anim_matrix`
+- **Space Invaders parade**: `GET /anim_invader`
+- **Heartbeat/Love**: `GET /anim_heartbeat`
+- **Return to Eyes**: `GET /game_off`
+
+---
+
+*Tip: You can test any of these by just typing them into your browser's address bar! Example: `http://mybot5.local/anim_mario`*

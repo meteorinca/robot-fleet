@@ -1,10 +1,7 @@
 #include "webserver.h"
 #include "config.h"
 #include "led.h"
-// WS2812 NeoPixel driver — only compiled when the strip is configured
-#ifdef WS2812_NUM_LEDS
-#include "ws2812.h"
-#endif
+#include "buzzer.h"
 #include "timekeep.h"
 #include "ota_mgr.h"
 #include "servo.h"
@@ -325,6 +322,24 @@ static void github_tts_task(void *arg) {
 
 extern bool g_btn1_state;
 extern bool g_btn2_state;
+extern bool g_led_direct_mode;
+
+static esp_err_t led_direct_handler(httpd_req_t *req) {
+    char buf[32];
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        char val[16];
+        if (httpd_query_key_value(buf, "on", val, sizeof(val)) == ESP_OK) {
+            g_led_direct_mode = (atoi(val) != 0);
+            if (!g_led_direct_mode) {
+                led_grn_set(false);
+                led_red_set(false);
+            }
+        }
+    }
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
 
 static esp_err_t btn_data_handler(httpd_req_t *req) {
     char resp[128];
@@ -378,6 +393,15 @@ static esp_err_t game_frogger_handler(httpd_req_t *req) { oled_set_mode(OLED_MOD
 static esp_err_t game_racing_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_RACING); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 static esp_err_t game_math_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_MATH); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 static esp_err_t anim_3d_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_3D_SHOWCASE); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t game_truth_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_TRUTH_TABLE); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t game_piano_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_BUZZER_PIANO); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t game_us_shooter_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_US_SHOOTER); ultrasonic_set_active(true); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+// New fun animation endpoints
+static esp_err_t anim_mario_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_MARIO_DANCE); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t anim_fireworks_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_FIREWORKS); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t anim_matrix_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_MATRIX_RAIN); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t anim_invader_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_SPACE_INVADER); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t anim_heartbeat_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_HEARTBEAT); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 
 static esp_err_t game_off_handler(httpd_req_t *req) {
     oled_set_mode(OLED_MODE_NORMAL);
@@ -480,82 +504,39 @@ static esp_err_t audio_post_handler(httpd_req_t *req) {
 }
 #endif
 
-#ifdef WS2812_NUM_LEDS
-// ══════════════════════════════════════════════════════════════
-//  NeoPixel endpoints  (only when WS2812_NUM_LEDS is defined)
-// ══════════════════════════════════════════════════════════════
-
-// GET /neopixel?pixel=N&r=R&g=G&b=B
-static esp_err_t neopixel_handler(httpd_req_t *req) {
-    char buf[64];
-    int pixel = 0, r = 0, g = 0, b = 0;
-    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
-        char p[8];
-        if (httpd_query_key_value(buf, "pixel", p, sizeof(p)) == ESP_OK) pixel = atoi(p);
-        if (httpd_query_key_value(buf, "r",     p, sizeof(p)) == ESP_OK) r     = atoi(p);
-        if (httpd_query_key_value(buf, "g",     p, sizeof(p)) == ESP_OK) g     = atoi(p);
-        if (httpd_query_key_value(buf, "b",     p, sizeof(p)) == ESP_OK) b     = atoi(p);
+//  Buzzer endpoints
+// GET /tone?f=1000&d=100
+static esp_err_t buzzer_tone_handler(httpd_req_t *req) {
+    char f_str[16] = {0};
+    uint32_t f = 1000;
+    uint32_t d = 100;
+    if (httpd_req_get_url_query_str(req, f_str, sizeof(f_str)) == ESP_OK) {
+        char val[16];
+        if (httpd_query_key_value(f_str, "f", val, sizeof(val)) == ESP_OK) f = atoi(val);
+        if (httpd_query_key_value(f_str, "d", val, sizeof(val)) == ESP_OK) d = atoi(val);
     }
-    // Clamp values
-    if (pixel < 0) pixel = 0;
-    if (pixel >= WS2812_NUM_LEDS) pixel = WS2812_NUM_LEDS - 1;
-    r = r < 0 ? 0 : r > 255 ? 255 : r;
-    g = g < 0 ? 0 : g > 255 ? 255 : g;
-    b = b < 0 ? 0 : b > 255 ? 255 : b;
-
-    ws2812_set_pixel(pixel, (uint8_t)r, (uint8_t)g, (uint8_t)b);
-    ws2812_show();
-    ESP_LOGI("WEB", "NeoPixel: pixel=%d r=%d g=%d b=%d", pixel, r, g, b);
-
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    buzzer_play_tone(f, d);
+    httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
 
-// GET /neopixel_all?r=R&g=G&b=B
-static esp_err_t neopixel_all_handler(httpd_req_t *req) {
-    char buf[48];
-    int r = 0, g = 0, b = 0;
-    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
-        char p[8];
-        if (httpd_query_key_value(buf, "r", p, sizeof(p)) == ESP_OK) r = atoi(p);
-        if (httpd_query_key_value(buf, "g", p, sizeof(p)) == ESP_OK) g = atoi(p);
-        if (httpd_query_key_value(buf, "b", p, sizeof(p)) == ESP_OK) b = atoi(p);
+// GET /demo?type=coin
+static esp_err_t buzzer_demo_handler(httpd_req_t *req) {
+    char q_str[32] = {0};
+    if (httpd_req_get_url_query_str(req, q_str, sizeof(q_str)) == ESP_OK) {
+        char val[16];
+        if (httpd_query_key_value(q_str, "type", val, sizeof(val)) == ESP_OK) {
+            if (strcmp(val, "coin") == 0) buzzer_demo_coin();
+            else if (strcmp(val, "gameover") == 0) buzzer_demo_gameover();
+            else if (strcmp(val, "siren") == 0) buzzer_demo_siren();
+            else if (strcmp(val, "laser") == 0) buzzer_demo_laser();
+            else if (strcmp(val, "mario") == 0) buzzer_demo_mario();
+            else if (strcmp(val, "1up") == 0) buzzer_demo_1up();
+        }
     }
-    r = r < 0 ? 0 : r > 255 ? 255 : r;
-    g = g < 0 ? 0 : g > 255 ? 255 : g;
-    b = b < 0 ? 0 : b > 255 ? 255 : b;
-
-    uint32_t rgb = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
-    ws2812_set_all(rgb);
-    ws2812_show();
-    ESP_LOGI("WEB", "NeoPixel all: r=%d g=%d b=%d", r, g, b);
-
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    httpd_resp_sendstr(req, "OK");
     return ESP_OK;
 }
-
-// GET /neopixel_clear
-static esp_err_t neopixel_clear_handler(httpd_req_t *req) {
-    ws2812_clear();
-    ws2812_show();
-    ESP_LOGI("WEB", "NeoPixel cleared");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-}
-
-// GET /neopixel_pacifica
-static esp_err_t neopixel_pacifica_handler(httpd_req_t *req) {
-    ws2812_resume_heartbeat();
-    ESP_LOGI("WEB", "NeoPixel pacifica resumed");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-}
-#endif // WS2812_NUM_LEDS
-
 // ══════════════════════════════════════════════════════════════
 //  OTA firmware update handler  POST /ota
 //
@@ -672,6 +653,7 @@ void webserver_start(void) {
         { "/schedule",  HTTP_GET,  schedule_handler,       NULL },
         { "/us_data",   HTTP_GET,  us_data_handler,        NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },
+        { "/led_direct",HTTP_GET,  led_direct_handler,     NULL },
         { "/btn_data",  HTTP_GET,  btn_data_handler,       NULL },
         { "/game_on_h", HTTP_GET,  game_on_h_handler,      NULL },
         { "/game_on_v", HTTP_GET,  game_on_v_handler,      NULL },
@@ -682,8 +664,17 @@ void webserver_start(void) {
         { "/game_frogger",HTTP_GET,game_frogger_handler,   NULL },
         { "/game_racing",HTTP_GET, game_racing_handler,    NULL },
         { "/game_math",  HTTP_GET, game_math_handler,      NULL },
+        { "/game_truth", HTTP_GET, game_truth_handler,     NULL },
+        { "/game_us_shooter", HTTP_GET, game_us_shooter_handler, NULL },
+        { "/game_piano", HTTP_GET, game_piano_handler,     NULL },
         { "/anim_3d",    HTTP_GET, anim_3d_handler,        NULL },
         { "/game_off",  HTTP_GET,  game_off_handler,       NULL },
+        // New fun animation endpoints
+        { "/anim_mario",    HTTP_GET, anim_mario_handler,    NULL },
+        { "/anim_fireworks",HTTP_GET, anim_fireworks_handler,NULL },
+        { "/anim_matrix",   HTTP_GET, anim_matrix_handler,   NULL },
+        { "/anim_invader",  HTTP_GET, anim_invader_handler,  NULL },
+        { "/anim_heartbeat",HTTP_GET, anim_heartbeat_handler,NULL },
         // ... (rest of quick actions)
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },
         { "/l1off",     HTTP_GET,  quick_action_handler,   NULL },
@@ -724,12 +715,8 @@ void webserver_start(void) {
 #endif
         { "/ota",       HTTP_POST, ota_post_handler,       NULL },
         { "/ota",       HTTP_OPTIONS, cors_options_handler,NULL },
-#ifdef WS2812_NUM_LEDS
-        { "/neopixel",       HTTP_GET, neopixel_handler,       NULL },
-        { "/neopixel_all",   HTTP_GET, neopixel_all_handler,   NULL },
-        { "/neopixel_clear", HTTP_GET, neopixel_clear_handler, NULL },
-        { "/neopixel_pacifica", HTTP_GET, neopixel_pacifica_handler, NULL },
-#endif
+        { "/tone",           HTTP_GET, buzzer_tone_handler,    NULL },
+        { "/demo",           HTTP_GET, buzzer_demo_handler,    NULL },
         { "/servo",     HTTP_GET,  servo_handler,          NULL },
         { "/s1_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/s2_*",      HTTP_GET,  servo_angle_uri_handler,NULL },

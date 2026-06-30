@@ -11,20 +11,11 @@ set(COMMON_SRCS
     "timekeep.c"
     "ultrasonic.c"
     "oled.c"
+    "buzzer.c"
 )
 
-# Boards that use a WS2812/NeoPixel strip instead of a simple GPIO LED
-set(WS2812_BOARDS "esp32c3_mybot")
-
-set(DISPLAY_BOARDS "")
-
-if(BOARD IN_LIST WS2812_BOARDS)
-    list(APPEND CONDITIONAL_SRCS "ws2812.c")
-    message(STATUS "━━━ [main] LED driver: ws2812.c (NeoPixel RMT) ━━━")
-else()
-    list(APPEND CONDITIONAL_SRCS "led.c")
-    message(STATUS "━━━ [main] LED driver: led.c (simple GPIO/LEDC) ━━━")
-endif()
+list(APPEND CONDITIONAL_SRCS "led.c")
+message(STATUS "━━━ [main] LED driver: led.c (simple GPIO/LEDC) ━━━")
 
 if(BOARD IN_LIST DISPLAY_BOARDS)
     list(APPEND CONDITIONAL_SRCS "dog_peripherals.c")

@@ -1,14 +1,12 @@
-
 # ESP32-C3 MyBot Super Mini
 
 ## MyBot v1.3
 MyBot runs on a breadboard with amazing animated eyes, an OLED display for messages, ultrasonic sensors for obstacle detection, and continuous rotation servos for wheels. It comes built in with preprogrammed demos such as:
 - Built in web server for control
-- Easy GET commands to control eyes, servo, neopixel, and led
-- Amazing default life-like animations for the eyes and default oceanic pretty patterns on neopixel
-- Live Readout of Ultrasonic Sensor Data on webapp and on neopixels (using colors)
-- Servo speed control using a slider (and GET commands)
-- More animations on neopixel using WebUI buttons and GET commands
+- Easy GET commands to control eyes, servo, buzzer, and led
+- Amazing default life-like animations for the eyes and fun audio interactions
+- Live Readout of Ultrasonic Sensor Data on webapp
+- More animations on oled and audio demos using WebUI buttons and GET commands
 - OTA updates for easy firmware updates
 
 ## MyBot Connection Guide
@@ -21,9 +19,8 @@ MyBot runs on a breadboard with amazing animated eyes, an OLED display for messa
 | Continuous Rotation Servo | VCC: 5V | | |
 | | Signal: GPIO 5 | | |
 | | GND: GND | | |
-| Neopixel Strip | VCC: 5V | |
-| | Data: GPIO 3 | |
-| | GND: GND | |
+| Passive Buzzer | VCC: 3.3V/5V | SIG: GPIO 3 | GND: GND |
+
 | 0.96" OLED (I2C) | VCC: 3.3V or 5V | |
 | | SDA: GPIO 7 | |
 | | SCL: GPIO 6 | |

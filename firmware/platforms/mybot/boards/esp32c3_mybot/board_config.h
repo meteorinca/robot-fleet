@@ -34,16 +34,9 @@
 // Adjust LED_GPIO for your specific board. Common values: 8 (C3 SuperMini), 2 (generic)
 #define LED_GPIO                GPIO_NUM_8
 #define LED_ACTIVE_LOW          1       // HIGH = OFF
-// ── NeoPixel Strip (WS2812) ─────────────────────────────────────────────────
-// Connects to GPIO 3 by default. Change if you wire the strip elsewhere.
-// NUM_LEDS = number of pixels in the strip shipped with the kit.
-#define WS2812_GPIO             GPIO_NUM_3
-#define WS2812_NUM_LEDS         10
-#define WS2812_RMT_RES_HZ       10000000  // 10MHz RMT resolution
-// Heartbeat colours (legacy for code that uses these names, but simple LED is single color)
-#define WS2812_COLOR_CONNECTED  0x000A00    // dim green
-#define WS2812_COLOR_DISCO      0x0A0000    // dim red
-#define WS2812_COLOR_ACTION     0x00000A    // dim blue
+// ── Buzzer (Passive) ──────────────────────────────────────────────────────────
+// Connected to GPIO 3 instead of the old Neopixel
+#define BUZZER_PIN              GPIO_NUM_3
 
 // How long a manual command suppresses the heartbeat (microseconds)
 #define LED_MANUAL_OVERRIDE_US  4000000     // 4 s

@@ -25,9 +25,8 @@ Connect wires
 - **Signal** → ESP32-S3 **GPIO 5**
 - **GND** → ESP32-S3 **GND**
 
-### Neopixel Strip
-- **VCC** → ESP32-S3 **5V** pin
-- **Data** → ESP32-S3 **GPIO 3**
+### Passive Buzzer
+- **Signal** → ESP32-S3 **GPIO 3**
 - **GND** → ESP32-S3 **GND**
 
 ### 0.96" OLED (I2C)
@@ -50,7 +49,7 @@ Connect wires
 |------|-----------|
 | 0 | Button 1 |
 | 1 | Button 2 |
-| 3 | Neopixel Data |
+| 3 | Passive Buzzer |
 | 4 | Ultrasonic Echo |
 | 5 | Servo Signal |
 | 6 | OLED SCL |

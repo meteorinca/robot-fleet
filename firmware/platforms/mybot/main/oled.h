@@ -18,7 +18,16 @@ typedef enum {
     OLED_MODE_RACING = 8,
     OLED_MODE_MATH = 9,
     OLED_MODE_3D_SHOWCASE = 10,
-    OLED_MODE_MENU = 11
+    OLED_MODE_MENU = 11,
+    OLED_MODE_TRUTH_TABLE = 12,
+    OLED_MODE_BUZZER_PIANO = 13,
+    OLED_MODE_US_SHOOTER = 14,
+    // Fun button-triggered animations
+    OLED_MODE_MARIO_DANCE = 15,
+    OLED_MODE_FIREWORKS = 16,
+    OLED_MODE_MATRIX_RAIN = 17,
+    OLED_MODE_SPACE_INVADER = 18,
+    OLED_MODE_HEARTBEAT = 19
 } oled_mode_t;
 
 typedef enum {

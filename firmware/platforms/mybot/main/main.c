@@ -1,10 +1,7 @@
 #include "config.h"
 
-#ifdef WS2812_NUM_LEDS
-#include "ws2812.h"
-#else
+#include "buzzer.h"
 #include "led.h"
-#endif
 
 #include "wifi_mgr.h"
 #include "timekeep.h"
@@ -21,6 +18,8 @@
 bool g_btn1_state = false;
 bool g_btn2_state = false;
 
+bool g_led_direct_mode = true;
+
 static void button_task(void *arg) {
     bool last_btn1 = false;
     bool last_btn2 = false;
@@ -36,6 +35,11 @@ static void button_task(void *arg) {
         
         g_btn1_state = btn1;
         g_btn2_state = btn2;
+
+        if (g_led_direct_mode) {
+            if (btn1 != last_btn1) led_grn_set(btn1);
+            if (btn2 != last_btn2) led_red_set(btn2);
+        }
         
         oled_set_paddle_input(btn1, btn2);
         
@@ -86,37 +90,42 @@ static void button_task(void *arg) {
             btn2_press_start = 0;
         }
         
-        if (oled_get_mode() == OLED_MODE_NORMAL) {
-            if (btn1 && !last_btn1) {
-                eye_emotion_t emo = oled_get_emotion();
-                emo = (emo + 1) % EYE_EMOTION_COUNT;
-                oled_set_emotion(emo);
-                
-#ifdef WS2812_NUM_LEDS
-                if (emo == EYE_EMOTION_NORMAL) ws2812_set_all(0x000000);
-                else if (emo == EYE_EMOTION_MAD) ws2812_set_all(0xFF0000);
-                else if (emo == EYE_EMOTION_SAD) ws2812_set_all(0x0000FF);
-                else if (emo == EYE_EMOTION_SLEEPY) ws2812_set_all(0x00FF00);
-                else if (emo == EYE_EMOTION_SURPRISED) ws2812_set_all(0xFFFF00);
-                ws2812_show();
-#endif
-                ESP_LOGI("BTN", "Emotion forward to %d", emo);
+        if (btn1 && btn2) {
+            if (!(last_btn1 && last_btn2)) {
+                oled_set_mode(OLED_MODE_MENU);
             }
-            if (btn2 && !last_btn2) {
-                eye_emotion_t emo = oled_get_emotion();
-                if (emo == 0) emo = EYE_EMOTION_COUNT - 1;
-                else emo--;
-                oled_set_emotion(emo);
-                
-#ifdef WS2812_NUM_LEDS
-                if (emo == EYE_EMOTION_NORMAL) ws2812_set_all(0x000000);
-                else if (emo == EYE_EMOTION_MAD) ws2812_set_all(0xFF0000);
-                else if (emo == EYE_EMOTION_SAD) ws2812_set_all(0x0000FF);
-                else if (emo == EYE_EMOTION_SLEEPY) ws2812_set_all(0x00FF00);
-                else if (emo == EYE_EMOTION_SURPRISED) ws2812_set_all(0xFFFF00);
-                ws2812_show();
-#endif
-                ESP_LOGI("BTN", "Emotion backward to %d", emo);
+        }
+        
+        if (oled_get_mode() == OLED_MODE_NORMAL) {
+            if (btn1 && !last_btn1 && !btn2) {
+                // BTN_1 → Cycle eye emotions
+                static int eye_idx = 0;
+                static const eye_emotion_t eye_modes[] = {
+                    EYE_EMOTION_NORMAL,
+                    EYE_EMOTION_MAD,
+                    EYE_EMOTION_SAD,
+                    EYE_EMOTION_SLEEPY,
+                    EYE_EMOTION_SURPRISED
+                };
+                eye_idx = (eye_idx + 1) % 5;
+                oled_set_emotion(eye_modes[eye_idx]);
+                buzzer_play_tone(1000,  30);
+                ESP_LOGI("BTN", "BTN1: Eye mode idx=%d", eye_idx);
+            }
+            if (btn2 && !last_btn2 && !btn1) {
+                // BTN_2 → Cycle through fun animations
+                static int fun_idx = 0;
+                static const oled_mode_t fun_modes[] = {
+                    OLED_MODE_FIREWORKS,
+                    OLED_MODE_MATRIX_RAIN,
+                    OLED_MODE_SPACE_INVADER,
+                    OLED_MODE_HEARTBEAT,
+                    OLED_MODE_NORMAL,
+                };
+                fun_idx = (fun_idx + 1) % 5;
+                oled_set_mode(fun_modes[fun_idx]);
+                buzzer_play_tone(1200, 20);
+                ESP_LOGI("BTN", "BTN2: Fun mode idx=%d (mode=%d)", fun_idx, fun_modes[fun_idx]);
             }
         }
         
@@ -143,6 +152,8 @@ void app_main(void) {
 
     // Peripherals
     led_init();
+    buzzer_init();
+    buzzer_demo_startup();
     servo_init();
     servo_worker_start();
     ultrasonic_init();

@@ -5,9 +5,8 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "esp_log.h"
-#include "esp_rom_sys.h"
-#include "ws2812.h"
 #include "webserver.h" // For sse_broadcast_tts
+#include "buzzer.h"
 #include <stdio.h>
 
 #define MAX_DISTANCE_CM 200
@@ -19,10 +18,6 @@ static const char *TAG = "ULTRASONIC";
 
 void ultrasonic_set_active(bool active) {
     s_ultrasonic_active = active;
-    if (!active) {
-        ws2812_clear();
-        ws2812_show();
-    }
 }
 
 bool ultrasonic_is_active(void) {
@@ -33,50 +28,6 @@ float ultrasonic_get_distance(void) {
     return s_distance;
 }
 
-// Simple HSV to RGB (Hue 0-360)
-static uint32_t hsv_to_rgb_simple(float h, float s, float v) {
-    int i = (int)(h / 60.0f);
-    float f = (h / 60.0f) - i;
-    float p = v * (1.0f - s);
-    float q = v * (1.0f - f * s);
-    float t = v * (1.0f - (1.0f - f) * s);
-    float r = 0, g = 0, b = 0;
-    switch (i % 6) {
-        case 0: r = v, g = t, b = p; break;
-        case 1: r = q, g = v, b = p; break;
-        case 2: r = p, g = v, b = t; break;
-        case 3: r = p, g = q, b = v; break;
-        case 4: r = t, g = p, b = v; break;
-        case 5: r = v, g = p, b = q; break;
-    }
-    return ((uint32_t)(r * 255) << 16) | ((uint32_t)(g * 255) << 8) | (uint32_t)(b * 255);
-}
-
-// Map distance to NeoPixels. <5cm = 10 LEDs, >50cm = 1 LED.
-// Spectrum: 5cm (Red, Hue 0) to 50cm (Blue, Hue 240)
-static void update_neopixels(float distance) {
-    int num_leds = 1;
-    if (distance < 5.0) num_leds = 10;
-    else if (distance >= 50.0) num_leds = 1;
-    else {
-        num_leds = 10 - (int)((distance - 5.0) / 5.0);
-    }
-    
-    float hue = 0.0f;
-    if (distance >= 50.0) hue = 240.0f;
-    else if (distance > 5.0) hue = 240.0f * ((distance - 5.0) / 45.0f);
-    
-    uint32_t rgb = hsv_to_rgb_simple(hue, 1.0f, 1.0f);
-    uint8_t r = (rgb >> 16) & 0xFF;
-    uint8_t g = (rgb >> 8) & 0xFF;
-    uint8_t b = rgb & 0xFF;
-
-    ws2812_clear();
-    for (int i = 0; i < num_leds && i < WS2812_NUM_LEDS; i++) {
-        ws2812_set_pixel(i, r, g, b);
-    }
-    ws2812_show();
-}
 
 static void ultrasonic_task(void *pvParameters) {
     gpio_reset_pin(TRIG_PIN);
@@ -106,13 +57,19 @@ static void ultrasonic_task(void *pvParameters) {
             
             float distance = duration / 58.0f;
             s_distance = distance;
-            update_neopixels(distance);
-        } else {
-            // timeout
-            update_neopixels(50.0f);
+            
+            if (s_distance > 0.0f && s_distance < 30.0f) {
+                static int beep_timer = 0;
+                int beep_interval = (int)s_distance; // roughly 30ms per tick, so 10cm = 300ms
+                if (beep_interval < 2) beep_interval = 2;
+                if (++beep_timer >= beep_interval) {
+                    buzzer_play_tone(2500, 30);
+                    beep_timer = 0;
+                }
+            }
         }
         
-        vTaskDelay(pdMS_TO_TICKS(100)); // 10Hz is smooth enough
+        vTaskDelay(pdMS_TO_TICKS(30)); // ~33Hz
     }
 }
 
