@@ -62,6 +62,12 @@ void execute_named_action(const char *action) {
     else if (strcmp(action, "l1on")   == 0) led_action_set(true);
     else if (strcmp(action, "l1off")  == 0) led_action_set(false);
     else if (strcmp(action, "toggle") == 0) led_action_toggle();
+    else if (strcmp(action, "grnon")  == 0) led_grn_set(true);
+    else if (strcmp(action, "grnoff") == 0) led_grn_set(false);
+    else if (strcmp(action, "grntog") == 0) led_grn_toggle();
+    else if (strcmp(action, "redon")  == 0) led_red_set(true);
+    else if (strcmp(action, "redoff") == 0) led_red_set(false);
+    else if (strcmp(action, "redtog") == 0) led_red_toggle();
     else if (strcmp(action, "hi")     == 0) servo_quick_action(1, 40, POS1_NEUTRAL);
     else ESP_LOGW("ACTION", "Action ignored on mybot: %s", action);
 }
@@ -682,6 +688,12 @@ void webserver_start(void) {
         { "/l1on",      HTTP_GET,  quick_action_handler,   NULL },
         { "/l1off",     HTTP_GET,  quick_action_handler,   NULL },
         { "/toggle",    HTTP_GET,  quick_action_handler,   NULL },
+        { "/grnon",     HTTP_GET,  quick_action_handler,   NULL },
+        { "/grnoff",    HTTP_GET,  quick_action_handler,   NULL },
+        { "/grntog",    HTTP_GET,  quick_action_handler,   NULL },
+        { "/redon",     HTTP_GET,  quick_action_handler,   NULL },
+        { "/redoff",    HTTP_GET,  quick_action_handler,   NULL },
+        { "/redtog",    HTTP_GET,  quick_action_handler,   NULL },
         { "/hi",        HTTP_GET,  quick_action_handler,   NULL },
         { "/us_on",     HTTP_GET,  quick_action_handler,   NULL },
         { "/us_off",    HTTP_GET,  quick_action_handler,   NULL },

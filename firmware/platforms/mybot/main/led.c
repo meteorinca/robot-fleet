@@ -39,6 +39,17 @@ void led_init(void) {
     ledc_channel_config(&ledc_channel);
     
     led_set(false);
+
+#ifdef LED_GRN_PIN
+    gpio_reset_pin(LED_GRN_PIN);
+    gpio_set_direction(LED_GRN_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_GRN_PIN, 0);
+#endif
+#ifdef LED_RED_PIN
+    gpio_reset_pin(LED_RED_PIN);
+    gpio_set_direction(LED_RED_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_RED_PIN, 0);
+#endif
 }
 
 void led_set(bool on) {
@@ -66,6 +77,33 @@ void led_action_set(bool state) {
 
 void led_action_toggle(void) {
     led_action_set(!g_led_state);
+}
+
+static bool g_led_grn_state = false;
+static bool g_led_red_state = false;
+
+void led_grn_set(bool on) {
+#ifdef LED_GRN_PIN
+    g_led_grn_state = on;
+    gpio_set_level(LED_GRN_PIN, on ? 1 : 0);
+    ESP_LOGI("LED", "GRN %s", on ? "ON" : "OFF");
+#endif
+}
+
+void led_red_set(bool on) {
+#ifdef LED_RED_PIN
+    g_led_red_state = on;
+    gpio_set_level(LED_RED_PIN, on ? 1 : 0);
+    ESP_LOGI("LED", "RED %s", on ? "ON" : "OFF");
+#endif
+}
+
+void led_grn_toggle(void) {
+    led_grn_set(!g_led_grn_state);
+}
+
+void led_red_toggle(void) {
+    led_red_set(!g_led_red_state);
 }
 
 void led_blink(int count, int ms_period) {

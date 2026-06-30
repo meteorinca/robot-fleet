@@ -5,9 +5,13 @@ This document lists the available HTTP GET endpoints to control your MyBot via i
 **Base URL**: `http://mybot5.local:80` (Replace `5` with your specific bot's number).
 
 ## 💡 LED Control
-- **Turn ON**: `GET /l1on` or `GET /led?state=on`
-- **Turn OFF**: `GET /l1off` or `GET /led?state=off`
-- **Toggle**: `GET /toggle` or `GET /led?state=toggle`
+- **Status LED Turn ON**: `GET /l1on` or `GET /led?state=on`
+- **Status LED Turn OFF**: `GET /l1off` or `GET /led?state=off`
+- **Status LED Toggle**: `GET /toggle` or `GET /led?state=toggle`
+
+## 🔴🟢 External LED Control
+- **Green LED**: `GET /grnon`, `GET /grnoff`, `GET /grntog`
+- **Red LED**: `GET /redon`, `GET /redoff`, `GET /redtog`
 
 ## 🔧 Servo Control
 - **Move to Angle**: `GET /servo?num=1&angle=90` (Hold position)

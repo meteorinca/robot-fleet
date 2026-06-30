@@ -13,4 +13,9 @@ void led_register_manual_control(void);
 void led_blink(int count, int ms_period);
 void led_start_heartbeat(EventGroupHandle_t wifi_events, EventBits_t connected_bit);
 
+void led_grn_set(bool on);
+void led_red_set(bool on);
+void led_grn_toggle(void);
+void led_red_toggle(void);
+
 #endif

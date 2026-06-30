@@ -7,7 +7,7 @@
 #pragma once
 
 // ── Firmware identity ───────────────────────────────────────────────────────
-#define FW_VERSION          "1.3"
+#define FW_VERSION          "1.5"
 
 // Device number macro helpers to stringify the number passed from CMake
 #define _XSTR(x) #x
@@ -72,14 +72,16 @@
 #define OLED_SCL_PIN        6
 #define OLED_ADDR           0x3C
 
-// ── Buttons ──────────────────────────────────────────────────────────────────
-#define BTN_BOOT_GPIO           GPIO_NUM_9    // boot button
-#define BTN_1_GPIO              GPIO_NUM_0    // user button 1
-#define BTN_2_GPIO              GPIO_NUM_1    // user button 2
-
 // HC-SR04 Ultrasonic Distance Sensor
 #define TRIG_PIN            GPIO_NUM_10
 #define ECHO_PIN            GPIO_NUM_4
+
+// LEDS and Buttons from controller breadboard
+#define LED_GRN_PIN         GPIO_NUM_20
+#define LED_RED_PIN         GPIO_NUM_21
+#define BTN_1_GPIO          GPIO_NUM_0
+#define BTN_2_GPIO          GPIO_NUM_1
+#define BTN_BOOT_GPIO       GPIO_NUM_9    // boot button
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 #define MAX_SCHEDULED_ACTIONS  8
