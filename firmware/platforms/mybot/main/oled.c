@@ -1216,6 +1216,7 @@ static void oled_eyes_task(void *arg) {
 
             if (last_mode != s_oled_mode) {
                 anim_frame = 0; anim_tick = 0; stars_init = false; coin_timer = 0;
+                buzzer_demo_mario();
                 last_mode = s_oled_mode;
             }
 
@@ -1227,16 +1228,6 @@ static void oled_eyes_task(void *arg) {
                     star_y[i] = 32 + sinf(angle) * 20.0f;
                 }
                 stars_init = true;
-            }
-
-            // Play coin every ~40 frames
-            coin_timer++;
-            if (coin_timer == 1) {
-                buzzer_play_tone(988, 60);
-            } else if (coin_timer == 5) {
-                buzzer_play_tone(1319, 100);
-            } else if (coin_timer >= 40) {
-                coin_timer = 0;
             }
 
             // Flip frame every 8 ticks (~240ms at 30ms frame)
@@ -1711,7 +1702,7 @@ static void oled_eyes_task(void *arg) {
                         } else if (s_eye_emotion == EYE_EMOTION_SAD) {
                             if (dy < ((ei == 0) ? -dx : dx) / 2 - 4) draw_it = false;
                         } else if (s_eye_emotion == EYE_EMOTION_SLEEPY) {
-                            if (dy < 6) draw_it = false;
+                            if (dy < 0) draw_it = false;
                         }
                         
                         if (draw_it) draw_pixel(x, y, 1);
