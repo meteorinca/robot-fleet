@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include <stdlib.h>
 #include "esp_random.h"
 
@@ -51,8 +52,10 @@ typedef struct {
     int neutral_angle;
 } servo_cmd_t;
 
-static QueueHandle_t s_servo_queue;
-static int s_current_angles[4]; // max servos supported
+static QueueHandle_t    s_servo_queue;
+static SemaphoreHandle_t s_ledc_mutex;          // guards all LEDC register writes
+static int  s_current_angles[4];                // last commanded angle per servo
+static bool s_servo_detached[4] = {true, true, true, true}; // physical detach state
 static bool s_random_look_enabled = false;
 
 void servo_set_random_look(bool enable) {
@@ -97,8 +100,13 @@ void servo_set_angle(int servo_num, int angle) {
                       + (angle * (SERVO_MAX_PULSE_US - SERVO_MIN_PULSE_US) / 180);
     uint32_t duty = (pulse_us * (1u << 14)) / 20000;
     ledc_channel_t ch = s_hw[servo_num - 1].channel;
+    // Mutex prevents interleaved set_duty/update_duty if the HTTP handler
+    // calls servo_action_set while the worker task is mid-move.
+    xSemaphoreTake(s_ledc_mutex, portMAX_DELAY);
     ledc_set_duty(LEDC_LOW_SPEED_MODE, ch, duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, ch);
+    xSemaphoreGive(s_ledc_mutex);
+    s_servo_detached[servo_num - 1] = false;
 }
 
 void servo_action_set(int servo, int angle) {
@@ -121,14 +129,27 @@ void servo_quick_action(int servo, int target_angle, int neutral_angle) {
 void servo_detach(int servo_num) {
     if (servo_num < 1 || servo_num > (int)HW_COUNT) return;
     ledc_channel_t ch = s_hw[servo_num - 1].channel;
+    xSemaphoreTake(s_ledc_mutex, portMAX_DELAY);
     ledc_set_duty(LEDC_LOW_SPEED_MODE, ch, 0);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, ch);
+    xSemaphoreGive(s_ledc_mutex);
+    s_servo_detached[servo_num - 1] = true;
 }
 
 void servo_move_stepped(int servo_num, int target, int ms_delay) {
     if (servo_num < 1 || servo_num > (int)HW_COUNT) return;
     int cur = s_current_angles[servo_num - 1];
-    if (cur == 0) cur = 90; // default if unknown
+    if (cur < 0 || cur > 180) cur = 90; // safety clamp
+
+    // If the servo was detached, re-engage it at the last known angle before
+    // stepping. Without this, the servo jumps from wherever it physically drifted
+    // to the software-tracked angle at the first step — the root cause of jitter.
+    // We write the position, wait one full 50Hz PWM frame (20ms) + a small settle
+    // margin so the servo actually holds that position before we begin moving.
+    if (s_servo_detached[servo_num - 1]) {
+        servo_set_angle(servo_num, cur);
+        vTaskDelay(pdMS_TO_TICKS(50)); // 20ms frame + 30ms settle
+    }
 
     while (cur != target) {
         if (cur < target) cur++;
@@ -189,6 +210,7 @@ static void servo_worker_task(void *pvParameters) {
 }
 
 void servo_worker_start(void) {
+    s_ledc_mutex  = xSemaphoreCreateMutex();
     s_servo_queue = xQueueCreate(8, sizeof(servo_cmd_t));
     xTaskCreate(servo_worker_task, "servo_w", 4096, NULL, 4, NULL);
 }

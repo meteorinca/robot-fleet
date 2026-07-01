@@ -262,9 +262,9 @@ static void oled_eyes_task(void *arg) {
         // Check WiFi status
         wifi_state_t wstate = wifi_mgr_get_state();
         if (wstate == WIFI_STATE_AP_MODE) {
-            draw_text(0, 0, "AP MODE", 2);
-            draw_text(0, 20, "192.168.4.1", 1);
-            draw_text(0, 40, "Connect to MyBot", 1);
+            draw_text(0, 0, "Hotspottin", 2);
+            draw_text(0, 20, "IP: 192.168.4.1", 1);
+            draw_text(0, 40, "Setup WiFi", 1);
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
@@ -1252,7 +1252,6 @@ static void oled_eyes_task(void *arg) {
                 draw_pixel(sx,   sy+1, 1);
                 draw_pixel(sx+1, sy+1, 1);
             }
-
             draw_text(2, 2, "BOO!", 1);
             draw_text(88, 54, "SPOOK!", 1);
 
@@ -1480,73 +1479,118 @@ static void oled_eyes_task(void *arg) {
             continue;
 
         } else if (s_oled_mode == OLED_MODE_HEARTBEAT) {
-            // ── Heartbeat (Beautiful Emoticon) ───────────────────────────────
-            static float heart_scale = 1.0f;
-            static float scale_target = 1.0f;
-            static int beat_timer = 0;
-            
+            // ── Heartbeat (~120 BPM lub-dub) ──────────────────────────────────
+            static int      beat_frame  = 0;
+            static float    heart_scale = 1.0f;
+            static float    scale_vel   = 0.0f;
+            static uint32_t ekg_pos     = 0;
+            static bool     snd_lub = false, snd_dub = false;
 
             if (last_mode != s_oled_mode) {
-                heart_scale = 1.0f; scale_target = 1.0f; beat_timer = 0;
+                beat_frame = 0; heart_scale = 1.0f; scale_vel = 0.0f;
+                ekg_pos = 0; snd_lub = false; snd_dub = false;
                 last_mode = s_oled_mode;
             }
 
-            beat_timer++;
-            if (beat_timer == 1) {
-                scale_target = 1.3f;
-                buzzer_play_tone(150, 40);
-            }
-            if (beat_timer == 4) scale_target = 1.0f;
-            if (beat_timer == 8) {
-                scale_target = 1.2f;
-                buzzer_play_tone(100, 60);
-            }
-            if (beat_timer == 12) scale_target = 1.0f;
+            beat_frame++;
+            if (beat_frame >= 25) beat_frame = 0;
 
-            if (beat_timer >= 25) {
-                beat_timer = 0;
-            }
+            float scale_target = 1.0f;
+            if      (beat_frame < 3)  scale_target = 1.35f;
+            else if (beat_frame < 6)  scale_target = 1.0f;
+            else if (beat_frame < 9)  scale_target = 1.18f;
 
-            // Smooth scale
-            if (heart_scale < scale_target) heart_scale += 0.08f;
-            else if (heart_scale > scale_target) heart_scale -= 0.04f;
+            // Spring-damper: snappy attack, silky release
+            float spring = (scale_target - heart_scale) * 0.55f;
+            scale_vel = scale_vel * 0.3f + spring;
+            heart_scale += scale_vel;
+            if (heart_scale < 0.85f) heart_scale = 0.85f;
+            if (heart_scale > 1.42f) heart_scale = 1.42f;
 
-            // Draw beautiful solid filled parametric heart
-            int hcx = 64, hcy = 30;
-            float max_r = 12.0f * heart_scale;
-            for (float cur_r = 0.5f; cur_r <= max_r; cur_r += 0.5f) {
-                for (float t2 = 0; t2 < 6.2832f; t2 += 0.05f) {
-                    float hx = cur_r * powf(sinf(t2), 3.0f);
-                    float hy = -cur_r * (13.0f * cosf(t2) - 5.0f * cosf(2*t2) - 2.0f * cosf(3*t2) - cosf(4*t2)) / 16.0f;
-                    draw_pixel(hcx + (int)hx, hcy + (int)hy, 1);
+            // Buzzer fires exactly once per beat event
+            if (beat_frame == 0  && !snd_lub) { buzzer_play_tone(120, 30); snd_lub = true; }
+            if (beat_frame == 1)                snd_lub = false;
+            if (beat_frame == 7  && !snd_dub) { buzzer_play_tone(150, 40); snd_dub = true; }
+            if (beat_frame == 8)                snd_dub = false;
+
+            static const int8_t hw[] = {
+                0, 3, 5, 7, 8, 9, 10, 11, 11, 12, 12, 11, 10,
+                9, 8, 7, 6, 5, 4,  3,  2,  1,  0, -1, -1, -1, -1, -1
+            };
+            const int HN  = (int)(sizeof(hw) / sizeof(hw[0]));
+            const int hcx = 64, hcy = 26;
+
+            for (int r = 0; r < HN; r++) {
+                int dy = r - 12;
+                int w  = (int)(hw[r] * heart_scale);
+                if (w <= 0) continue;
+                int py = hcy + dy;
+                if (py < 0 || py >= 50) continue;
+                for (int dx = -w; dx <= w; dx++) {
+                    int px = hcx + dx;
+                    if (px >= 0 && px < OLED_WIDTH) draw_pixel(px, py, 1);
                 }
             }
 
-            // Draw EKG trace line at bottom
-            static int ekg_offset = 0;
-            ekg_offset -= 3;
-            if (ekg_offset <= -64) ekg_offset = 0;
-            
-            for (int x = 0; x < 128; x++) {
-                int base_y = 56;
-                int wave_x = (x - ekg_offset) % 64;
-                int offset_y = 0;
-                
-                if (wave_x > 28 && wave_x < 32) offset_y = -3 * (wave_x - 28); // P wave
-                else if (wave_x >= 32 && wave_x < 36) offset_y = -9 + 3 * (wave_x - 32);
-                else if (wave_x >= 38 && wave_x < 40) offset_y = 8; // Q
-                else if (wave_x >= 40 && wave_x < 42) offset_y = 8 - 14 * (wave_x - 40); // R up
-                else if (wave_x >= 42 && wave_x < 45) offset_y = -20 + 8 * (wave_x - 42); // R down / S
-                else if (wave_x >= 45 && wave_x < 48) offset_y = 4 - 1 * (wave_x - 45); // S recovery
-                else if (wave_x > 54 && wave_x < 58) offset_y = -4 * (wave_x - 54); // T wave
-                else if (wave_x >= 58 && wave_x < 62) offset_y = -16 + 4 * (wave_x - 58);
-                
-                draw_pixel(x, base_y + offset_y, 1);
-                if (offset_y != 0) draw_pixel(x, base_y + offset_y + 1, 1);
+            // ── Pulsing ring (visible during lub and dub expansion) ───────────
+            if ((beat_frame < 6) || (beat_frame >= 7 && beat_frame < 13)) {
+                float rs = heart_scale * 1.38f;
+                for (int r = 0; r < HN; r++) {
+                    int dy = r - 12;
+                    int w  = (int)(hw[r] * rs);
+                    if (w <= 0) continue;
+                    int py = hcy + dy;
+                    if (py < 0 || py >= 50) continue;
+                    int pxl = hcx - w, pxr = hcx + w;
+                    if (pxl >= 0 && pxl < OLED_WIDTH) draw_pixel(pxl, py, 1);
+                    if (pxr >= 0 && pxr < OLED_WIDTH) draw_pixel(pxr, py, 1);
+                }
             }
 
+            draw_text(40, 54, "120 BPM", 1);
+
+            // ── EKG trace (scrolls left, unsigned counter = no negative modulo) ─────
+            ekg_pos += 3;
+            #define HB_EKG_PERIOD 64
+            int prev_py = -1;
+            for (int x = 0; x < OLED_WIDTH; x++) {
+                int ph = (int)((ekg_pos + (uint32_t)x) % HB_EKG_PERIOD);
+                int oy = 0;
+
+                // P wave: smooth gentle bump
+                if      (ph >= 8  && ph < 12) oy = -(ph - 8);
+                else if (ph >= 12 && ph < 16) oy = -(16 - ph);
+
+                // QRS complex: sharp spike -- Q dip, tall R, S recovery
+                else if (ph == 22) oy =  2;
+                else if (ph == 23) oy =  4;
+                else if (ph == 24) oy =  0;
+                else if (ph == 25) oy = -12;
+                else if (ph == 26) oy = -24;
+                else if (ph == 27) oy = -12;
+                else if (ph == 28) oy =  4;
+                else if (ph == 29) oy =  6;
+                else if (ph == 30) oy =  2;
+                else if (ph == 31) oy =  0;
+
+                // T wave: rounded bump
+                else if (ph >= 38 && ph < 42) oy = -(ph - 38);
+                else if (ph >= 42 && ph < 46) oy = -(46 - ph);
+
+                int py = 50 + oy;
+                if (py < 0) py = 0;
+                if (py >= OLED_HEIGHT) py = OLED_HEIGHT - 1;
+                if (prev_py != -1) {
+                    draw_line(x - 1, prev_py, x, py, 1);
+                } else {
+                    draw_pixel(x, py, 1);
+                }
+                prev_py = py;
+            }
+            #undef HB_EKG_PERIOD
+
             oled_send_buffer();
-            vTaskDelay(pdMS_TO_TICKS(30));
+            vTaskDelay(pdMS_TO_TICKS(20)); // 50fps, 25 frames = 500ms cycle (~120 BPM)
             continue;
 
         } else if (s_oled_mode == OLED_MODE_BUZZER_PIANO) {

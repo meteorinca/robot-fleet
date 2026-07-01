@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "esp_system.h"
+#include "esp_wifi.h"
 // rf.h is only present when board has an RF module
 #ifdef RF_RX_GPIO
 #include "rf.h"
@@ -620,6 +621,183 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
     return ESP_OK; // unreachable
 }
 
+#include "wifi_mgr.h"
+
+// ══════════════════════════════════════════════════════════════
+//  WiFi provisioning endpoints
+//    GET  /wifi       — list saved networks + AP mode status
+//    POST /wifi       — save {ssid, pass} and reboot
+//    GET  /wifi_scan  — scan for visible SSIDs
+//    DELETE /wifi?delete=N — delete saved credential N
+// ══════════════════════════════════════════════════════════════
+
+// GET /wifi — returns {"ap_mode":bool, "saved":["ssid1","ssid2",...]}
+static esp_err_t wifi_get_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    char resp[512];
+    int pos = 0;
+    pos += snprintf(resp + pos, sizeof(resp) - pos,
+                    "{\"ap_mode\":%s,\"saved\":[",
+                    wifi_is_ap_mode() ? "true" : "false");
+
+    int count = wifi_nvs_credential_count();
+    for (int i = 0; i < count; i++) {
+        char ssid[33] = {0}, pass[65] = {0};
+        if (wifi_nvs_credential_get(i, ssid, sizeof(ssid), pass, sizeof(pass))) {
+            if (i > 0) pos += snprintf(resp + pos, sizeof(resp) - pos, ",");
+            pos += snprintf(resp + pos, sizeof(resp) - pos, "\"%s\"", ssid);
+        }
+    }
+    pos += snprintf(resp + pos, sizeof(resp) - pos, "]}");
+    httpd_resp_send(req, resp, pos);
+    return ESP_OK;
+}
+
+static bool parse_json_string(const char *json, const char *key, char *out_val, size_t max_len) {
+    char key_buf[64];
+    snprintf(key_buf, sizeof(key_buf), "\"%s\"", key);
+    const char *k = strstr(json, key_buf);
+    if (!k) return false;
+
+    k += strlen(key_buf);
+    const char *colon = strchr(k, ':');
+    if (!colon) return false;
+
+    const char *start = strchr(colon, '"');
+    if (!start) return false;
+    start++;
+
+    const char *end = strchr(start, '"');
+    if (!end) return false;
+
+    size_t len = end - start;
+    if (len >= max_len) len = max_len - 1;
+    memcpy(out_val, start, len);
+    out_val[len] = '\0';
+    return true;
+}
+
+// POST /wifi — body: {"ssid":"...","pass":"..."}
+static esp_err_t wifi_post_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    char body[200] = {0};
+    int got = httpd_req_recv(req, body, sizeof(body) - 1);
+    if (got <= 0) {
+        httpd_resp_send(req, "{\"error\":\"No body\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+    body[got] = '\0';
+
+    char ssid[33] = {0}, pass[65] = {0};
+    parse_json_string(body, "ssid", ssid, sizeof(ssid));
+    parse_json_string(body, "pass", pass, sizeof(pass));
+
+    if (!ssid[0]) {
+        httpd_resp_send(req, "{\"error\":\"Missing SSID\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    esp_err_t err = wifi_save_credential(ssid, pass);
+    if (err != ESP_OK) {
+        httpd_resp_send(req, "{\"error\":\"NVS write failed\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+    ESP_LOGI("WEB", "WiFi credential saved: %s — rebooting in 3s", ssid);
+
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    esp_restart();
+    return ESP_OK;
+}
+
+// DELETE /wifi?delete=N
+static esp_err_t wifi_delete_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    char qs[64];
+    int idx = -1;
+    if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
+        char p[8];
+        if (httpd_query_key_value(qs, "delete", p, sizeof(p)) == ESP_OK) {
+            idx = atoi(p);
+        }
+    }
+
+    if (idx < 0) {
+        httpd_resp_send(req, "{\"error\":\"Missing ?delete=N\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    esp_err_t err = wifi_nvs_credential_delete(idx);
+    if (err != ESP_OK) {
+        httpd_resp_send(req, "{\"error\":\"Delete failed\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+// GET /wifi_scan
+static esp_err_t wifi_scan_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    wifi_scan_config_t scan_cfg = {
+        .show_hidden = false,
+        .scan_type   = WIFI_SCAN_TYPE_ACTIVE,
+        .scan_time   = { .active = { .min = 100, .max = 300 } },
+    };
+    esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
+    if (err != ESP_OK) {
+        httpd_resp_send(req, "{\"networks\":[],\"error\":\"scan failed\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    uint16_t ap_count = 0;
+    esp_wifi_scan_get_ap_num(&ap_count);
+    if (ap_count > 20) ap_count = 20;
+
+    wifi_ap_record_t *ap_records = calloc(ap_count, sizeof(wifi_ap_record_t));
+    if (!ap_records) {
+        httpd_resp_send(req, "{\"networks\":[],\"error\":\"OOM\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+    esp_wifi_scan_get_ap_records(&ap_count, ap_records);
+
+    char resp[1024];
+    int pos = snprintf(resp, sizeof(resp), "{\"networks\":[");
+    int added = 0;
+    for (int i = 0; i < ap_count && pos < (int)sizeof(resp) - 100; i++) {
+        if (ap_records[i].ssid[0] == '\0') continue;
+        bool dup = false;
+        for (int j = 0; j < i; j++) {
+            if (strcmp((char*)ap_records[i].ssid, (char*)ap_records[j].ssid) == 0) {
+                dup = true;
+                break;
+            }
+        }
+        if (dup) continue;
+
+        if (added > 0) pos += snprintf(resp + pos, sizeof(resp) - pos, ",");
+        pos += snprintf(resp + pos, sizeof(resp) - pos,
+                        "{\"ssid\":\"%s\",\"rssi\":%d}",
+                        (char*)ap_records[i].ssid, ap_records[i].rssi);
+        added++;
+    }
+    pos += snprintf(resp + pos, sizeof(resp) - pos, "]}");
+    free(ap_records);
+
+    httpd_resp_send(req, resp, pos);
+    return ESP_OK;
+}
+
 // ══════════════════════════════════════════════════════════════
 //  Custom URI Matcher (to handle query strings with wildcards)
 // ══════════════════════════════════════════════════════════════
@@ -735,6 +913,12 @@ void webserver_start(void) {
         { "/s1_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/s2_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/random_look", HTTP_GET, random_look_handler,   NULL },
+        // WiFi provisioning endpoints
+        { "/wifi",      HTTP_GET,    wifi_get_handler,     NULL },
+        { "/wifi",      HTTP_POST,   wifi_post_handler,    NULL },
+        { "/wifi",      HTTP_DELETE, wifi_delete_handler,   NULL },
+        { "/wifi",      HTTP_OPTIONS,cors_options_handler,  NULL },
+        { "/wifi_scan", HTTP_GET,    wifi_scan_handler,     NULL },
     };
     for (int i = 0; i < (int)(sizeof(uris) / sizeof(uris[0])); i++) {
         httpd_register_uri_handler(s_server, &uris[i]);

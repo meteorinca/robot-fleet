@@ -409,6 +409,24 @@
       <div class='action-grid' id='action-grid'></div>
     </div>
 
+    <div class='card' id='wifi-card'>
+      <h2>📡 WiFi Setup</h2>
+      <div id='wifi-status' style='margin-bottom:12px;'></div>
+      <div id='saved-nets' style='margin-bottom:12px;'></div>
+      <button class='btn-primary' onclick='scanWifi()' style='background:linear-gradient(135deg,#1a1a35,#20203d);border:1px solid #2a2a50;margin-bottom:10px;'>Scan for Networks</button>
+      <div id='scan-results' style='margin-bottom:10px;'></div>
+      <div style='border-top:1px solid #1e1e3a;padding-top:12px;margin-top:8px;'>
+        <div style='font-size:11px;color:#666;font-weight:700;margin-bottom:8px;'>ADD NETWORK MANUALLY</div>
+        <input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)' style='font-size:16px;padding:14px 12px;'>
+        <div style='position:relative;margin-bottom:10px;'>
+          <input type='password' id='wifi-pass' placeholder='Password' autocomplete='current-password' style='width:100%;font-size:16px;padding:14px 48px 14px 12px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#e0e0f0;outline:none;box-sizing:border-box;'>
+          <button type='button' onclick="var i=document.getElementById('wifi-pass');i.type=i.type==='password'?'text':'password';" style='position:absolute;right:0;top:0;bottom:0;width:44px;background:none;border:none;color:#666;font-size:20px;cursor:pointer;'>👁</button>
+        </div>
+        <button class='btn-primary' onclick='saveWifi()' style='font-size:16px;padding:14px;'>Connect & Reboot</button>
+        <div class='err-msg' id='wifi-err'></div>
+      </div>
+    </div>
+
     <div class='card'>
       <h2>OTA Firmware Update</h2>
       <input type='file' id='ota-file' accept='.bin' style='color:#a0a0d0;margin-bottom:10px;width:100%;'>
@@ -543,6 +561,62 @@
         }
       }).catch(() => { });
     }, 250);
+
+    function scanWifi() {
+      var sr = document.getElementById('scan-results');
+      sr.innerHTML = '<div style="color:#666;font-size:12px;">Scanning...</div>';
+      fetch('/wifi_scan').then(function(r) { return r.json(); }).then(function(d) {
+        var h = '';
+        if (d.networks && d.networks.length) {
+          d.networks.forEach(function(n) {
+            h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin:4px 0;background:#0a0a1e;border-radius:8px;border:1px solid #1e1e3a;cursor:pointer;" onclick="document.getElementById(\'wifi-ssid\').value=\'' + n.ssid.replace(/'/g, '') + '\';">';
+            h += '<span style="color:#e0e0f0;font-size:13px;">' + n.ssid + '</span>';
+            h += '<span style="color:#666;font-size:11px;">' + n.rssi + 'dBm</span></div>';
+          });
+        } else {
+          h = '<div style="color:#666;font-size:12px;">No networks found</div>';
+        }
+        sr.innerHTML = h;
+      }).catch(function(e) { sr.innerHTML = '<div class="err-msg">Scan error: ' + e + '</div>'; });
+    }
+
+    function saveWifi() {
+      var s = document.getElementById('wifi-ssid').value.trim();
+      var p = document.getElementById('wifi-pass').value;
+      var e = document.getElementById('wifi-err');
+      if (!s) { e.textContent = 'Enter an SSID'; return; }
+      e.style.color = '#a0a0d0'; e.textContent = 'Saving & rebooting...';
+      fetch('/wifi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ssid: s, pass: p }) })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.ok) { e.style.color = '#00e5a0'; e.textContent = 'Saved! Rebooting in 3s...'; }
+          else { e.style.color = '#f7736a'; e.textContent = 'Error: ' + (d.error || 'unknown'); }
+        }).catch(function(x) { e.style.color = '#f7736a'; e.textContent = 'Network error: ' + x; });
+    }
+
+    function loadSavedNets() {
+      fetch('/wifi').then(function(r) { return r.json(); }).then(function(d) {
+        var h = '', ws = document.getElementById('wifi-status');
+        if (d.ap_mode) {
+          ws.innerHTML = '<div style="padding:8px 12px;background:#2a1a1a;border:1px solid #5a2a2a;border-radius:8px;color:#f7a56a;font-size:13px;">⚠️ Running in AP mode — add a WiFi network below to connect.</div>';
+        } else {
+          ws.innerHTML = '<div style="padding:8px 12px;background:#1a2a1a;border:1px solid #2a5a2a;border-radius:8px;color:#00e5a0;font-size:13px;">✓ Connected to WiFi</div>';
+        }
+        if (d.saved && d.saved.length) {
+          h = '<div style="font-size:11px;color:#666;margin-bottom:6px;font-weight:700;">SAVED NETWORKS</div>';
+          d.saved.forEach(function(n, i) {
+            h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin:3px 0;background:#0a0a1e;border-radius:6px;border:1px solid #1e1e3a;">';
+            h += '<span style="color:#a0a0d0;font-size:12px;">' + n + '</span>';
+            h += '<button onclick="deleteNet(' + i + ')" style="background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:0 4px;">&times;</button></div>';
+          });
+        }
+        document.getElementById('saved-nets').innerHTML = h;
+      }).catch(function() { });
+    }
+
+    function deleteNet(idx) {
+      fetch('/wifi?delete=' + idx, { method: 'DELETE' }).then(function() { loadSavedNets(); }).catch(function() { });
+    }
+    loadSavedNets();
 
     function doOTA() {
       var f = document.getElementById('ota-file').files[0];
