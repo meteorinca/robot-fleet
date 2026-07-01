@@ -45,6 +45,7 @@ static void button_task(void *arg) {
         
         uint32_t now = esp_log_timestamp();
         if ((btn1 && !last_btn1) || (btn2 && !last_btn2)) {
+            buzzer_play_tone(800, 20);
             last_interaction_time = now;
             post_game_state = 0; // cancel mood sequence on manual interaction
         }

@@ -2,12 +2,12 @@
 // ============================================================================
 //  Board: ESP32-C3 MyBot
 //  Chip:  ESP32-C3
-//  Notes: MyBot with a built-in LED, ultrasonic sr04, neopixels, 1 continuous rotation servo, webUI and OTA capabilities
+//  Notes: MyBot with a built-in LED, ultrasonic sr04, neopixels, 1  sg90 servo, webUI and OTA capabilities
 // ============================================================================
 #pragma once
 
 // ── Firmware identity ───────────────────────────────────────────────────────
-#define FW_VERSION          "1.5"
+#define FW_VERSION          "v1.8"
 
 // Device number macro helpers to stringify the number passed from CMake
 #define _XSTR(x) #x
@@ -41,7 +41,7 @@
 // How long a manual command suppresses the heartbeat (microseconds)
 #define LED_MANUAL_OVERRIDE_US  4000000     // 4 s
 
-// ── Servos (1 continuous rotation servo for mybot) ────────────────────────────────────────
+// ── Servos (1 sg90 servo for mybot) ────────────────────────────────────────
 #define SERVO_COUNT             1
 #define SERVO1_GPIO             GPIO_NUM_5
 #define LEDC_CH_SERVO1          LEDC_CHANNEL_0
@@ -51,14 +51,14 @@
 #define SERVO_RETURN_MS         1000
 
 #define POS1_ON                 171
-#define POS1_NEUTRAL            121
+#define POS1_NEUTRAL            90
 #define POS1_OFF                70
 
 // ── Servos ───────────────────────────────────────────────────────────────────
 #define SERVO_LEDC_TIMER    LEDC_TIMER_0
 #define SERVO_LEDC_CHANNEL_1 LEDC_CHANNEL_0
 
-#define SERVO_PIN_1         5   // 360 Continuous Rotation Servo
+#define SERVO_PIN_1         5   // sg90 servo
 
 // ── OLED Display (I2C) ───────────────────────────────────────────────────────
 #define OLED_SDA_PIN        7

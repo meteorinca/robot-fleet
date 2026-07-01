@@ -5,7 +5,7 @@
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>
   <meta name='apple-mobile-web-app-capable' content='yes'>
-  <title>Moe's MyBot Control</title>
+  <title>Quinn's MyBot Control</title>
   <style>
     * {
       box-sizing: border-box;
@@ -206,7 +206,7 @@
       transform: scale(1.2);
       background: #5b4de8;
     }
-    
+
     .piano-key {
       flex: 1;
       background: #f0f0f0;
@@ -216,6 +216,7 @@
       cursor: pointer;
       transition: all 0.1s;
     }
+
     .piano-key:active {
       background: #d0d0d0;
       box-shadow: 0 1px 0 #bbb;
@@ -227,7 +228,7 @@
 <body>
   <div class='content'>
     <h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>
-      Moe's MyBot V1.3</h1>
+      Quinn's MyBot V1.8</h1>
     <div class='card' style='text-align:center;'>
       <span class='status-badge' id='conn-badge'>●&nbsp;Online</span>
       <div class='time-big' id='clock'>--:--:--</div>
@@ -245,7 +246,8 @@
       <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;'>
         <div style='font-size: 12px; color: #a0a0d0;'>External LEDs</div>
         <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
-          <input type='checkbox' id='led-direct' checked onchange='fetch("/led_direct?on="+(this.checked?1:0))' style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Direct Mode
+          <input type='checkbox' id='led-direct' checked onchange='fetch("/led_direct?on="+(this.checked?1:0))'
+            style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Direct Mode
         </label>
       </div>
       <div class='btn-led-grid' style='grid-template-columns: 1fr 1fr 1fr; margin-bottom: 12px;'>
@@ -261,13 +263,19 @@
     </div>
 
     <div class='card'>
-      <h2>Continuous Servo</h2>
+      <h2>Servo</h2>
       <div style='margin-bottom:15px;'>
         <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>
-          <label>Speed (Reverse - Stop - Forward)</label>
+          <label>Angle (Left - Middle - Right)</label>
           <span id='s1-val'>90</span>
         </div>
-        <input type='range' min='40' max='140' value='90' class='slider' id='s1-slide' oninput='sv(1,this.value)'>
+        <input type='range' min='5' max='175' value='90' class='slider' id='s1-slide' onchange='sv(1,this.value)' oninput='document.getElementById("s1-val").textContent=this.value'>
+        <div style='display:flex; justify-content:space-between; align-items:center; margin: 8px 0;'>
+          <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
+            <input type='checkbox' id='servo-random' onchange='fetch("/random_look?on="+(this.checked?1:0))'
+              style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Random Look
+          </label>
+        </div>
         <div class='btn-led-grid' style='margin-top:5px;'>
           <button class='btn-led' onclick='dog("s1on")'>ON</button>
           <button class='btn-led' onclick='dog("s1off")'>OFF</button>
@@ -293,12 +301,18 @@
     <div class='card'>
       <h2>Buzzer Demos & Mini Piano</h2>
       <div class='btn-led-grid' style='grid-template-columns:1fr 1fr 1fr; margin-bottom: 12px;'>
-        <button class='btn-led' onclick='fetch("/demo?type=coin")' style='color:#ffdd55;border-color:#ffdd55;'>COIN</button>
-        <button class='btn-led' onclick='fetch("/demo?type=gameover")' style='color:#f7736a;border-color:#f7736a;'>GAME OVER</button>
-        <button class='btn-led' onclick='fetch("/demo?type=siren")' style='color:#5555ff;border-color:#5555ff;'>SIREN</button>
-        <button class='btn-led' onclick='fetch("/demo?type=laser")' style='color:#55ff55;border-color:#55ff55;'>LASER</button>
-        <button class='btn-led' onclick='fetch("/demo?type=mario")' style='color:#ff5555;border-color:#ff5555;'>🍄 MARIO</button>
-        <button class='btn-led' onclick='fetch("/demo?type=1up")' style='color:#00ffcc;border-color:#00ffcc;'>1-UP</button>
+        <button class='btn-led' onclick='fetch("/demo?type=coin")'
+          style='color:#ffdd55;border-color:#ffdd55;'>COIN</button>
+        <button class='btn-led' onclick='fetch("/demo?type=gameover")' style='color:#f7736a;border-color:#f7736a;'>GAME
+          OVER</button>
+        <button class='btn-led' onclick='fetch("/demo?type=siren")'
+          style='color:#5555ff;border-color:#5555ff;'>SIREN</button>
+        <button class='btn-led' onclick='fetch("/demo?type=laser")'
+          style='color:#55ff55;border-color:#55ff55;'>LASER</button>
+        <button class='btn-led' onclick='fetch("/demo?type=mario")' style='color:#ffffff;border-color:#ffffff;'>👻
+          BOO</button>
+        <button class='btn-led' onclick='fetch("/demo?type=1up")'
+          style='color:#00ffcc;border-color:#00ffcc;'>1-UP</button>
       </div>
       <div style='display:flex; gap:2px; height:80px;'>
         <div class='piano-key' onclick='fetch("/tone?f=261&d=200")'></div>
@@ -316,11 +330,13 @@
       <h2>Buttons & Game</h2>
       <div style='display:flex;justify-content:space-between;margin-bottom:15px;align-items:center;'>
         <div>
-          <span id='btn1-ind' style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
+          <span id='btn1-ind'
+            style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
           <span>Button 1</span>
         </div>
         <div>
-          <span id='btn2-ind' style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
+          <span id='btn2-ind'
+            style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
           <span>Button 2</span>
         </div>
       </div>
@@ -328,27 +344,32 @@
         <select id='game-select' style='flex:1; margin-bottom:0;'>
           <option value='1'>Pong (Horizontal)</option>
           <option value='2'>Pong (Vertical)</option>
-          <option value='3'>Flappy Bot</option>
-          <option value='4'>Dino Run</option>
+          <option value='3'>Flappy Bird</option>
+          <option value='4'>Jumpy Dino</option>
           <option value='5'>Snake</option>
           <option value='6'>Pacman</option>
           <option value='7'>Froggy Road</option>
           <option value='8'>Racing</option>
           <option value='9'>Times Table</option>
-          <option value='12'>US Shooter</option>
+          <option value='12'>Spacesonic</option>
           <option value='13'>Buzzer Piano</option>
         </select>
-        <button class='btn-led' id='game-play-btn' onclick='playSelectedGame()' style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
-        <button class='btn-led' id='game-stop-btn' onclick='fetch("/game_off")' style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
+        <button class='btn-led' id='game-play-btn' onclick='playSelectedGame()'
+          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
+        <button class='btn-led' id='game-stop-btn' onclick='fetch("/game_off")'
+          style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
       </div>
     </div>
 
     <div class='card'>
       <h2>3D Animation Showcase</h2>
-      <p style='color:#7b7b98; font-size:12px; margin-bottom:15px;'>Experience advanced 3D math running in real-time. Use the left/right paddle buttons on the bot to cycle through the 6 distinct 3D visualizations!</p>
+      <p style='color:#7b7b98; font-size:12px; margin-bottom:15px;'>Experience advanced 3D math running in real-time.
+        Use the left/right paddle buttons on the bot to cycle through the 6 distinct 3D visualizations!</p>
       <div style='display:flex; gap:10px; align-items:center;'>
-        <button class='btn-led' id='anim-play-btn' onclick='fetch("/anim_3d")' style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY SHOWCASE</button>
-        <button class='btn-led' id='anim-stop-btn' onclick='fetch("/game_off")' style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
+        <button class='btn-led' id='anim-play-btn' onclick='fetch("/anim_3d")'
+          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY SHOWCASE</button>
+        <button class='btn-led' id='anim-stop-btn' onclick='fetch("/game_off")'
+          style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
       </div>
     </div>
 
@@ -488,13 +509,13 @@
           document.getElementById('us-bar').style.width = '0%';
         }
       }).catch(() => { });
-      
+
       fetch('/btn_data').then(r => r.json()).then(j => {
         document.getElementById('btn1-ind').style.background = j.btn1 ? '#00e5a0' : '#444';
         document.getElementById('btn2-ind').style.background = j.btn2 ? '#00e5a0' : '#444';
         document.getElementById('btn1-ind').style.boxShadow = j.btn1 ? '0 0 8px #00e5a0' : 'none';
         document.getElementById('btn2-ind').style.boxShadow = j.btn2 ? '0 0 8px #00e5a0' : 'none';
-        
+
         var active_game = j.game_mode;
         if (active_game > 0 && active_game < 10) {
           document.getElementById('game-select').value = active_game;
@@ -508,7 +529,7 @@
           document.getElementById('game-stop-btn').style.background = '#f7736a';
           document.getElementById('game-stop-btn').style.color = '#fff';
         }
-        
+
         if (active_game == 10) {
           document.getElementById('anim-play-btn').style.background = '#00e5a0';
           document.getElementById('anim-play-btn').style.color = '#fff';

@@ -6,6 +6,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include <stdlib.h>
+#include "esp_random.h"
 
 // ── Static channel/GPIO table — built from board_config.h ───────────────────
 //  SERVO_COUNT is defined in the active board header (2 or 4).
@@ -51,6 +53,12 @@ typedef struct {
 
 static QueueHandle_t s_servo_queue;
 static int s_current_angles[4]; // max servos supported
+static bool s_random_look_enabled = false;
+
+void servo_set_random_look(bool enable) {
+    s_random_look_enabled = enable;
+    ESP_LOGI("SERVO", "Random look %s", enable ? "enabled" : "disabled");
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 void servo_init(void) {
@@ -59,7 +67,7 @@ void servo_init(void) {
         .duty_resolution = LEDC_TIMER_14_BIT,
         .timer_num       = LEDC_TIMER,
         .freq_hz         = 50,
-        .clk_cfg         = LEDC_AUTO_CLK
+        .clk_cfg         = LEDC_USE_APB_CLK
     };
     ESP_ERROR_CHECK(ledc_timer_config(&timer));
 
@@ -71,6 +79,7 @@ void servo_init(void) {
     };
 
     for (int i = 0; i < (int)HW_COUNT; i++) {
+        gpio_reset_pin(s_hw[i].gpio); // Vital for JTAG pins on ESP32-C3 (e.g. GPIO 5) to output PWM
         ch.channel  = s_hw[i].channel;
         ch.gpio_num = s_hw[i].gpio;
         ESP_ERROR_CHECK(ledc_channel_config(&ch));
@@ -145,8 +154,9 @@ static void servo_worker_task(void *pvParameters) {
         servo_detach(i + 1);
     }
 
+    int random_delay_ticks = 20; // 2 seconds initial wait if enabled
     while (1) {
-        if (xQueueReceive(s_servo_queue, &cmd, portMAX_DELAY)) {
+        if (xQueueReceive(s_servo_queue, &cmd, pdMS_TO_TICKS(100))) {
             // Pulse to target at "medium speed" (~10ms per degree)
             servo_move_stepped(cmd.servo, cmd.target_angle, 10);
             
@@ -158,6 +168,22 @@ static void servo_worker_task(void *pvParameters) {
             // Wait 1 second then turn off
             vTaskDelay(pdMS_TO_TICKS(1000));
             servo_detach(cmd.servo);
+        } else {
+            if (s_random_look_enabled) {
+                if (random_delay_ticks <= 0) {
+                    // Random angle between 60 and 120 (Not too wide)
+                    int target_angle = 60 + (esp_random() % 61);
+                    // Random speed 15 to 35 ms per degree (Not too fast, natural)
+                    int speed = 15 + (esp_random() % 21);
+                    
+                    servo_move_stepped(1, target_angle, speed);
+                    
+                    // Wait random time between 1 to 4 seconds
+                    random_delay_ticks = 10 + (esp_random() % 31);
+                } else {
+                    random_delay_ticks--;
+                }
+            }
         }
     }
 }

@@ -148,13 +148,13 @@ static void led_heartbeat_task(void *pvParameters) {
         bool connected = (xEventGroupGetBits(s_wifi_events) & s_connected_bit) != 0;
 
         if (connected) {
-            // Slow breathing pattern
+            // Connected pattern: 80 BPM sharp breathing blink
             float t = esp_timer_get_time() / 1000000.0f;
-            // 0.3 Hz breathing -> full cycle every ~3.3 seconds
-            float breathe = (sinf(t * 3.14159f * 0.6f) + 1.0f) / 2.0f;
+            // 1.333 Hz breathing -> full cycle every 0.75 seconds (80 BPM)
+            float breathe = (sinf(t * 3.14159f * 2.666f) + 1.0f) / 2.0f;
             
-            // Gamma correction / squaring for more natural LED fade
-            breathe = breathe * breathe;
+            // Sharpen the blink for a heartbeat effect
+            breathe = powf(breathe, 8.0f);
 
             uint32_t duty = (uint32_t)(breathe * max_duty);
             if (LED_ACTIVE_LOW) duty = max_duty - duty;

@@ -1,7 +1,7 @@
 # ESP32-C3 MyBot Super Mini
 
-## MyBot v1.3
-MyBot runs on a breadboard with amazing animated eyes, an OLED display for messages, ultrasonic sensors for obstacle detection, and continuous rotation servos for wheels. It comes built in with preprogrammed demos such as:
+## MyBot v1.8
+MyBot runs on a breadboard with amazing animated eyes, an OLED display for messages, ultrasonic sensors for distance measurements, and a single SG90 servo. It comes built in with preprogrammed demos such as:
 - Built in web server for control
 - Easy GET commands to control eyes, servo, buzzer, and led
 - Amazing default life-like animations for the eyes and fun audio interactions
@@ -16,7 +16,7 @@ MyBot runs on a breadboard with amazing animated eyes, an OLED display for messa
 | | Trigger: GPIO 10 | | |
 | | Echo: GPIO 4 | | |
 | | GND: GND | | |
-| Continuous Rotation Servo | VCC: 5V | | |
+| SG90 Servo | VCC: 5V | | |
 | | Signal: GPIO 5 | | |
 | | GND: GND | | |
 | Passive Buzzer | VCC: 3.3V/5V | SIG: GPIO 3 | GND: GND |

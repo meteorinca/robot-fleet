@@ -54,8 +54,8 @@ void execute_named_action(const char *action) {
 
     if      (strcmp(action, "s1on")   == 0) servo_action_set(1, servo_get_last_angle(1));
     else if (strcmp(action, "s1off")  == 0) servo_detach(1);
-    else if (strcmp(action, "us_on")  == 0) ultrasonic_set_active(true);
-    else if (strcmp(action, "us_off") == 0) ultrasonic_set_active(false);
+    else if (strcmp(action, "us_on")  == 0) { ultrasonic_set_active(true); oled_set_mode(OLED_MODE_ULTRASONIC_VIEW); }
+    else if (strcmp(action, "us_off") == 0) { ultrasonic_set_active(false); oled_set_mode(OLED_MODE_NORMAL); }
     else if (strcmp(action, "l1on")   == 0) led_action_set(true);
     else if (strcmp(action, "l1off")  == 0) led_action_set(false);
     else if (strcmp(action, "toggle") == 0) led_action_toggle();
@@ -138,6 +138,20 @@ static esp_err_t servo_angle_uri_handler(httpd_req_t *req) {
             led_blink(3, 100);
             servo_action_set(servo, angle);
             ESP_LOGI("WEB", "API: servo %d -> %d deg", servo, angle);
+        }
+    }
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t random_look_handler(httpd_req_t *req) {
+    char buf[32];
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        char val[16];
+        if (httpd_query_key_value(buf, "on", val, sizeof(val)) == ESP_OK) {
+            bool enable = (atoi(val) != 0);
+            servo_set_random_look(enable);
         }
     }
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -720,6 +734,7 @@ void webserver_start(void) {
         { "/servo",     HTTP_GET,  servo_handler,          NULL },
         { "/s1_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/s2_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
+        { "/random_look", HTTP_GET, random_look_handler,   NULL },
     };
     for (int i = 0; i < (int)(sizeof(uris) / sizeof(uris[0])); i++) {
         httpd_register_uri_handler(s_server, &uris[i]);

@@ -20,7 +20,7 @@ Connect wires
 - **Echo** → ESP32-S3 **GPIO 4**
 - **GND** → ESP32-S3 **GND**
 
-### Continuous Rotation Servo
+### Servo
 - **VCC** → ESP32-S3 **5V** pin
 - **Signal** → ESP32-S3 **GPIO 5**
 - **GND** → ESP32-S3 **GND**
