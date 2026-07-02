@@ -533,7 +533,6 @@ void dog_audio_play_random(void) {
 
 void dog_audio_play_named(const char *name) {
     if (strcmp(name, "huh") == 0) dog_audio_play_8bit(sound_freesound_community_huh_102688, sound_freesound_community_huh_102688_len);
-    else if (strcmp(name, "scream") == 0) dog_audio_play_8bit(sound_freesound_community_cartoon_scream_1_6835, sound_freesound_community_cartoon_scream_1_6835_len);
     else if (strcmp(name, "yes") == 0) dog_audio_play_8bit(sound_sergequadrado_child_says_yes_113117, sound_sergequadrado_child_says_yes_113117_len);
     else if (strcmp(name, "jump") == 0) dog_audio_play_8bit(sound_freesound_community_cartoon_jump_6462, sound_freesound_community_cartoon_jump_6462_len);
     else if (strcmp(name, "ding") == 0) dog_audio_play_8bit(sound_alexis_gaming_cam_ding_cartoon_346093, sound_alexis_gaming_cam_ding_cartoon_346093_len);

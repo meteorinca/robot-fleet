@@ -117,7 +117,6 @@ void execute_named_action(const char *action) {
     else if (strcmp(action, "bark")   == 0) dog_audio_play_bark();
     else if (strcmp(action, "paulbot")== 0) dog_audio_play_paulbot();
     else if (strcmp(action, "huh")    == 0) dog_audio_play_named("huh");
-    else if (strcmp(action, "scream") == 0) dog_audio_play_named("scream");
     else if (strcmp(action, "yes")    == 0) dog_audio_play_named("yes");
     else if (strcmp(action, "jump")   == 0) dog_audio_play_named("jump");
     else if (strcmp(action, "ding")   == 0) dog_audio_play_named("ding");
@@ -1301,7 +1300,6 @@ void webserver_start(void) {
         { "/jump_fwd",  HTTP_GET,  quick_action_handler,   NULL },
         { "/jump_bwd",  HTTP_GET,  quick_action_handler,   NULL },
         { "/huh",       HTTP_GET,  quick_action_handler,   NULL },
-        { "/scream",    HTTP_GET,  quick_action_handler,   NULL },
         { "/yes",       HTTP_GET,  quick_action_handler,   NULL },
         { "/jump",      HTTP_GET,  quick_action_handler,   NULL },
         { "/ding",      HTTP_GET,  quick_action_handler,   NULL },
