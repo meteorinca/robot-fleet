@@ -204,6 +204,19 @@ esp_err_t wifi_nvs_credential_delete(int index) {
     return err;
 }
 
+void wifi_forget_all(void) {
+    ESP_LOGW(TAG, "wifi_forget_all: erasing all WiFi credentials and restarting...");
+    nvs_handle_t h;
+    if (nvs_open(NVS_WIFI_NAMESPACE, NVS_READWRITE, &h) == ESP_OK) {
+        nvs_erase_all(h);
+        nvs_commit(h);
+        nvs_close(h);
+    }
+    // A hard restart is the cleanest way to re-enter AP mode from a clean slate.
+    esp_restart();
+}
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  Captive portal DNS — responds to ALL DNS queries with 192.168.4.1
 //  This makes phones auto-open the portal when they connect to the SoftAP.

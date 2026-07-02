@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Fleet Dashboard</title>
+    <meta name="description" content="Dashboard for tracking robot fleet statuses and firmware versions.">
+    
+    <!-- Modern Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Background Elements -->
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="title-wrapper">
+                    <div class="logo-box">
+                        <i class="ri-robot-2-line"></i>
+                    </div>
+                    <div>
+                        <h1>Fleet Command</h1>
+                        <p id="subtitle">Initializing systems...</p>
+                    </div>
+                </div>
+                
+                <div class="stats-container">
+                    <div class="stat-box">
+                        <span class="stat-value" id="total-bots">0</span>
+                        <span class="stat-label">Total Bots</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="active-bots">0</span>
+                        <span class="stat-label">Active</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="controls">
+                <div class="search-bar">
+                    <i class="ri-search-line"></i>
+                    <input type="text" id="search" placeholder="Search fleet...">
+                </div>
+                <div class="view-toggle">
+                    <button class="active" title="Grid View"><i class="ri-grid-fill"></i></button>
+                    <button title="List View"><i class="ri-list-check"></i></button>
+                </div>
+            </div>
+            
+            <!-- Cards will be injected here -->
+            <div id="fleet-grid" class="fleet-grid">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Fetching telemetry from fleet.md...</p>
+                </div>
+            </div>
+            
+            <!-- Raw Markdown Viewer (Optional) -->
+            <div class="raw-data" style="display: none;">
+                <h3>Raw Telemetry Data</h3>
+                <pre id="raw-md"></pre>
+            </div>
+        </main>
+
+        <footer>
+            <p>Powered by <strong>Antigravity</strong> · Automatically syncs with GitHub Pages</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>

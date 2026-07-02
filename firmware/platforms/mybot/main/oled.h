@@ -28,8 +28,11 @@ typedef enum {
     OLED_MODE_MATRIX_RAIN = 17,
     OLED_MODE_SPACE_INVADER = 18,
     OLED_MODE_HEARTBEAT = 19,
-    OLED_MODE_ULTRASONIC_VIEW = 20
+    OLED_MODE_ULTRASONIC_VIEW = 20,
+    OLED_MODE_WIFI_RESET_CONFIRM = 21,  // "Forget all WiFi?" confirmation screen
+    OLED_MODE_SHOW_IP = 22
 } oled_mode_t;
+
 
 typedef enum {
     EYE_EMOTION_NORMAL = 0,

@@ -29,6 +29,16 @@ static void button_task(void *arg) {
     uint32_t post_game_start = 0;
     oled_mode_t last_oled_mode = OLED_MODE_NORMAL;
 
+    // Boot-button WiFi-reset state machine
+    typedef enum {
+        BOOT_IDLE,           // button not held
+        BOOT_HOLDING,        // held, counting up to 7 s
+        BOOT_CONFIRMING,     // confirm screen showing, waiting for press
+    } boot_btn_state_t;
+    boot_btn_state_t boot_state = BOOT_IDLE;
+    uint32_t boot_hold_start = 0;   // timestamp when hold began
+    bool last_boot_btn = false;     // debounced previous level
+
     while (1) {
         bool btn1 = (gpio_get_level(BTN_1_GPIO) == 0);
         bool btn2 = (gpio_get_level(BTN_2_GPIO) == 0);
@@ -133,14 +143,68 @@ static void button_task(void *arg) {
         last_btn1 = btn1;
         last_btn2 = btn2;
 
-        if (gpio_get_level(BTN_BOOT_GPIO) == 0) {
-            ESP_LOGI("BTN", "Boot button pressed -> Servo Hi");
-            servo_quick_action(1, 40, 90);
-            vTaskDelay(pdMS_TO_TICKS(500));
+        // ── Boot button: servo on short tap, WiFi reset on 7-second hold ────
+        bool boot_raw = (gpio_get_level(BTN_BOOT_GPIO) == 0);
+        uint32_t boot_now = esp_log_timestamp();
+
+        switch (boot_state) {
+            case BOOT_IDLE:
+                if (boot_raw && !last_boot_btn) {
+                    // Rising edge — start timing the hold
+                    boot_hold_start = boot_now;
+                    boot_state = BOOT_HOLDING;
+                    ESP_LOGI("BTN", "Boot btn held — starting 7s WiFi reset countdown");
+                }
+                break;
+
+            case BOOT_HOLDING:
+                if (!boot_raw) {
+                    // Released before 7 s — short tap: do servo action and go idle
+                    ESP_LOGI("BTN", "Boot btn short tap -> Servo Hi");
+                    servo_quick_action(1, 40, 90);
+                    boot_state = BOOT_IDLE;
+                } else {
+                    uint32_t held_ms = boot_now - boot_hold_start;
+                    // Show progress on OLED every ~1 s while holding
+                    int held_s = (int)(held_ms / 1000);
+                    if (held_s >= 1 && held_s < 7) {
+                        // Brief countdown hint (overrides current display for one frame)
+                        char hint[32];
+                        snprintf(hint, sizeof(hint), "Hold...%ds", 7 - held_s);
+                        oled_set_text(hint, 800);
+                    }
+                    if (held_ms >= 7000) {
+                        // 7 seconds reached — enter confirm mode
+                        buzzer_play_tone(600, 300);
+                        oled_set_mode(OLED_MODE_WIFI_RESET_CONFIRM);
+                        boot_state = BOOT_CONFIRMING;
+                        ESP_LOGW("BTN", "Boot btn held 7s — showing WiFi reset confirmation");
+                    }
+                }
+                break;
+
+            case BOOT_CONFIRMING:
+                // Confirm screen is shown; a fresh button press (rising edge) confirms.
+                // If the OLED mode was reset back to NORMAL (timer auto-cancelled),
+                // then we silently cancel too.
+                if (oled_get_mode() != OLED_MODE_WIFI_RESET_CONFIRM) {
+                    // Auto-cancel fired from OLED side
+                    boot_state = BOOT_IDLE;
+                } else if (boot_raw && !last_boot_btn) {
+                    // Rising edge = confirmed — forget all WiFi and restart
+                    ESP_LOGW("BTN", "WiFi reset CONFIRMED — erasing credentials and restarting");
+                    oled_set_text("Resetting...", 5000);
+                    vTaskDelay(pdMS_TO_TICKS(800)); // let OLED show the message
+                    wifi_forget_all(); // does not return (calls esp_restart)
+                }
+                break;
         }
+        last_boot_btn = boot_raw;
+
         vTaskDelay(pdMS_TO_TICKS(30)); // fast poll for games
     }
 }
+
 
 void app_main(void) {
     // NVS (required by WiFi)

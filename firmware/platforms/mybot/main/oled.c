@@ -16,6 +16,7 @@
 #include "buzzer.h"
 #include "ultrasonic.h"
 #include <math.h>
+#include "config.h"
 
 static const char *TAG = "OLED";
 
@@ -261,32 +262,97 @@ static void oled_eyes_task(void *arg) {
 
         // Check WiFi status
         wifi_state_t wstate = wifi_mgr_get_state();
-        if (wstate == WIFI_STATE_AP_MODE) {
-            draw_text(0, 0, "Hotspottin", 2);
-            draw_text(0, 20, "IP: 192.168.4.1", 1);
-            draw_text(0, 40, "Setup WiFi", 1);
-            oled_send_buffer();
-            vTaskDelay(pdMS_TO_TICKS(100));
-            continue;
-        } else if (wstate == WIFI_STATE_CONNECTING) {
+        static wifi_state_t last_wstate = WIFI_STATE_CONNECTING;
+
+        if (wstate != last_wstate) {
+            if (wstate == WIFI_STATE_AP_MODE || wstate == WIFI_STATE_CONNECTED) {
+                s_oled_mode = OLED_MODE_SHOW_IP;
+            }
+            last_wstate = wstate;
+        }
+
+        if (wstate == WIFI_STATE_CONNECTING && s_oled_mode == OLED_MODE_NORMAL) {
             draw_text(10, 24, "Connecting...", 1);
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
-        } else if (wstate == WIFI_STATE_CONNECTED) {
-            static int show_ip_timer = 0;
-            if (show_ip_timer < 50) { // ~3 seconds at 60ms/frame
-                show_ip_timer++;
-                draw_text(10, 10, "Connected!", 1);
-                char ip_buf[32];
-                snprintf(ip_buf, sizeof(ip_buf), "%s", wifi_mgr_get_ip());
-                draw_text(10, 30, ip_buf, 2);
+        }
+
+        if (s_oled_mode == OLED_MODE_SHOW_IP) {
+            static int ip_show_timer = 0;
+            if (last_mode != s_oled_mode) {
+                ip_show_timer = 0;
+                last_mode = s_oled_mode;
+            }
+            ip_show_timer++;
+            
+            if (ip_show_timer >= 300) {
+                s_oled_mode = OLED_MODE_NORMAL;
                 oled_send_buffer();
-                vTaskDelay(pdMS_TO_TICKS(60));
+                vTaskDelay(pdMS_TO_TICKS(100));
                 continue;
             }
-            // fallthrough to eyes
+
+            if (wstate == WIFI_STATE_AP_MODE) {
+                draw_text(0, 0, "Hotspottin", 2);
+
+                char name_buf[32];
+                snprintf(name_buf, sizeof(name_buf), "In wifi, Find me");
+                draw_text(0, 20, name_buf, 1);
+
+                snprintf(name_buf, sizeof(name_buf), "mybot-%d", DEVICE_NUMBER);
+                draw_text(0, 30, name_buf, 1);
+
+                /* show IP address */
+                char ip_buf[20];
+                snprintf(ip_buf, sizeof(ip_buf), "IP: %d.%d.%d.%d",
+                        192, 168, 1, 1);
+                draw_text(0, 40, ip_buf, 1);
+                
+                char cd_buf[16];
+                int sec_left = (300 - ip_show_timer) / 10;
+                snprintf(cd_buf, sizeof(cd_buf), "00:%02d", sec_left);
+                draw_text(40, 45, cd_buf, 2);
+            } else {
+                draw_text(0, 0, "Yesss!", 2);
+                draw_text(0, 16, "me on Weefee", 1);
+                
+                char ip_buf[32];
+                snprintf(ip_buf, sizeof(ip_buf), "IP: %s", wifi_mgr_get_ip());
+                draw_text(0, 26, ip_buf, 1);
+                
+                char mdns_buf[32];
+                snprintf(mdns_buf, sizeof(mdns_buf), "%s.local", MDNS_HOSTNAME);
+                draw_text(0, 36, mdns_buf, 1);
+                
+                char cd_buf[16];
+                int sec_left = (300 - ip_show_timer) / 10;
+                snprintf(cd_buf, sizeof(cd_buf), "00:%02d", sec_left);
+                draw_text(0, 48, cd_buf, 2);
+
+                // Smiley face on the right side
+                int cx = 100, cy = 25; // x=100 leaves room. Width is 128.
+                // Outline (radius 14)
+                for (int a = 0; a < 360; a+=10) {
+                    float rad = a * 3.14159f / 180.0f;
+                    draw_pixel(cx + (int)(14 * cosf(rad)), cy + (int)(14 * sinf(rad)), 1);
+                }
+                // Eyes
+                draw_pixel(cx - 5, cy - 4, 1); draw_pixel(cx - 4, cy - 4, 1);
+                draw_pixel(cx - 5, cy - 3, 1); draw_pixel(cx - 4, cy - 3, 1);
+                draw_pixel(cx + 5, cy - 4, 1); draw_pixel(cx + 4, cy - 4, 1);
+                draw_pixel(cx + 5, cy - 3, 1); draw_pixel(cx + 4, cy - 3, 1);
+                // Smile (arc)
+                for (int a = 20; a < 160; a+=10) {
+                    float rad = a * 3.14159f / 180.0f;
+                    draw_pixel(cx + (int)(8 * cosf(rad)), cy + 2 + (int)(8 * sinf(rad)), 1);
+                }
+            }
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
         }
+
 
         if (s_oled_mode == OLED_MODE_PONG_V || s_oled_mode == OLED_MODE_PONG_H) {
             static float ball_x = OLED_WIDTH / 2;
@@ -1547,7 +1613,7 @@ static void oled_eyes_task(void *arg) {
                 }
             }
 
-            draw_text(40, 54, "120 BPM", 1);
+            draw_text(40, 54, "my heartbeats", 1);
 
             // ── EKG trace (scrolls left, unsigned counter = no negative modulo) ─────
             ekg_pos += 3;
@@ -1666,16 +1732,16 @@ static void oled_eyes_task(void *arg) {
                 "Pong (H)", "Pong (V)", "Flappy Bird", "Jumpy Dino", "Snake", 
                 "Pacman", "Frogger", "Racing", "Math", "Spacesonic", "Piano", "3D Demo",
                 "Mario", "Fireworks", "Matrix Rain", "Space Inv", "Heartbeat",
-                "Ultrasonic", "Exit (Eyes)"
+                "Ultrasonic", "Show IP", "Exit (Eyes)"
             };
             static const oled_mode_t menu_modes[] = {
                 OLED_MODE_PONG_H, OLED_MODE_PONG_V, OLED_MODE_FLAPPY, OLED_MODE_DINO, OLED_MODE_SNAKE,
                 OLED_MODE_PACMAN, OLED_MODE_FROGGER, OLED_MODE_RACING, OLED_MODE_MATH, OLED_MODE_US_SHOOTER,
                 OLED_MODE_BUZZER_PIANO, OLED_MODE_3D_SHOWCASE,
                 OLED_MODE_MARIO_DANCE, OLED_MODE_FIREWORKS, OLED_MODE_MATRIX_RAIN, OLED_MODE_SPACE_INVADER, OLED_MODE_HEARTBEAT,
-                OLED_MODE_ULTRASONIC_VIEW, OLED_MODE_NORMAL
+                OLED_MODE_ULTRASONIC_VIEW, OLED_MODE_SHOW_IP, OLED_MODE_NORMAL
             };
-            const int num_opts = 19;
+            const int num_opts = 20;
             static int sel = 0;
             static bool p_left = false, p_right = false;
             
@@ -1704,9 +1770,54 @@ static void oled_eyes_task(void *arg) {
             
             oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(50));
             continue;
+        } else if (s_oled_mode == OLED_MODE_WIFI_RESET_CONFIRM) {
+            // ── WiFi Reset Confirmation Screen ───────────────────────────────
+            // Drawn while user decides. The actual wifi_forget_all() call is
+            // made by main.c's button task on the confirming button press.
+            // Auto-cancels after 10 s (167 frames × 60 ms) if no input.
+            static int reset_confirm_timer = 0;
+            if (last_mode != s_oled_mode) {
+                reset_confirm_timer = 0;
+            }
+            reset_confirm_timer++;
+            int secs_remaining = (167 - reset_confirm_timer) / 17 + 1;
+            if (secs_remaining < 1) secs_remaining = 1;
+
+            if (reset_confirm_timer > 167) {
+                // Timed out — cancel silently and return to eyes
+                reset_confirm_timer = 0;
+                s_oled_mode = OLED_MODE_NORMAL;
+                oled_send_buffer();
+                vTaskDelay(pdMS_TO_TICKS(60));
+                continue;
+            }
+
+            // Header
+            draw_text(14, 2,  "FORGET WiFi?", 1);
+            draw_line(0, 12, 128, 12, 1);
+
+            // Warning lines
+            draw_text(4, 16, "Erases all saved", 1);
+            draw_text(4, 26, "networks. Robot", 1);
+            draw_text(4, 36, "will hotspot.", 1);
+
+            // YES (highlighted — press boot btn again to confirm)
+            draw_line(0, 46, 128, 46, 1);
+            draw_text(8,  50, "[YES] Press btn", 1);
+            draw_text(8,  58, "[ NO] Hold 7s...", 1);
+
+            // Countdown in top-right
+            char ct_buf[16];
+            snprintf(ct_buf, sizeof(ct_buf), "%ds", secs_remaining);
+            draw_text(104, 2, ct_buf, 1);
+
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(60));
+            continue;
         }
 
         // Animated eyes
+
         blink_timer++;
         if (!blinking && blink_timer > next_blink) {
             blinking = true;
@@ -1777,6 +1888,39 @@ static void oled_eyes_task(void *arg) {
             }
         }
 
+        // ── Tiny smile / expression below the eyes ─────────────────────────
+        // Mouth centered at x=64, y=56. Arc drawn as 11 pixels wide.
+        {
+            const int mx = 64;  // mouth center x
+            const int my = 56;  // mouth center y
+            const int mw = 10;  // half-width of mouth
+
+            for (int xi = -mw; xi <= mw; xi++) {
+                int px_m = mx + xi;
+                int py_m;
+
+                if (s_eye_emotion == EYE_EMOTION_NORMAL) {
+                    // Gentle smile: parabola opening upward (curve up = happy)
+                    py_m = my + (xi * xi) / 14;
+                } else if (s_eye_emotion == EYE_EMOTION_MAD) {
+                    // Flat grimace: nearly straight line, very slight downward curve
+                    py_m = my + (xi * xi) / 40;
+                } else if (s_eye_emotion == EYE_EMOTION_SAD) {
+                    // Frown: parabola opening downward
+                    py_m = my - (xi * xi) / 14;
+                } else if (s_eye_emotion == EYE_EMOTION_SLEEPY) {
+                    // Drowsy: very shallow upward curve
+                    py_m = my + (xi * xi) / 30;
+                } else {
+                    py_m = my;
+                }
+
+                draw_pixel(px_m, py_m, 1);
+                // Add one pixel of thickness for visibility
+                draw_pixel(px_m, py_m + 1, 1);
+            }
+        }
+
         oled_send_buffer();
         vTaskDelay(pdMS_TO_TICKS(60));
     }
@@ -1805,7 +1949,7 @@ void oled_init(void) {
     vTaskDelay(pdMS_TO_TICKS(100));
     uint8_t init_cmds[] = {
         0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40,
-        0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x12,
+        0x8D, 0x14, 0x20, 0x00, 0xA0, 0xC0, 0xDA, 0x12,
         0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF
     };
     for (int i = 0; i < sizeof(init_cmds); i++) {

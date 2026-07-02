@@ -425,6 +425,13 @@ static esp_err_t game_off_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t show_ip_handler(httpd_req_t *req) {
+    oled_set_mode(OLED_MODE_SHOW_IP);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
 // /schedule — queue an action at an exact wall-clock time or relative delay.
 //
 // Params (all GET query string):
@@ -861,6 +868,7 @@ void webserver_start(void) {
         { "/game_piano", HTTP_GET, game_piano_handler,     NULL },
         { "/anim_3d",    HTTP_GET, anim_3d_handler,        NULL },
         { "/game_off",  HTTP_GET,  game_off_handler,       NULL },
+        { "/show_ip",   HTTP_GET,  show_ip_handler,        NULL },
         // New fun animation endpoints
         { "/anim_mario",    HTTP_GET, anim_mario_handler,    NULL },
         { "/anim_fireworks",HTTP_GET, anim_fireworks_handler,NULL },

@@ -34,4 +34,8 @@ bool wifi_nvs_credential_get(int index, char *ssid, size_t ssid_len,
 // Delete a single NVS-stored credential by index. Returns ESP_OK on success.
 esp_err_t wifi_nvs_credential_delete(int index);
 
+// Erase ALL stored WiFi credentials and restart the device into AP/hotspot mode.
+// This is the "factory-reset networking" function — irreversible without re-setup.
+void wifi_forget_all(void);
+
 #endif
