@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <title>Quinn's MyBot Control</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow-y: auto;
+      width: 100%;
+      font-family: system-ui, sans-serif;
+      background: #0d0d1a;
+      color: #e0e0f0;
+    }
+
+    .content {
+      padding: 20px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .card {
+      background: #11112a;
+      border: 1px solid #1e1e3a;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      width: 100%;
+      max-width: 460px;
+    }
+
+    .card.disabled {
+      opacity: 0.4;
+      filter: grayscale(1);
+      pointer-events: none;
+      position: relative;
+    }
+
+    .card.disabled::after {
+      content: 'NOT SUPPORTED';
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 9px;
+      font-weight: 900;
+      color: #f7736a;
+      letter-spacing: 1px;
+      border: 1px solid #f7736a;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .card h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #7c6af7;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .time-big {
+      font-size: 36px;
+      font-weight: 700;
+      font-family: monospace;
+      color: #00e5a0;
+      text-align: center;
+    }
+
+    .epoch {
+      font-size: 12px;
+      color: #444;
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    input[type=text],
+    input[type=number],
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #2a2a50;
+      background: #0a0a1e;
+      color: #e0e0f0;
+      font-size: 15px;
+      margin-bottom: 10px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: #7c6af7;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #7c6af7, #5b4de8);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+      opacity: 0.8;
+    }
+
+    .btn-led-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-led {
+      padding: 12px 5px;
+      border-radius: 10px;
+      border: 1px solid #2a2a50;
+      background: #1a1a35;
+      color: #e0e0f0;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .btn-led:active {
+      background: #7c6af7;
+      color: #fff;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      width: 100%;
+    }
+
+    .act-btn {
+      padding: 10px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #0a0a1e;
+      border: 1px solid #1e1e3a;
+      border-radius: 8px;
+      color: #444;
+      cursor: default;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #1e1e3a;
+      color: #7c6af7;
+      margin-bottom: 6px;
+    }
+
+    .err-msg {
+      color: #f7736a;
+      font-size: 12px;
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #1e1e3a;
+      border-radius: 5px;
+      outline: none;
+      margin: 10px 0;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #7c6af7;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: all .15s;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background: #5b4de8;
+    }
+
+    .piano-key {
+      flex: 1;
+      background: #f0f0f0;
+      border: 1px solid #333;
+      border-radius: 0 0 6px 6px;
+      box-shadow: 0 4px 0 #bbb;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .piano-key:active {
+      background: #d0d0d0;
+      box-shadow: 0 1px 0 #bbb;
+      transform: translateY(3px);
+    }
+  </style>
+</head>
+
+<body>
+  <div class='content'>
+    <h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>
+      Quinn's MyBot V1.8</h1>
+    <div class='card' style='text-align:center;'>
+      <span class='status-badge' id='conn-badge'>●&nbsp;Online</span>
+      <button class='btn-primary' onclick='fetch("/show_ip")' style='display:block; margin:8px auto; width:80%; max-width:200px; padding:8px; font-size:13px; background:linear-gradient(135deg, #00e5a0, #00a570); color:#000;'>Show IP on Bot</button>
+      <div class='time-big' id='clock'>--:--:--</div>
+      <div class='epoch'>Epoch: <span id='epoch'>-</span>&nbsp;&nbsp;Synced: <span id='synced'>no</span></div>
+    </div>
+
+    <div class='card'>
+      <h2>LED Control</h2>
+      <div style='margin-bottom: 8px; font-size: 12px; color: #a0a0d0;'>Status LED (Blue)</div>
+      <div class='btn-led-grid' style='margin-bottom: 12px;'>
+        <button class='btn-led' onclick='led("l1on")'>ON</button>
+        <button class='btn-led' onclick='led("l1off")'>OFF</button>
+        <button class='btn-led' onclick='led("toggle")'>TOGGLE</button>
+      </div>
+      <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;'>
+        <div style='font-size: 12px; color: #a0a0d0;'>External LEDs</div>
+        <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
+          <input type='checkbox' id='led-direct' checked onchange='fetch("/led_direct?on="+(this.checked?1:0))'
+            style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Direct Mode
+        </label>
+      </div>
+      <div class='btn-led-grid' style='grid-template-columns: 1fr 1fr 1fr; margin-bottom: 12px;'>
+        <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grnon")'>GRN ON</button>
+        <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grnoff")'>GRN OFF</button>
+        <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grntog")'>TOGGLE</button>
+      </div>
+      <div class='btn-led-grid' style='grid-template-columns: 1fr 1fr 1fr;'>
+        <button class='btn-led' style='color:#f7736a;border-color:#f7736a;' onclick='led("redon")'>RED ON</button>
+        <button class='btn-led' style='color:#f7736a;border-color:#f7736a;' onclick='led("redoff")'>RED OFF</button>
+        <button class='btn-led' style='color:#f7736a;border-color:#f7736a;' onclick='led("redtog")'>TOGGLE</button>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>Servo</h2>
+      <div style='margin-bottom:15px;'>
+        <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>
+          <label>Angle (Left - Middle - Right)</label>
+          <span id='s1-val'>90</span>
+        </div>
+        <input type='range' min='5' max='175' value='90' class='slider' id='s1-slide' onchange='sv(1,this.value)' oninput='document.getElementById("s1-val").textContent=this.value'>
+        <div style='display:flex; justify-content:space-between; align-items:center; margin: 8px 0;'>
+          <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
+            <input type='checkbox' id='servo-random' onchange='fetch("/random_look?on="+(this.checked?1:0))'
+              style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Random Look
+          </label>
+        </div>
+        <div class='btn-led-grid' style='margin-top:5px;'>
+          <button class='btn-led' onclick='dog("s1on")'>ON</button>
+          <button class='btn-led' onclick='dog("s1off")'>OFF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>Ultrasonic Sensor</h2>
+      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr;'>
+        <button class='btn-led' onclick='dog("us_on")' style='color:#00e5a0;border-color:#00e5a0;'>ON</button>
+        <button class='btn-led' onclick='dog("us_off")' style='color:#f7736a;border-color:#f7736a;'>OFF</button>
+      </div>
+      <div style='margin-top:15px;text-align:center;'>
+        <div class='time-big' id='us-val'>-- cm</div>
+        <div style='background:#0a0a1e;border-radius:6px;height:8px;margin-top:8px;overflow:hidden;'>
+          <div id='us-bar'
+            style='width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#7c6af7);transition:width .1s;'></div>
+        </div>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>Buzzer Demos & Mini Piano</h2>
+      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr 1fr; margin-bottom: 12px;'>
+        <button class='btn-led' onclick='fetch("/demo?type=coin")'
+          style='color:#ffdd55;border-color:#ffdd55;'>COIN</button>
+        <button class='btn-led' onclick='fetch("/demo?type=gameover")' style='color:#f7736a;border-color:#f7736a;'>GAME
+          OVER</button>
+        <button class='btn-led' onclick='fetch("/demo?type=siren")'
+          style='color:#5555ff;border-color:#5555ff;'>SIREN</button>
+        <button class='btn-led' onclick='fetch("/demo?type=laser")'
+          style='color:#55ff55;border-color:#55ff55;'>LASER</button>
+        <button class='btn-led' onclick='fetch("/demo?type=mario")' style='color:#ffffff;border-color:#ffffff;'>👻
+          BOO</button>
+        <button class='btn-led' onclick='fetch("/demo?type=1up")'
+          style='color:#00ffcc;border-color:#00ffcc;'>1-UP</button>
+      </div>
+      <div style='display:flex; gap:2px; height:80px;'>
+        <div class='piano-key' onclick='fetch("/tone?f=261&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=293&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=329&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=349&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=392&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=440&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=493&d=200")'></div>
+        <div class='piano-key' onclick='fetch("/tone?f=523&d=200")'></div>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>Buttons & Game</h2>
+      <div style='display:flex;justify-content:space-between;margin-bottom:15px;align-items:center;'>
+        <div>
+          <span id='btn1-ind'
+            style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
+          <span>Button 1</span>
+        </div>
+        <div>
+          <span id='btn2-ind'
+            style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
+          <span>Button 2</span>
+        </div>
+      </div>
+      <div style='display:flex; gap:10px; align-items:center;'>
+        <select id='game-select' style='flex:1; margin-bottom:0;'>
+          <option value='1'>Pong (Horizontal)</option>
+          <option value='2'>Pong (Vertical)</option>
+          <option value='3'>Flappy Bird</option>
+          <option value='4'>Jumpy Dino</option>
+          <option value='5'>Snake</option>
+          <option value='6'>Pacman</option>
+          <option value='7'>Froggy Road</option>
+          <option value='8'>Racing</option>
+          <option value='9'>Times Table</option>
+          <option value='12'>Spacesonic</option>
+          <option value='13'>Buzzer Piano</option>
+        </select>
+        <button class='btn-led' id='game-play-btn' onclick='playSelectedGame()'
+          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
+        <button class='btn-led' id='game-stop-btn' onclick='fetch("/game_off")'
+          style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>3D Animation Showcase</h2>
+      <p style='color:#7b7b98; font-size:12px; margin-bottom:15px;'>Experience advanced 3D math running in real-time.
+        Use the left/right paddle buttons on the bot to cycle through the 6 distinct 3D visualizations!</p>
+      <div style='display:flex; gap:10px; align-items:center;'>
+        <button class='btn-led' id='anim-play-btn' onclick='fetch("/anim_3d")'
+          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY SHOWCASE</button>
+        <button class='btn-led' id='anim-stop-btn' onclick='fetch("/game_off")'
+          style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>Schedule Action</h2>
+      <div style='display:flex;gap:10px;'>
+        <input type='number' id='sched-delay' placeholder='Delay (sec)' value='5' style='flex:1; margin-bottom:0;'>
+        <select id='sched-action'
+          style='flex:2; padding:10px 12px; border-radius:8px; border:1px solid #2a2a50; background:#0a0a1e; color:#e0e0f0; outline:none;'>
+          <option value='toggle'>Toggle LED</option>
+          <option value='l1on'>LED ON</option>
+          <option value='l1off'>LED OFF</option>
+          <option value='hi'>Say Hi</option>
+          <option value='bark'>Bark</option>
+        </select>
+      </div>
+      <button class='btn-primary' onclick='scheduleAction()' style='margin-top:10px;'>Schedule</button>
+      <div class='err-msg' id='sched-err'></div>
+    </div>
+
+    <div class='card' id='tts-card'>
+      <h2>Text to Speech</h2>
+      <input type='text' id='say' placeholder='Broadcast text to browsers...'>
+      <button class='btn-primary' onclick='sendTTS()'>Speak</button>
+      <div class='err-msg' id='tts-err'></div>
+    </div>
+
+    <div class='card' id='oled-card'>
+      <h2>OLED Display</h2>
+      <input type='text' id='oled-text' placeholder='Text to show on OLED...'>
+      <button class='btn-primary' onclick='sendOLED()'>Send to Screen</button>
+      <div class='err-msg' id='oled-err'></div>
+    </div>
+
+    <div class='card'>
+      <h2>Actions</h2>
+      <div class='action-grid' id='action-grid'></div>
+    </div>
+
+    <div class='card' id='wifi-card'>
+      <h2>📡 WiFi Setup</h2>
+      <div id='wifi-status' style='margin-bottom:12px;'></div>
+      <div id='saved-nets' style='margin-bottom:12px;'></div>
+      <button class='btn-primary' onclick='scanWifi()' style='background:linear-gradient(135deg,#1a1a35,#20203d);border:1px solid #2a2a50;margin-bottom:10px;'>Scan for Networks</button>
+      <div id='scan-results' style='margin-bottom:10px;'></div>
+      <div style='border-top:1px solid #1e1e3a;padding-top:12px;margin-top:8px;'>
+        <div style='font-size:11px;color:#666;font-weight:700;margin-bottom:8px;'>ADD NETWORK MANUALLY</div>
+        <input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)' style='font-size:16px;padding:14px 12px;'>
+        <div style='position:relative;margin-bottom:10px;'>
+          <input type='password' id='wifi-pass' placeholder='Password' autocomplete='current-password' style='width:100%;font-size:16px;padding:14px 48px 14px 12px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#e0e0f0;outline:none;box-sizing:border-box;'>
+          <button type='button' onclick="var i=document.getElementById('wifi-pass');i.type=i.type==='password'?'text':'password';" style='position:absolute;right:0;top:0;bottom:0;width:44px;background:none;border:none;color:#666;font-size:20px;cursor:pointer;'>👁</button>
+        </div>
+        <button class='btn-primary' onclick='saveWifi()' style='font-size:16px;padding:14px;'>Connect & Reboot</button>
+        <div class='err-msg' id='wifi-err'></div>
+      </div>
+    </div>
+
+    <div class='card'>
+      <h2>OTA Firmware Update</h2>
+      <input type='file' id='ota-file' accept='.bin' style='color:#a0a0d0;margin-bottom:10px;width:100%;'>
+      <div style='background:#0a0a1e;border-radius:6px;height:8px;margin-bottom:8px;overflow:hidden;'>
+        <div id='ota-bar'
+          style='width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#7c6af7);transition:width .3s;'></div>
+      </div>
+      <button class='btn-primary' id='ota-btn' onclick='doOTA()'>Flash Firmware</button>
+      <div class='err-msg' id='ota-msg'></div>
+    </div>
+
+  </div>
+  <script>
+    function led(a) { fetch('/' + a); }
+    function dog(v) { fetch('/' + v); }
+    function sv(n, a) {
+      document.getElementById('s' + n + '-val').textContent = a;
+      fetch('/s' + n + '_' + a);
+    }
+
+    function scheduleAction() {
+      var d = document.getElementById('sched-delay').value;
+      var a = document.getElementById('sched-action').value;
+      fetch('/schedule?action=' + a + '&delay=' + d).then(function (r) { return r.json(); })
+        .then(function (j) { document.getElementById('sched-err').textContent = 'Scheduled ' + a + ' in ' + d + 's'; })
+        .catch(function (e) { document.getElementById('sched-err').textContent = e; });
+    }
+    var ACTIONS = { 'hi': 'Say Hi', 's1on': 'S1 ON', 's1off': 'S1 OFF', 'us_on': 'US ON', 'us_off': 'US OFF' };
+    (function () {
+      var g = document.getElementById('action-grid');
+      for (var k in ACTIONS) {
+        var b = document.createElement('button');
+        b.className = 'act-btn'; b.textContent = ACTIONS[k];
+        b.style.cursor = 'pointer'; b.style.color = '#a0a0d0';
+        (function (val) { b.onclick = function () { dog(val); }; })(k);
+        g.appendChild(b);
+      }
+    })();
+    var timeOffset = 0, isSynced = false;
+    function syncT() {
+      fetch('/time').then(function (r) { return r.json(); }).then(function (d) {
+        if (d.synced) {
+          timeOffset = (d.epoch * 1000) - Date.now();
+          isSynced = true;
+          document.getElementById('synced').textContent = 'yes';
+        } else {
+          fetch('/sync_time?epoch=' + Math.floor(Date.now() / 1000));
+          timeOffset = 0; isSynced = true;
+          document.getElementById('synced').textContent = 'local';
+        }
+      }).catch(function () { });
+    }
+    syncT(); setInterval(syncT, 10000);
+    setInterval(function () {
+      var d = new Date(Date.now() + timeOffset);
+      var f = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + ' ' +
+        ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
+      document.getElementById('clock').textContent = f;
+      document.getElementById('epoch').textContent = Math.floor(d.getTime() / 1000);
+    }, 100);
+    function sendTTS() {
+      var t = document.getElementById('say').value.trim();
+      if (!t) return;
+      var err = document.getElementById('tts-err');
+      err.textContent = 'Sending...';
+      fetch('/tts?say=' + encodeURIComponent(t)).then(function () { err.textContent = ''; }).catch(function (e) { err.textContent = e; });
+    }
+    function sendOLED() {
+      var t = document.getElementById('oled-text').value.trim();
+      if (!t) return;
+      var err = document.getElementById('oled-err');
+      err.textContent = 'Sending...';
+      fetch('/oled?text=' + encodeURIComponent(t)).then(function () { err.textContent = ''; }).catch(function (e) { err.textContent = e; });
+    }
+    function playSelectedGame() {
+      var g = document.getElementById('game-select').value;
+      if (g == '1') fetch('/game_on_h');
+      else if (g == '2') fetch('/game_on_v');
+      else if (g == '3') fetch('/game_flappy');
+      else if (g == '4') fetch('/game_dino');
+      else if (g == '5') fetch('/game_snake');
+      else if (g == '6') fetch('/game_pacman');
+      else if (g == '7') fetch('/game_frogger');
+      else if (g == '8') fetch('/game_racing');
+      else if (g == '9') fetch('/game_math');
+      else if (g == '12') fetch('/game_us_shooter');
+      else if (g == '13') fetch('/game_piano');
+    }
+    // Polling for Ultrasonic Data and Buttons
+    setInterval(function () {
+      fetch('/us_data').then(r => r.json()).then(j => {
+        if (j.active) {
+          document.getElementById('us-val').textContent = j.dist + ' cm';
+          var pct = Math.min(100, Math.max(0, ((50 - j.dist) / 50) * 100));
+          document.getElementById('us-bar').style.width = pct + '%';
+        } else {
+          document.getElementById('us-val').textContent = '-- cm';
+          document.getElementById('us-bar').style.width = '0%';
+        }
+      }).catch(() => { });
+
+      fetch('/btn_data').then(r => r.json()).then(j => {
+        document.getElementById('btn1-ind').style.background = j.btn1 ? '#00e5a0' : '#444';
+        document.getElementById('btn2-ind').style.background = j.btn2 ? '#00e5a0' : '#444';
+        document.getElementById('btn1-ind').style.boxShadow = j.btn1 ? '0 0 8px #00e5a0' : 'none';
+        document.getElementById('btn2-ind').style.boxShadow = j.btn2 ? '0 0 8px #00e5a0' : 'none';
+
+        var active_game = j.game_mode;
+        if (active_game > 0 && active_game < 10) {
+          document.getElementById('game-select').value = active_game;
+          document.getElementById('game-play-btn').style.background = '#00e5a0';
+          document.getElementById('game-play-btn').style.color = '#fff';
+          document.getElementById('game-stop-btn').style.background = '#1a1a35';
+          document.getElementById('game-stop-btn').style.color = '#f7736a';
+        } else {
+          document.getElementById('game-play-btn').style.background = '#1a1a35';
+          document.getElementById('game-play-btn').style.color = '#00e5a0';
+          document.getElementById('game-stop-btn').style.background = '#f7736a';
+          document.getElementById('game-stop-btn').style.color = '#fff';
+        }
+
+        if (active_game == 10) {
+          document.getElementById('anim-play-btn').style.background = '#00e5a0';
+          document.getElementById('anim-play-btn').style.color = '#fff';
+          document.getElementById('anim-stop-btn').style.background = '#1a1a35';
+          document.getElementById('anim-stop-btn').style.color = '#f7736a';
+        } else {
+          document.getElementById('anim-play-btn').style.background = '#1a1a35';
+          document.getElementById('anim-play-btn').style.color = '#00e5a0';
+          document.getElementById('anim-stop-btn').style.background = '#f7736a';
+          document.getElementById('anim-stop-btn').style.color = '#fff';
+        }
+      }).catch(() => { });
+    }, 250);
+
+    function scanWifi() {
+      var sr = document.getElementById('scan-results');
+      sr.innerHTML = '<div style="color:#666;font-size:12px;">Scanning...</div>';
+      fetch('/wifi_scan').then(function(r) { return r.json(); }).then(function(d) {
+        var h = '';
+        if (d.networks && d.networks.length) {
+          d.networks.forEach(function(n) {
+            h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin:4px 0;background:#0a0a1e;border-radius:8px;border:1px solid #1e1e3a;cursor:pointer;" onclick="document.getElementById(\'wifi-ssid\').value=\'' + n.ssid.replace(/'/g, '') + '\';">';
+            h += '<span style="color:#e0e0f0;font-size:13px;">' + n.ssid + '</span>';
+            h += '<span style="color:#666;font-size:11px;">' + n.rssi + 'dBm</span></div>';
+          });
+        } else {
+          h = '<div style="color:#666;font-size:12px;">No networks found</div>';
+        }
+        sr.innerHTML = h;
+      }).catch(function(e) { sr.innerHTML = '<div class="err-msg">Scan error: ' + e + '</div>'; });
+    }
+
+    function saveWifi() {
+      var s = document.getElementById('wifi-ssid').value.trim();
+      var p = document.getElementById('wifi-pass').value;
+      var e = document.getElementById('wifi-err');
+      if (!s) { e.textContent = 'Enter an SSID'; return; }
+      e.style.color = '#a0a0d0'; e.textContent = 'Saving & rebooting...';
+      fetch('/wifi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ssid: s, pass: p }) })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.ok) { e.style.color = '#00e5a0'; e.textContent = 'Saved! Rebooting in 3s...'; }
+          else { e.style.color = '#f7736a'; e.textContent = 'Error: ' + (d.error || 'unknown'); }
+        }).catch(function(x) { e.style.color = '#f7736a'; e.textContent = 'Network error: ' + x; });
+    }
+
+    function loadSavedNets() {
+      fetch('/wifi').then(function(r) { return r.json(); }).then(function(d) {
+        var h = '', ws = document.getElementById('wifi-status');
+        if (d.ap_mode) {
+          ws.innerHTML = '<div style="padding:8px 12px;background:#2a1a1a;border:1px solid #5a2a2a;border-radius:8px;color:#f7a56a;font-size:13px;">⚠️ Running in AP mode — add a WiFi network below to connect.</div>';
+        } else {
+          ws.innerHTML = '<div style="padding:8px 12px;background:#1a2a1a;border:1px solid #2a5a2a;border-radius:8px;color:#00e5a0;font-size:13px;">✓ Connected to WiFi</div>';
+        }
+        if (d.saved && d.saved.length) {
+          h = '<div style="font-size:11px;color:#666;margin-bottom:6px;font-weight:700;">SAVED NETWORKS</div>';
+          d.saved.forEach(function(n, i) {
+            h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin:3px 0;background:#0a0a1e;border-radius:6px;border:1px solid #1e1e3a;">';
+            h += '<span style="color:#a0a0d0;font-size:12px;">' + n + '</span>';
+            h += '<button onclick="deleteNet(' + i + ')" style="background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:0 4px;">&times;</button></div>';
+          });
+        }
+        document.getElementById('saved-nets').innerHTML = h;
+      }).catch(function() { });
+    }
+
+    function deleteNet(idx) {
+      fetch('/wifi?delete=' + idx, { method: 'DELETE' }).then(function() { loadSavedNets(); }).catch(function() { });
+    }
+    loadSavedNets();
+
+    function doOTA() {
+      var f = document.getElementById('ota-file').files[0];
+      var msg = document.getElementById('ota-msg');
+      var bar = document.getElementById('ota-bar');
+      var btn = document.getElementById('ota-btn');
+      if (!f) { msg.textContent = 'Pick a .bin file first'; return; }
+      btn.disabled = true; btn.style.opacity = '.5';
+      msg.style.color = '#a0a0d0'; msg.textContent = 'Uploading...';
+      var xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = function (e) { if (e.lengthComputable) { var p = (e.loaded / e.total) * 100; bar.style.width = p + '%'; } };
+      xhr.onload = function () {
+        if (xhr.status === 200) { msg.style.color = '#00e5a0'; msg.textContent = 'Success! Rebooting...'; }
+        else { msg.style.color = '#f7736a'; msg.textContent = 'Error ' + xhr.status; }
+        btn.disabled = false; btn.style.opacity = '1';
+      };
+      xhr.onerror = function () { msg.style.color = '#f7736a'; msg.textContent = 'Upload failed'; btn.disabled = false; btn.style.opacity = '1'; };
+      xhr.open('POST', '/ota', true);
+      xhr.send(f);
+    }
+  </script>
+</body>
+
+</html>

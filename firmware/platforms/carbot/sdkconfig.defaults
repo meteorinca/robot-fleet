@@ -1,0 +1,10 @@
+# sdkconfig.defaults — applied to ALL boards/chips
+# (chip-specific overrides go in sdkconfig.defaults.<chip>, e.g. sdkconfig.defaults.esp32c3)
+
+# Use custom partition table (chip defaults override the filename below)
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_ota_4mb.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions_ota_4mb.csv"
+
+# HTTP server: trimmed headers (chip default may tighten further)
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=512

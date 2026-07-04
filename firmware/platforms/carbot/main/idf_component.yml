@@ -1,0 +1,8 @@
+## IDF Component Manager Manifest File
+dependencies:
+  ## Required IDF version
+  idf:
+    version: '>=5.0.0'
+  espressif/mdns: '*'
+  # WS2812 NeoPixel strip driver (used by ws2812.c on boards with WS2812_NUM_LEDS)
+  espressif/led_strip: '>=2.4.0'
