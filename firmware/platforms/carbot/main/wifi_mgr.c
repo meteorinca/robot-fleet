@@ -290,7 +290,7 @@ static void start_captive_dns(void) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  SoftAP setup
-//  AP SSID: "MyBot-XX"  (XX = device number from board_config.h)
+//  AP SSID: "CarBot-XX"  (XX = device number from board_config.h)
 //  AP IP:   192.168.4.1  (ESP32 default)
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -323,9 +323,9 @@ static void start_softap(void) {
         },
     };
     
-    // Build SSID "MyBot-<device_num>"
+    // Build SSID "CarBot-<device_num>"
     snprintf((char *)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid),
-             "MyBot-%d", DEVICE_NUMBER);
+             "CarBot-%d", DEVICE_NUMBER);
 
     // Switch to APSTA so we still try STA in background
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));

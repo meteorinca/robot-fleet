@@ -1,14 +1,14 @@
-# Resetting MyBot's WiFi Settings
+# Resetting CarBot's WiFi Settings
 
-Use this procedure to erase all saved WiFi networks and return MyBot to hotspot
+Use this procedure to erase all saved WiFi networks and return CarBot to hotspot
 mode.
 
 ---
 
 ## When to do this
 
-- You want to remove all the saved wifi networks from MyBot
-- MyBot can't connect to any known network and you want to start fresh
+- You want to remove all the saved wifi networks from CarBot
+- CarBot can't connect to any known network and you want to start fresh
 
 ---
 
@@ -18,7 +18,7 @@ Pressing and holding the **BOOT button** for 7 seconds triggers a reset that:
 
 1. **Erases all saved WiFi passwords** stored on the robot
 2. **Restarts** the robot automatically
-3. After restart, MyBot broadcasts its own WiFi hotspot (`MyBot-<number>`)
+3. After restart, CarBot broadcasts its own WiFi hotspot (`CarBot-<number>`)
    so the new user can set it up fresh via the web portal
 
 > ⚠️ **This cannot be undone.** All previously saved networks will be gone.
@@ -39,7 +39,7 @@ It is labelled **BOOT** or **IO9** on the board silkscreen.
 
 ### Step 2 — Hold the BOOT button for 7 seconds
 
-1. Power on MyBot and wait for the eyes to appear on the OLED screen
+1. Power on CarBot and wait for the eyes to appear on the OLED screen
 2. Press **and hold** the BOOT button
 3. The OLED will show a countdown:  
    `Hold...6s` → `Hold...5s` → … → `Hold...1s`
@@ -77,14 +77,14 @@ On the confirmation screen:
 Once confirmed:
 
 1. The OLED briefly shows **"Resetting..."**
-2. MyBot restarts (takes ~3 seconds)
-3. A new WiFi hotspot named **`MyBot-<N>`** appears (where `<N>` is the device
+2. CarBot restarts (takes ~3 seconds)
+3. A new WiFi hotspot named **`CarBot-<N>`** appears (where `<N>` is the device
    number printed on the robot)
 4. Connect to that hotspot from any phone or laptop — no password needed
 5. A setup page will open automatically (captive portal), or navigate to
    **[http://192.168.4.1](http://192.168.4.1)**
 6. Enter the new WiFi network name and password and tap **Save**
-7. MyBot restarts and connects to the new network 🎉
+7. CarBot restarts and connects to the new network 🎉
 
 ---
 

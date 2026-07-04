@@ -1,71 +1,110 @@
-# MyBot API Cheat Sheet
+# CarBot API Cheat Sheet
 
-This document lists the available HTTP GET endpoints to control your MyBot via its local web server. You can trigger these directly from your browser, via `curl`, or using Python scripts.
+This document lists the available HTTP GET/POST endpoints for CarBot.
 
-**Base URL**: `http://mybot5.local:80` (Replace `5` with your specific bot's number).
+**Base URL**: `http://carbot1.local:80` (replace `1` with your device number)
+
+---
+
+## 🚗 Motor Control
+
+### Combined Drive Command
+- **POST** `/drive` — Body: `{"throttle": -100..100, "steer": 0..100}`
+  - `throttle`: negative = reverse, 0 = brake, positive = forward
+  - `steer`: 0 = full left, 50 = center, 100 = full right
+- **GET** `/drive?t=N&s=N` — Same but as GET query params
+
+### Steering Only
+- **GET** `/steer?pos=N` — Set steering position (0–100, 50=center)
+- **GET** `/steer_center` — Reset estimated position to center without moving
+
+### Drive (Throttle) Only
+- **GET** `/throttle?v=N` — Set throttle (-100 to +100)
+- **GET** `/brake` — Active brake (IN3+IN4 both HIGH)
+- **GET** `/coast` — Free-wheel (IN3+IN4 both LOW)
+
+### Motor State
+- **GET** `/motor_state` — Returns `{"throttle":N,"steer":N,"braking":bool}`
+
+---
+
+## 📡 Ultrasonic Sensor
+- **GET** `/us_on` — Enable sensor + switch OLED to ultrasonic view
+- **GET** `/us_off` — Disable sensor + return OLED to normal
+- **GET** `/us_data` — Returns `{"active":bool,"dist":N.N}`
+
+---
 
 ## 💡 LED Control
-- **Status LED Turn ON**: `GET /l1on` or `GET /led?state=on`
-- **Status LED Turn OFF**: `GET /l1off` or `GET /led?state=off`
-- **Status LED Toggle**: `GET /toggle` or `GET /led?state=toggle`
-
-## 🔴🟢 External LED Control
-- **Green LED**: `GET /grnon`, `GET /grnoff`, `GET /grntog`
-- **Red LED**: `GET /redon`, `GET /redoff`, `GET /redtog`
-
-## 🔧 Servo Control
-- **Move to Angle**: `GET /servo?num=1&angle=90` (Hold position)
-- **Quick Action (Stepped)**: `GET /s1on` (Moves to ON position at medium speed, then returns to neutral and detaches)
-- **Manual Angle (URI style)**: `GET /s1_120` (Sets servo 1 to 120° and holds)
-- **Quick Actions list**: `s1on`, `s1off`, `s2on`, `s2off`
-
-## 🕒 Scheduling (For Synchronized Events!)
-You can queue an action to happen at an exact Unix timestamp across all bots simultaneously, or after a relative delay.
-
-- **Run after delay**: `GET /schedule?action=toggle&delay=5`
-  - *Runs the `toggle` LED action exactly 5 seconds from now.*
-- **Run at exact time**: `GET /schedule?action=l1on&at=1714000000`
-  - *Runs the `l1on` action when the bot's NTP-synced clock hits the specified Unix epoch timestamp.*
-- **Schedule text-to-speech**: `GET /schedule?action=tts:Hello&delay=10`
-  - *Broadcasts "Hello" to SSE clients in 10 seconds.*
-
-## 🗣️ Server-Sent Events (SSE)
-- **Push text to connected browsers**: `GET /sendtts:Hello%20World` or `GET /tts?say=Hello%20World`
-  - *Broadcasts the text to any browser listening on `/events`.*
-
-## 🎵 Buzzer Control
-Requires `BUZZER_PIN` to be defined in `board_config.h`.
-
-- **Play Tone**: `GET /tone?f=1000&d=100`
-  - *`f`: Frequency in Hz (e.g., 1000) · `d`: Duration in ms (e.g., 100)*
-- **Play Demo Melody**: `GET /demo?type=coin`
-  - *`type`: 'coin', 'gameover', 'siren', 'laser', 'mario', '1up'*
-
-## ⏱️ System & Status
-- **Get Status**: `GET /status`
-  - *Returns JSON with version, running status, and time.*
-- **Get Time**: `GET /time`
-  - *Returns JSON with NTP synced time and epoch.*
+- **GET** `/l1on` — Built-in LED ON
+- **GET** `/l1off` — Built-in LED OFF
+- **GET** `/toggle` — Toggle built-in LED
 
 ---
 
-## 🕹️ Fun OLED Animations (Physical Buttons)
-
-| Button | Behavior |
-|--------|----------|
-| **BTN_1** (short press, in Normal mode) | Launch **Dancing Mario** — pixelated sprite dances with coin SFX and spinning stars |
-| **BTN_2** (short press, in Normal mode) | Cycle through fun animations: Fireworks → Matrix Rain → Space Invaders → Heartbeat → Normal |
-| **BTN_2** (hold 3 s) | Open the full **OLED Menu** |
-
-## 🎬 OLED Animations via API
-
-- **Dancing Mario**: `GET /anim_mario`
-- **Fireworks**: `GET /anim_fireworks`
-- **Matrix Rain**: `GET /anim_matrix`
-- **Space Invaders parade**: `GET /anim_invader`
-- **Heartbeat/Love**: `GET /anim_heartbeat`
-- **Return to Eyes**: `GET /game_off`
+## 🎵 Buzzer
+- **GET** `/tone?f=1000&d=100` — Play tone (f=Hz, d=duration ms)
+- **GET** `/demo?type=coin` — Play demo melody
+  - Types: `coin`, `gameover`, `siren`, `laser`, `mario`, `1up`
 
 ---
 
-*Tip: You can test any of these by just typing them into your browser's address bar! Example: `http://mybot5.local/anim_mario`*
+## 🖥️ OLED Display
+- **GET** `/oled?text=Hello` — Show text on OLED for 4s
+- **GET** `/show_ip` — Display device IP on OLED
+
+---
+
+## 🕒 Schedule (Synchronized Fleet Events)
+- **GET** `/schedule?action=brake&delay=5` — Run action in 5 seconds
+- **GET** `/schedule?action=coast&at=1714000000` — Run at exact Unix timestamp
+- **GET** `/schedule?action=steer_center&delay=3` — Center steering in 3s
+
+**Available scheduled actions**: `brake`, `coast`, `steer_center`, `us_on`, `us_off`, `l1on`, `l1off`, `toggle`, `show_ip`
+
+---
+
+## ⚙️ System
+- **GET** `/status` — Firmware version, time sync, motor state JSON
+- **GET** `/time` — NTP time JSON
+- **GET** `/sync_time?epoch=N` — Set time from browser
+
+---
+
+## 📶 WiFi Provisioning
+- **GET** `/wifi` — List saved networks + AP mode status
+- **POST** `/wifi` — Body: `{"ssid":"...","pass":"..."}` → save and reboot
+- **DELETE** `/wifi?delete=N` — Delete saved credential N
+- **GET** `/wifi_scan` — Scan visible SSIDs
+
+---
+
+## 🔄 OTA Update
+- **POST** `/ota` — Upload raw `.bin` file as body
+  ```python
+  import requests
+  with open('carbot.bin','rb') as f:
+      requests.post('http://carbot1.local/ota', data=f,
+                    headers={'Content-Type':'application/octet-stream'})
+  ```
+
+---
+
+## 🎮 Web UI Features
+The built-in web UI (`http://carbot1.local/`) includes:
+- **Throttle slider** (vertical, spring-back to brake on release)
+- **Steering slider** (horizontal, spring-back to center on release)
+- **D-pad buttons** for quick forward/back/left/right
+- **Precision steering** — ±1, ±10 nudge buttons + fine slider
+- **Keyboard control** — WASD / Arrow keys + Space=brake
+- **Max speed limiter** slider
+- **Live status** — throttle, steer position, distance, brake state
+- **Ultrasonic** sensor enable/disable + live distance bar
+- **OLED** text sender
+- **Buzzer** demos + mini piano
+- **WiFi** network manager
+- **OTA** firmware update
+
+---
+
+*Tip: Use keyboard WASD or arrow keys in the web UI for direct driving!*

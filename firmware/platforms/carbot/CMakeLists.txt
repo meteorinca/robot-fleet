@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.16)
 #  To switch boards: idf.py -DBOARD=<new_board> set-target <chip> fullclean build
 
 if(NOT DEFINED BOARD)
-    set(BOARD "esp32c3_mybot")
+    set(BOARD "esp32c3_carbot")
 endif()
 
 set(BOARD ${BOARD} CACHE STRING "Active board name" FORCE)
@@ -37,4 +37,4 @@ if(DEFINED DEVICE_NUMBER)
 endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(mybot)
+project(carbot)

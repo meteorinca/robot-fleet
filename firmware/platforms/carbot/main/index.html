@@ -5,317 +5,559 @@
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>
   <meta name='apple-mobile-web-app-capable' content='yes'>
-  <title>Quinn's MyBot Control</title>
+  <title>CarBot Control</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Share+Tech+Mono&display=swap');
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
     }
 
-    html,
-    body {
+    html, body {
       height: 100%;
       overflow-y: auto;
       width: 100%;
-      font-family: system-ui, sans-serif;
-      background: #0d0d1a;
-      color: #e0e0f0;
+      font-family: 'Outfit', system-ui, sans-serif;
+      background: #060810;
+      color: #dde5ff;
     }
 
+    /* ── Top header ─────────────────────────────────────────────── */
+    .header {
+      background: linear-gradient(135deg, #0d1130 0%, #111628 100%);
+      border-bottom: 1px solid #1a2050;
+      padding: 14px 20px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 900;
+      background: linear-gradient(90deg, #4af, #a56aff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 2px;
+    }
+    .conn-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #2a4;
+      box-shadow: 0 0 8px #2a4;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .conn-label { font-size: 12px; color: #7a9; font-weight: 700; }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
     .content {
-      padding: 20px 10px;
+      padding: 16px 14px 40px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      gap: 14px;
+      max-width: 520px;
+      margin: 0 auto;
     }
 
+    /* ── Card ───────────────────────────────────────────────────── */
     .card {
-      background: #11112a;
-      border: 1px solid #1e1e3a;
-      border-radius: 14px;
+      background: #0d1028;
+      border: 1px solid #1c224a;
+      border-radius: 16px;
       padding: 18px;
-      margin-bottom: 14px;
       width: 100%;
-      max-width: 460px;
+    }
+    .card h2 {
+      font-size: 11px;
+      font-weight: 700;
+      color: #5570dd;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 14px;
     }
 
-    .card.disabled {
-      opacity: 0.4;
-      filter: grayscale(1);
-      pointer-events: none;
+    /* ── Status bar ─────────────────────────────────────────────── */
+    .status-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      flex: 1;
+      min-width: 80px;
+      background: #070c20;
+      border: 1px solid #1c224a;
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .stat-chip .label { font-size: 9px; color: #556; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-chip .value { font-size: 20px; font-weight: 800; font-family: 'Share Tech Mono', monospace; color: #4af; }
+    .stat-chip .value.red   { color: #f65; }
+    .stat-chip .value.green { color: #2ea; }
+    .stat-chip .value.yellow{ color: #fa0; }
+
+    /* ── Main drive area ─────────────────────────────────────────── */
+    .drive-area {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    /* ── Steering slider (horizontal, big) ──────────────────────── */
+    .steer-wrap {
       position: relative;
     }
-
-    .card.disabled::after {
-      content: 'NOT SUPPORTED';
+    .steer-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #5570dd;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .steer-track {
+      width: 100%;
+      height: 48px;
+      background: linear-gradient(90deg, #0d2050, #1a1a40, #0d2050);
+      border-radius: 24px;
+      border: 1px solid #1c224a;
+      position: relative;
+      cursor: pointer;
+      touch-action: none;
+    }
+    .steer-thumb {
       position: absolute;
-      top: 10px;
-      right: 12px;
-      font-size: 9px;
-      font-weight: 900;
-      color: #f7736a;
-      letter-spacing: 1px;
-      border: 1px solid #f7736a;
-      padding: 2px 4px;
-      border-radius: 4px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #3366ff, #6644cc);
+      border-radius: 50%;
+      border: 3px solid #7799ff;
+      box-shadow: 0 0 16px rgba(80, 120, 255, 0.5);
+      transition: left 0.05s;
+      cursor: grab;
+    }
+    .steer-thumb:active { cursor: grabbing; }
+    .steer-center-mark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 20px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 1px;
+      pointer-events: none;
     }
 
-    .card h2 {
+    /* ── Throttle slider (vertical, big) ────────────────────────── */
+    .throttle-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-width: 64px;
+    }
+    .throttle-track {
+      width: 52px;
+      height: 220px;
+      background: linear-gradient(180deg, #0d2050, #1a1a40, #0d2050);
+      border-radius: 26px;
+      border: 1px solid #1c224a;
+      position: relative;
+      cursor: pointer;
+      touch-action: none;
+    }
+    .throttle-thumb {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #22cc66, #115533);
+      border-radius: 50%;
+      border: 3px solid #44ee88;
+      box-shadow: 0 0 16px rgba(40, 200, 100, 0.4);
+      transition: top 0.05s;
+      cursor: grab;
+    }
+    .throttle-thumb.reverse {
+      background: linear-gradient(135deg, #cc3322, #551100);
+      border-color: #ff6644;
+      box-shadow: 0 0 16px rgba(200, 60, 40, 0.4);
+    }
+    .throttle-center-mark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      height: 2px;
+      width: 24px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 1px;
+      pointer-events: none;
+    }
+    .throttle-label-top { font-size: 10px; color: #2ea; font-weight: 700; }
+    .throttle-label-bot { font-size: 10px; color: #f65; font-weight: 700; }
+
+    /* ── Quick-drive area ────────────────────────────────────────── */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .qbtn {
+      padding: 16px 6px;
+      border-radius: 12px;
+      border: 1px solid #1c224a;
+      background: #0a0e22;
+      color: #7799ff;
+      font-weight: 700;
+      font-size: 22px;
+      cursor: pointer;
+      transition: all .12s;
+      text-align: center;
+    }
+    .qbtn:active, .qbtn.pressed {
+      background: #1a2860;
+      border-color: #3366ff;
+      color: #fff;
+      transform: scale(0.95);
+    }
+    .qbtn.stop {
+      color: #f65;
+      border-color: #552211;
+    }
+    .qbtn.stop:active { background: #331100; border-color: #f65; }
+
+    /* ── Precision steer row ─────────────────────────────────────── */
+    .prec-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .prec-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #1c224a;
+      background: #0a0e22;
+      color: #aac;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+      transition: all .12s;
+    }
+    .prec-btn:active { background: #1a2860; color: #fff; }
+    .prec-val {
+      font-size: 24px;
+      font-family: 'Share Tech Mono', monospace;
+      font-weight: 700;
+      color: #4af;
+      min-width: 52px;
+      text-align: center;
+    }
+    .prec-center-btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid #2a3870;
+      background: #111840;
+      color: #5588ff;
       font-size: 13px;
       font-weight: 700;
-      color: #7c6af7;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all .12s;
     }
+    .prec-center-btn:active { background: #1a2860; }
 
-    .time-big {
-      font-size: 36px;
+    /* ── Speed control ───────────────────────────────────────────── */
+    .speed-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .speed-label { font-size: 12px; color: #556; width: 90px; }
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      background: #1a1a40;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px;
+      background: #3366ff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(50,100,255,0.4);
+    }
+    .speed-val {
+      font-size: 16px;
+      font-family: 'Share Tech Mono', monospace;
       font-weight: 700;
-      font-family: monospace;
-      color: #00e5a0;
-      text-align: center;
+      color: #4af;
+      min-width: 42px;
+      text-align: right;
     }
 
-    .epoch {
-      font-size: 12px;
-      color: #444;
-      margin-top: 4px;
+    /* ── Ultrasonic ──────────────────────────────────────────────── */
+    .us-display {
+      font-size: 36px;
+      font-family: 'Share Tech Mono', monospace;
+      font-weight: 700;
+      color: #2ea;
       text-align: center;
+      margin: 6px 0;
+    }
+    .us-bar-outer {
+      background: #070c20;
+      border-radius: 6px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .us-bar-inner {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #2ea, #5570dd);
+      transition: width .1s;
     }
 
-    input[type=text],
-    input[type=number],
-    select {
+    /* ── Buttons (general) ───────────────────────────────────────── */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      flex: 1;
+      padding: 12px 6px;
+      border-radius: 10px;
+      border: 1px solid #1c224a;
+      background: #0a0e22;
+      color: #aac;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all .12s;
+    }
+    .btn:active { background: #1a2860; color: #fff; }
+    .btn.green { color: #2ea; border-color: #1a4a30; }
+    .btn.green:active { background: #0d2a1a; }
+    .btn.red   { color: #f65; border-color: #4a1a1a; }
+    .btn.red:active   { background: #2a0d0d; }
+    .btn.primary {
+      background: linear-gradient(135deg, #3366ff, #5544cc);
+      color: #fff;
+      border: none;
+    }
+    .btn.primary:active { opacity: 0.8; }
+
+    /* ── Piano ───────────────────────────────────────────────────── */
+    .piano { display: flex; gap: 3px; height: 70px; }
+    .piano-key {
+      flex: 1;
+      background: #e8e8f0;
+      border: 1px solid #333;
+      border-radius: 0 0 6px 6px;
+      cursor: pointer;
+      transition: all .08s;
+      box-shadow: 0 4px 0 #999;
+    }
+    .piano-key:active { background: #c0c0d8; box-shadow: none; transform: translateY(4px); }
+
+    /* ── WiFi ────────────────────────────────────────────────────── */
+    input[type=text], input[type=password] {
       width: 100%;
-      padding: 10px 12px;
+      padding: 12px;
       border-radius: 8px;
-      border: 1px solid #2a2a50;
-      background: #0a0a1e;
-      color: #e0e0f0;
+      border: 1px solid #1c224a;
+      background: #070c20;
+      color: #dde5ff;
       font-size: 15px;
       margin-bottom: 10px;
       outline: none;
+      font-family: 'Outfit', sans-serif;
     }
-
-    input:focus,
-    select:focus {
-      border-color: #7c6af7;
-    }
-
-    .btn-primary {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #7c6af7, #5b4de8);
-      color: #fff;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all .2s;
-    }
-
-    .btn-primary:active {
-      transform: scale(0.98);
-      opacity: 0.8;
-    }
-
-    .btn-led-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-    }
-
-    .btn-led {
-      padding: 12px 5px;
-      border-radius: 10px;
-      border: 1px solid #2a2a50;
-      background: #1a1a35;
-      color: #e0e0f0;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all .15s;
-    }
-
-    .btn-led:active {
-      background: #7c6af7;
-      color: #fff;
-    }
-
-    .action-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      width: 100%;
-    }
-
-    .act-btn {
-      padding: 10px 4px;
-      font-size: 11px;
-      font-weight: 600;
-      background: #0a0a1e;
-      border: 1px solid #1e1e3a;
+    input:focus { border-color: #3366ff; }
+    .err-msg { color: #f65; font-size: 12px; margin-top: 6px; text-align: center; }
+    .net-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      margin: 3px 0;
+      background: #070c20;
       border-radius: 8px;
-      color: #444;
-      cursor: default;
+      border: 1px solid #1c224a;
+      font-size: 13px;
+      color: #aab;
     }
 
-    .status-badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 700;
-      background: #1e1e3a;
-      color: #7c6af7;
-      margin-bottom: 6px;
-    }
+    /* ── Clock ───────────────────────────────────────────────────── */
+    .clock { font-size: 28px; font-family: 'Share Tech Mono', monospace; color: #2ea; text-align: center; }
+    .epoch { font-size: 11px; color: #334; text-align: center; margin-top: 3px; }
 
-    .err-msg {
-      color: #f7736a;
-      font-size: 12px;
-      margin-top: 6px;
-      text-align: center;
-    }
-
-    .slider {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 6px;
-      background: #1e1e3a;
-      border-radius: 5px;
-      outline: none;
-      margin: 10px 0;
-    }
-
-    .slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      background: #7c6af7;
-      cursor: pointer;
-      border-radius: 50%;
-      transition: all .15s;
-    }
-
-    .slider::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
-      background: #5b4de8;
-    }
-
-    .piano-key {
-      flex: 1;
-      background: #f0f0f0;
-      border: 1px solid #333;
-      border-radius: 0 0 6px 6px;
-      box-shadow: 0 4px 0 #bbb;
-      cursor: pointer;
-      transition: all 0.1s;
-    }
-
-    .piano-key:active {
-      background: #d0d0d0;
-      box-shadow: 0 1px 0 #bbb;
-      transform: translateY(3px);
-    }
+    /* ── OTA bar ─────────────────────────────────────────────────── */
+    .ota-bar-outer { background: #070c20; border-radius: 6px; height: 8px; margin: 8px 0; overflow: hidden; }
+    .ota-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, #2ea, #3366ff); transition: width .3s; }
   </style>
 </head>
 
 <body>
+  <div class='header'>
+    <h1>🚗 CARBOT</h1>
+    <div>
+      <span class='conn-dot' id='conn-dot'></span>
+      <span class='conn-label' id='conn-label'>Online</span>
+    </div>
+  </div>
+
   <div class='content'>
-    <h1 style='font-size:28px;font-weight:800;color:#e0e0f0;text-align:center;margin:0 0 16px 0;letter-spacing:1px;'>
-      Quinn's MyBot V1.8</h1>
-    <div class='card' style='text-align:center;'>
-      <span class='status-badge' id='conn-badge'>●&nbsp;Online</span>
-      <button class='btn-primary' onclick='fetch("/show_ip")' style='display:block; margin:8px auto; width:80%; max-width:200px; padding:8px; font-size:13px; background:linear-gradient(135deg, #00e5a0, #00a570); color:#000;'>Show IP on Bot</button>
-      <div class='time-big' id='clock'>--:--:--</div>
-      <div class='epoch'>Epoch: <span id='epoch'>-</span>&nbsp;&nbsp;Synced: <span id='synced'>no</span></div>
-    </div>
 
+    <!-- ── Status chips ──────────────────────────────────────────── -->
     <div class='card'>
-      <h2>LED Control</h2>
-      <div style='margin-bottom: 8px; font-size: 12px; color: #a0a0d0;'>Status LED (Blue)</div>
-      <div class='btn-led-grid' style='margin-bottom: 12px;'>
-        <button class='btn-led' onclick='led("l1on")'>ON</button>
-        <button class='btn-led' onclick='led("l1off")'>OFF</button>
-        <button class='btn-led' onclick='led("toggle")'>TOGGLE</button>
+      <h2>Live Status</h2>
+      <div class='status-row'>
+        <div class='stat-chip'>
+          <div class='label'>Throttle</div>
+          <div class='value' id='s-throttle'>0</div>
+        </div>
+        <div class='stat-chip'>
+          <div class='label'>Steer</div>
+          <div class='value' id='s-steer'>50</div>
+        </div>
+        <div class='stat-chip'>
+          <div class='label'>Dist</div>
+          <div class='value green' id='s-dist'>--</div>
+        </div>
+        <div class='stat-chip'>
+          <div class='label'>Brake</div>
+          <div class='value red' id='s-brake'>--</div>
+        </div>
       </div>
-      <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;'>
-        <div style='font-size: 12px; color: #a0a0d0;'>External LEDs</div>
-        <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
-          <input type='checkbox' id='led-direct' checked onchange='fetch("/led_direct?on="+(this.checked?1:0))'
-            style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Direct Mode
-        </label>
-      </div>
-      <div class='btn-led-grid' style='grid-template-columns: 1fr 1fr 1fr; margin-bottom: 12px;'>
-        <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grnon")'>GRN ON</button>
-        <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grnoff")'>GRN OFF</button>
-        <button class='btn-led' style='color:#00e5a0;border-color:#00e5a0;' onclick='led("grntog")'>TOGGLE</button>
-      </div>
-      <div class='btn-led-grid' style='grid-template-columns: 1fr 1fr 1fr;'>
-        <button class='btn-led' style='color:#f7736a;border-color:#f7736a;' onclick='led("redon")'>RED ON</button>
-        <button class='btn-led' style='color:#f7736a;border-color:#f7736a;' onclick='led("redoff")'>RED OFF</button>
-        <button class='btn-led' style='color:#f7736a;border-color:#f7736a;' onclick='led("redtog")'>TOGGLE</button>
+      <div style='margin-top:10px;display:flex;gap:8px;align-items:center;'>
+        <div class='clock' id='clock'>--:--:--</div>
+        <button class='btn' style='flex:none;padding:8px 14px;font-size:12px;' onclick='fetch("/show_ip")'>Show IP</button>
       </div>
     </div>
 
+    <!-- ── Main driving controls ─────────────────────────────────── -->
     <div class='card'>
-      <h2>Servo</h2>
-      <div style='margin-bottom:15px;'>
-        <div style='display:flex;justify-content:space-between;margin-bottom:5px;'>
-          <label>Angle (Left - Middle - Right)</label>
-          <span id='s1-val'>90</span>
+      <h2>Drive Controls</h2>
+
+      <!-- Throttle + Steering layout -->
+      <div class='drive-area' style='margin-bottom:14px;'>
+        <!-- Throttle (vertical) -->
+        <div class='throttle-wrap'>
+          <div class='throttle-label-top'>FWD</div>
+          <div class='throttle-track' id='throttle-track'>
+            <div class='throttle-center-mark'></div>
+            <div class='throttle-thumb' id='throttle-thumb'></div>
+          </div>
+          <div class='throttle-label-bot'>REV</div>
         </div>
-        <input type='range' min='5' max='175' value='90' class='slider' id='s1-slide' onchange='sv(1,this.value)' oninput='document.getElementById("s1-val").textContent=this.value'>
-        <div style='display:flex; justify-content:space-between; align-items:center; margin: 8px 0;'>
-          <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
-            <input type='checkbox' id='servo-random' onchange='fetch("/random_look?on="+(this.checked?1:0))'
-              style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Random Look
-          </label>
+
+        <!-- Steering (fills rest) -->
+        <div style='flex:1;'>
+          <div class='steer-label'>
+            <span>◀ LEFT</span>
+            <span id='steer-display'>50 (CTR)</span>
+            <span>RIGHT ▶</span>
+          </div>
+          <div class='steer-track' id='steer-track'>
+            <div class='steer-center-mark'></div>
+            <div class='steer-thumb' id='steer-thumb'></div>
+          </div>
+
+          <!-- Speed limit -->
+          <div class='speed-row' style='margin-top:14px;'>
+            <div class='speed-label'>Max Speed</div>
+            <input type='range' id='speed-limit' min='10' max='100' value='70' oninput='document.getElementById("speed-val").textContent=this.value+"%"'>
+            <div class='speed-val' id='speed-val'>70%</div>
+          </div>
         </div>
-        <div class='btn-led-grid' style='margin-top:5px;'>
-          <button class='btn-led' onclick='dog("s1on")'>ON</button>
-          <button class='btn-led' onclick='dog("s1off")'>OFF</button>
+      </div>
+
+      <!-- Quick-drive d-pad -->
+      <div class='quick-grid'>
+        <div></div>
+        <div class='qbtn' id='qbtn-fwd'   ontouchstart='qFwd(true)'  ontouchend='qFwd(false)'  onmousedown='qFwd(true)'  onmouseup='qFwd(false)'>▲</div>
+        <div></div>
+        <div class='qbtn' id='qbtn-left'  ontouchstart='qLeft(true)' ontouchend='qLeft(false)' onmousedown='qLeft(true)' onmouseup='qLeft(false)'>◀</div>
+        <div class='qbtn stop' id='qbtn-stop' onclick='emergencyStop()'>■</div>
+        <div class='qbtn' id='qbtn-right' ontouchstart='qRight(true)' ontouchend='qRight(false)' onmousedown='qRight(true)' onmouseup='qRight(false)'>▶</div>
+        <div></div>
+        <div class='qbtn' id='qbtn-rev'   ontouchstart='qRev(true)'  ontouchend='qRev(false)'  onmousedown='qRev(true)'  onmouseup='qRev(false)'>▼</div>
+        <div></div>
+      </div>
+    </div>
+
+    <!-- ── Precision steering ─────────────────────────────────────── -->
+    <div class='card'>
+      <h2>Precision Steering</h2>
+      <div class='prec-row' style='margin-bottom:10px;'>
+        <button class='prec-btn' onclick='steerAdj(-10)'>◀◀ -10</button>
+        <button class='prec-btn' onclick='steerAdj(-1)'>◀ -1</button>
+        <div class='prec-val' id='prec-pos'>50</div>
+        <button class='prec-btn' onclick='steerAdj(1)'>+1 ▶</button>
+        <button class='prec-btn' onclick='steerAdj(10)'>+10 ▶▶</button>
+      </div>
+      <div class='btn-row'>
+        <button class='prec-center-btn' onclick='steerCenter()'>⊙ Center</button>
+        <button class='btn green' onclick='steerFull(0)'>◀◀ Full Left</button>
+        <button class='btn green' onclick='steerFull(100)'>Full Right ▶▶</button>
+      </div>
+      <div style='margin-top:10px;'>
+        <div style='font-size:10px;color:#445;margin-bottom:4px;'>Fine position (0=L, 50=CTR, 100=R)</div>
+        <div style='display:flex;gap:8px;align-items:center;'>
+          <input type='range' id='prec-slider' min='0' max='100' value='50'
+            oninput='steerSlide(this.value)' style='flex:1;'>
+          <div style='font-size:13px;color:#4af;font-family:monospace;min-width:30px;' id='prec-slide-val'>50</div>
         </div>
       </div>
     </div>
 
+    <!-- ── Ultrasonic ─────────────────────────────────────────────── -->
     <div class='card'>
       <h2>Ultrasonic Sensor</h2>
-      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr;'>
-        <button class='btn-led' onclick='dog("us_on")' style='color:#00e5a0;border-color:#00e5a0;'>ON</button>
-        <button class='btn-led' onclick='dog("us_off")' style='color:#f7736a;border-color:#f7736a;'>OFF</button>
+      <div class='btn-row' style='margin-bottom:12px;'>
+        <button class='btn green' onclick='fetch("/us_on")'>Enable</button>
+        <button class='btn red' onclick='fetch("/us_off")'>Disable</button>
       </div>
-      <div style='margin-top:15px;text-align:center;'>
-        <div class='time-big' id='us-val'>-- cm</div>
-        <div style='background:#0a0a1e;border-radius:6px;height:8px;margin-top:8px;overflow:hidden;'>
-          <div id='us-bar'
-            style='width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#7c6af7);transition:width .1s;'></div>
-        </div>
+      <div class='us-display' id='us-val'>-- cm</div>
+      <div class='us-bar-outer' style='margin-top:6px;'>
+        <div class='us-bar-inner' id='us-bar'></div>
       </div>
     </div>
 
+    <!-- ── Buzzer ─────────────────────────────────────────────────── -->
     <div class='card'>
-      <h2>Buzzer Demos & Mini Piano</h2>
-      <div class='btn-led-grid' style='grid-template-columns:1fr 1fr 1fr; margin-bottom: 12px;'>
-        <button class='btn-led' onclick='fetch("/demo?type=coin")'
-          style='color:#ffdd55;border-color:#ffdd55;'>COIN</button>
-        <button class='btn-led' onclick='fetch("/demo?type=gameover")' style='color:#f7736a;border-color:#f7736a;'>GAME
-          OVER</button>
-        <button class='btn-led' onclick='fetch("/demo?type=siren")'
-          style='color:#5555ff;border-color:#5555ff;'>SIREN</button>
-        <button class='btn-led' onclick='fetch("/demo?type=laser")'
-          style='color:#55ff55;border-color:#55ff55;'>LASER</button>
-        <button class='btn-led' onclick='fetch("/demo?type=mario")' style='color:#ffffff;border-color:#ffffff;'>👻
-          BOO</button>
-        <button class='btn-led' onclick='fetch("/demo?type=1up")'
-          style='color:#00ffcc;border-color:#00ffcc;'>1-UP</button>
+      <h2>Buzzer &amp; Sound</h2>
+      <div class='btn-row' style='flex-wrap:wrap;gap:8px;margin-bottom:12px;'>
+        <button class='btn' style='color:#ffdd55;border-color:#554400;' onclick='fetch("/demo?type=coin")'>🪙 COIN</button>
+        <button class='btn' style='color:#f65;border-color:#440011;' onclick='fetch("/demo?type=gameover")'>💀 GAME OVER</button>
+        <button class='btn' style='color:#44f;border-color:#001144;' onclick='fetch("/demo?type=siren")'>🚨 SIREN</button>
+        <button class='btn' style='color:#4f4;border-color:#004400;' onclick='fetch("/demo?type=laser")'>⚡ LASER</button>
+        <button class='btn' style='color:#fff;' onclick='fetch("/demo?type=mario")'>👻 BOO</button>
+        <button class='btn' style='color:#0fc;border-color:#004433;' onclick='fetch("/demo?type=1up")'>⭐ 1-UP</button>
       </div>
-      <div style='display:flex; gap:2px; height:80px;'>
+      <div class='piano'>
         <div class='piano-key' onclick='fetch("/tone?f=261&d=200")'></div>
         <div class='piano-key' onclick='fetch("/tone?f=293&d=200")'></div>
         <div class='piano-key' onclick='fetch("/tone?f=329&d=200")'></div>
@@ -327,258 +569,360 @@
       </div>
     </div>
 
+    <!-- ── OLED ───────────────────────────────────────────────────── -->
     <div class='card'>
-      <h2>Buttons & Game</h2>
-      <div style='display:flex;justify-content:space-between;margin-bottom:15px;align-items:center;'>
-        <div>
-          <span id='btn1-ind'
-            style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
-          <span>Button 1</span>
-        </div>
-        <div>
-          <span id='btn2-ind'
-            style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#444;margin-right:5px;'></span>
-          <span>Button 2</span>
-        </div>
-      </div>
-      <div style='display:flex; gap:10px; align-items:center;'>
-        <select id='game-select' style='flex:1; margin-bottom:0;'>
-          <option value='1'>Pong (Horizontal)</option>
-          <option value='2'>Pong (Vertical)</option>
-          <option value='3'>Flappy Bird</option>
-          <option value='4'>Jumpy Dino</option>
-          <option value='5'>Snake</option>
-          <option value='6'>Pacman</option>
-          <option value='7'>Froggy Road</option>
-          <option value='8'>Racing</option>
-          <option value='9'>Times Table</option>
-          <option value='12'>Spacesonic</option>
-          <option value='13'>Buzzer Piano</option>
-        </select>
-        <button class='btn-led' id='game-play-btn' onclick='playSelectedGame()'
-          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
-        <button class='btn-led' id='game-stop-btn' onclick='fetch("/game_off")'
-          style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
-      </div>
-    </div>
-
-    <div class='card'>
-      <h2>3D Animation Showcase</h2>
-      <p style='color:#7b7b98; font-size:12px; margin-bottom:15px;'>Experience advanced 3D math running in real-time.
-        Use the left/right paddle buttons on the bot to cycle through the 6 distinct 3D visualizations!</p>
-      <div style='display:flex; gap:10px; align-items:center;'>
-        <button class='btn-led' id='anim-play-btn' onclick='fetch("/anim_3d")'
-          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY SHOWCASE</button>
-        <button class='btn-led' id='anim-stop-btn' onclick='fetch("/game_off")'
-          style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
-      </div>
-    </div>
-
-    <div class='card'>
-      <h2>Schedule Action</h2>
-      <div style='display:flex;gap:10px;'>
-        <input type='number' id='sched-delay' placeholder='Delay (sec)' value='5' style='flex:1; margin-bottom:0;'>
-        <select id='sched-action'
-          style='flex:2; padding:10px 12px; border-radius:8px; border:1px solid #2a2a50; background:#0a0a1e; color:#e0e0f0; outline:none;'>
-          <option value='toggle'>Toggle LED</option>
-          <option value='l1on'>LED ON</option>
-          <option value='l1off'>LED OFF</option>
-          <option value='hi'>Say Hi</option>
-          <option value='bark'>Bark</option>
-        </select>
-      </div>
-      <button class='btn-primary' onclick='scheduleAction()' style='margin-top:10px;'>Schedule</button>
-      <div class='err-msg' id='sched-err'></div>
-    </div>
-
-    <div class='card' id='tts-card'>
-      <h2>Text to Speech</h2>
-      <input type='text' id='say' placeholder='Broadcast text to browsers...'>
-      <button class='btn-primary' onclick='sendTTS()'>Speak</button>
-      <div class='err-msg' id='tts-err'></div>
-    </div>
-
-    <div class='card' id='oled-card'>
       <h2>OLED Display</h2>
       <input type='text' id='oled-text' placeholder='Text to show on OLED...'>
-      <button class='btn-primary' onclick='sendOLED()'>Send to Screen</button>
+      <button class='btn primary' onclick='sendOLED()'>Send to Screen</button>
       <div class='err-msg' id='oled-err'></div>
     </div>
 
+    <!-- ── Schedule ───────────────────────────────────────────────── -->
     <div class='card'>
-      <h2>Actions</h2>
-      <div class='action-grid' id='action-grid'></div>
+      <h2>Schedule Action</h2>
+      <div style='display:flex;gap:8px;margin-bottom:8px;'>
+        <input type='number' id='sched-delay' placeholder='Delay (sec)' value='5' style='flex:1;margin-bottom:0;'>
+        <select id='sched-action' style='flex:2;padding:10px;border-radius:8px;border:1px solid #1c224a;background:#070c20;color:#dde5ff;outline:none;'>
+          <option value='brake'>Brake</option>
+          <option value='coast'>Coast</option>
+          <option value='steer_center'>Steer Center</option>
+          <option value='us_on'>US ON</option>
+          <option value='us_off'>US OFF</option>
+          <option value='l1on'>LED ON</option>
+          <option value='l1off'>LED OFF</option>
+        </select>
+      </div>
+      <button class='btn primary' onclick='scheduleAction()'>Schedule</button>
+      <div class='err-msg' id='sched-err'></div>
     </div>
 
+    <!-- ── WiFi ───────────────────────────────────────────────────── -->
     <div class='card' id='wifi-card'>
       <h2>📡 WiFi Setup</h2>
-      <div id='wifi-status' style='margin-bottom:12px;'></div>
-      <div id='saved-nets' style='margin-bottom:12px;'></div>
-      <button class='btn-primary' onclick='scanWifi()' style='background:linear-gradient(135deg,#1a1a35,#20203d);border:1px solid #2a2a50;margin-bottom:10px;'>Scan for Networks</button>
+      <div id='wifi-status' style='margin-bottom:10px;'></div>
+      <div id='saved-nets' style='margin-bottom:10px;'></div>
+      <button class='btn' onclick='scanWifi()' style='margin-bottom:10px;width:100%;'>Scan for Networks</button>
       <div id='scan-results' style='margin-bottom:10px;'></div>
-      <div style='border-top:1px solid #1e1e3a;padding-top:12px;margin-top:8px;'>
-        <div style='font-size:11px;color:#666;font-weight:700;margin-bottom:8px;'>ADD NETWORK MANUALLY</div>
-        <input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)' style='font-size:16px;padding:14px 12px;'>
+      <div style='border-top:1px solid #1c224a;padding-top:12px;'>
+        <div style='font-size:10px;color:#445;margin-bottom:8px;font-weight:700;'>ADD NETWORK MANUALLY</div>
+        <input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)' style='font-size:15px;'>
         <div style='position:relative;margin-bottom:10px;'>
-          <input type='password' id='wifi-pass' placeholder='Password' autocomplete='current-password' style='width:100%;font-size:16px;padding:14px 48px 14px 12px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#e0e0f0;outline:none;box-sizing:border-box;'>
-          <button type='button' onclick="var i=document.getElementById('wifi-pass');i.type=i.type==='password'?'text':'password';" style='position:absolute;right:0;top:0;bottom:0;width:44px;background:none;border:none;color:#666;font-size:20px;cursor:pointer;'>👁</button>
+          <input type='password' id='wifi-pass' placeholder='Password' autocomplete='current-password'
+            style='padding-right:48px;margin-bottom:0;'>
+          <button type='button' onclick="var i=document.getElementById('wifi-pass');i.type=i.type==='password'?'text':'password';"
+            style='position:absolute;right:0;top:0;bottom:0;width:44px;background:none;border:none;color:#556;font-size:20px;cursor:pointer;'>👁</button>
         </div>
-        <button class='btn-primary' onclick='saveWifi()' style='font-size:16px;padding:14px;'>Connect & Reboot</button>
+        <button class='btn primary' onclick='saveWifi()' style='width:100%;'>Connect &amp; Reboot</button>
         <div class='err-msg' id='wifi-err'></div>
       </div>
     </div>
 
+    <!-- ── OTA ────────────────────────────────────────────────────── -->
     <div class='card'>
       <h2>OTA Firmware Update</h2>
-      <input type='file' id='ota-file' accept='.bin' style='color:#a0a0d0;margin-bottom:10px;width:100%;'>
-      <div style='background:#0a0a1e;border-radius:6px;height:8px;margin-bottom:8px;overflow:hidden;'>
-        <div id='ota-bar'
-          style='width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#7c6af7);transition:width .3s;'></div>
-      </div>
-      <button class='btn-primary' id='ota-btn' onclick='doOTA()'>Flash Firmware</button>
+      <input type='file' id='ota-file' accept='.bin' style='color:#7799ff;margin-bottom:10px;width:100%;'>
+      <div class='ota-bar-outer'><div class='ota-bar-inner' id='ota-bar'></div></div>
+      <button class='btn primary' id='ota-btn' onclick='doOTA()' style='width:100%;'>Flash Firmware</button>
       <div class='err-msg' id='ota-msg'></div>
     </div>
 
   </div>
+
   <script>
-    function led(a) { fetch('/' + a); }
-    function dog(v) { fetch('/' + v); }
-    function sv(n, a) {
-      document.getElementById('s' + n + '-val').textContent = a;
-      fetch('/s' + n + '_' + a);
+    // ══════════════════════════════════════════════════════════════
+    //  State
+    // ══════════════════════════════════════════════════════════════
+    var steerPos   = 50;   // 0-100
+    var throttle   = 0;    // -100 to +100
+    var maxSpeed   = 70;   // from slider
+
+    // ── send motor command (throttle + steer) ──────────────────────
+    var driveTimer = null;
+    function sendDrive(t, s) {
+      t = Math.round(Math.max(-100, Math.min(100, t * maxSpeed / 100)));
+      s = Math.round(Math.max(0, Math.min(100, s)));
+      fetch('/drive?t=' + t + '&s=' + s).catch(function(){});
     }
 
-    function scheduleAction() {
-      var d = document.getElementById('sched-delay').value;
-      var a = document.getElementById('sched-action').value;
-      fetch('/schedule?action=' + a + '&delay=' + d).then(function (r) { return r.json(); })
-        .then(function (j) { document.getElementById('sched-err').textContent = 'Scheduled ' + a + ' in ' + d + 's'; })
-        .catch(function (e) { document.getElementById('sched-err').textContent = e; });
+    // ══════════════════════════════════════════════════════════════
+    //  Throttle slider (vertical)
+    // ══════════════════════════════════════════════════════════════
+    var throttleTrack = null, throttleThumb = null;
+    var throttleDragging = false;
+
+    function throttleFromEvent(e) {
+      var track = throttleTrack;
+      var rect = track.getBoundingClientRect();
+      var y = e.touches ? e.touches[0].clientY : e.clientY;
+      var rel = (y - rect.top) / rect.height;  // 0=top, 1=bottom
+      rel = Math.max(0, Math.min(1, rel));
+      return Math.round((0.5 - rel) * 200);  // +100 at top, -100 at bottom
     }
-    var ACTIONS = { 'hi': 'Say Hi', 's1on': 'S1 ON', 's1off': 'S1 OFF', 'us_on': 'US ON', 'us_off': 'US OFF' };
-    (function () {
-      var g = document.getElementById('action-grid');
-      for (var k in ACTIONS) {
-        var b = document.createElement('button');
-        b.className = 'act-btn'; b.textContent = ACTIONS[k];
-        b.style.cursor = 'pointer'; b.style.color = '#a0a0d0';
-        (function (val) { b.onclick = function () { dog(val); }; })(k);
-        g.appendChild(b);
+
+    function applyThrottle(t) {
+      throttle = t;
+      var pct = (1 - (t + 100) / 200);  // 0% at top (fwd), 50% center, 100% at bottom
+      var track = throttleTrack;
+      var thumbH = 44;
+      var top = pct * (track.offsetHeight - thumbH) + thumbH / 2;
+      throttleThumb.style.top = top + 'px';
+      throttleThumb.classList.toggle('reverse', t < 0);
+      sendDrive(throttle, steerPos);
+      document.getElementById('s-throttle').textContent = t;
+    }
+
+    function initThrottle() {
+      throttleTrack = document.getElementById('throttle-track');
+      throttleThumb = document.getElementById('throttle-thumb');
+
+      function onStart(e) {
+        throttleDragging = true;
+        applyThrottle(throttleFromEvent(e));
+        e.preventDefault();
       }
-    })();
-    var timeOffset = 0, isSynced = false;
-    function syncT() {
-      fetch('/time').then(function (r) { return r.json(); }).then(function (d) {
-        if (d.synced) {
-          timeOffset = (d.epoch * 1000) - Date.now();
-          isSynced = true;
-          document.getElementById('synced').textContent = 'yes';
-        } else {
-          fetch('/sync_time?epoch=' + Math.floor(Date.now() / 1000));
-          timeOffset = 0; isSynced = true;
-          document.getElementById('synced').textContent = 'local';
+      function onMove(e) {
+        if (!throttleDragging) return;
+        applyThrottle(throttleFromEvent(e));
+        e.preventDefault();
+      }
+      function onEnd(e) {
+        if (!throttleDragging) return;
+        throttleDragging = false;
+        // Spring back to 0 (brake)
+        applyThrottle(0);
+      }
+
+      throttleTrack.addEventListener('touchstart', onStart, {passive: false});
+      throttleTrack.addEventListener('touchmove',  onMove,  {passive: false});
+      throttleTrack.addEventListener('touchend',   onEnd,   {passive: false});
+      throttleTrack.addEventListener('mousedown',  onStart);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup',   onEnd);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Steering slider (horizontal)
+    // ══════════════════════════════════════════════════════════════
+    var steerTrack = null, steerThumb = null;
+    var steerDragging = false;
+
+    function steerFromEvent(e) {
+      var rect = steerTrack.getBoundingClientRect();
+      var x = e.touches ? e.touches[0].clientX : e.clientX;
+      var rel = (x - rect.left) / rect.width;
+      rel = Math.max(0, Math.min(1, rel));
+      return Math.round(rel * 100);
+    }
+
+    function applySteer(s) {
+      steerPos = s;
+      var thumbW = 44;
+      var left = (s / 100) * (steerTrack.offsetWidth - thumbW) + thumbW / 2;
+      steerThumb.style.left = left + 'px';
+      document.getElementById('steer-display').textContent = s + (s === 50 ? ' (CTR)' : s < 50 ? ' (L)' : ' (R)');
+      document.getElementById('prec-pos').textContent = s;
+      document.getElementById('prec-slider').value = s;
+      document.getElementById('prec-slide-val').textContent = s;
+      sendDrive(throttle, steerPos);
+      document.getElementById('s-steer').textContent = s;
+    }
+
+    function initSteer() {
+      steerTrack = document.getElementById('steer-track');
+      steerThumb = document.getElementById('steer-thumb');
+
+      function onStart(e) {
+        steerDragging = true;
+        applySteer(steerFromEvent(e));
+        e.preventDefault();
+      }
+      function onMove(e) {
+        if (!steerDragging) return;
+        applySteer(steerFromEvent(e));
+        e.preventDefault();
+      }
+      function onEnd(e) {
+        if (!steerDragging) return;
+        steerDragging = false;
+        // Spring back to center
+        applySteer(50);
+      }
+
+      steerTrack.addEventListener('touchstart', onStart, {passive: false});
+      steerTrack.addEventListener('touchmove',  onMove,  {passive: false});
+      steerTrack.addEventListener('touchend',   onEnd,   {passive: false});
+      steerTrack.addEventListener('mousedown',  onStart);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup',   function(e) {
+        if (steerDragging) {
+          steerDragging = false;
+          applySteer(50);
         }
-      }).catch(function () { });
+      });
     }
-    syncT(); setInterval(syncT, 10000);
-    setInterval(function () {
-      var d = new Date(Date.now() + timeOffset);
-      var f = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + ' ' +
-        ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
-      document.getElementById('clock').textContent = f;
-      document.getElementById('epoch').textContent = Math.floor(d.getTime() / 1000);
-    }, 100);
-    function sendTTS() {
-      var t = document.getElementById('say').value.trim();
-      if (!t) return;
-      var err = document.getElementById('tts-err');
-      err.textContent = 'Sending...';
-      fetch('/tts?say=' + encodeURIComponent(t)).then(function () { err.textContent = ''; }).catch(function (e) { err.textContent = e; });
+
+    // ══════════════════════════════════════════════════════════════
+    //  Max speed slider
+    // ══════════════════════════════════════════════════════════════
+    document.getElementById('speed-limit').addEventListener('input', function() {
+      maxSpeed = parseInt(this.value);
+    });
+
+    // ══════════════════════════════════════════════════════════════
+    //  D-pad quick buttons
+    // ══════════════════════════════════════════════════════════════
+    var qFwdActive = false, qRevActive = false, qLeftActive = false, qRightActive = false;
+    var qInterval = null;
+
+    function qSend() {
+      var t = qFwdActive ? maxSpeed : qRevActive ? -maxSpeed : 0;
+      var s = qLeftActive ? 0 : qRightActive ? 100 : 50;
+      fetch('/drive?t=' + t + '&s=' + s).catch(function(){});
+      document.getElementById('s-throttle').textContent = t;
+      document.getElementById('s-steer').textContent = s;
     }
+
+    function qFwd(on) {
+      qFwdActive = on;
+      if (on) { document.getElementById('qbtn-fwd').classList.add('pressed'); qSend(); }
+      else    { document.getElementById('qbtn-fwd').classList.remove('pressed'); qSend(); }
+    }
+    function qRev(on) {
+      qRevActive = on;
+      if (on) { document.getElementById('qbtn-rev').classList.add('pressed'); qSend(); }
+      else    { document.getElementById('qbtn-rev').classList.remove('pressed'); qSend(); }
+    }
+    function qLeft(on) {
+      qLeftActive = on;
+      if (on) { document.getElementById('qbtn-left').classList.add('pressed'); qSend(); }
+      else    { document.getElementById('qbtn-left').classList.remove('pressed'); qSend(); }
+    }
+    function qRight(on) {
+      qRightActive = on;
+      if (on) { document.getElementById('qbtn-right').classList.add('pressed'); qSend(); }
+      else    { document.getElementById('qbtn-right').classList.remove('pressed'); qSend(); }
+    }
+
+    function emergencyStop() {
+      qFwdActive = qRevActive = qLeftActive = qRightActive = false;
+      fetch('/brake').catch(function(){});
+      document.getElementById('s-throttle').textContent = 0;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Precision steering
+    // ══════════════════════════════════════════════════════════════
+    function steerAdj(delta) {
+      steerPos = Math.max(0, Math.min(100, steerPos + delta));
+      fetch('/steer?pos=' + steerPos);
+      document.getElementById('prec-pos').textContent = steerPos;
+      document.getElementById('prec-slider').value = steerPos;
+      document.getElementById('prec-slide-val').textContent = steerPos;
+      document.getElementById('s-steer').textContent = steerPos;
+      applySteer(steerPos);
+    }
+    function steerFull(pos) { steerPos = pos; steerAdj(0); }
+    function steerCenter() {
+      steerPos = 50;
+      fetch('/steer_center');
+      steerAdj(0);
+    }
+    function steerSlide(val) {
+      steerPos = parseInt(val);
+      fetch('/steer?pos=' + steerPos);
+      document.getElementById('prec-pos').textContent = steerPos;
+      document.getElementById('prec-slide-val').textContent = steerPos;
+      document.getElementById('s-steer').textContent = steerPos;
+      applySteer(steerPos);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  OLED
+    // ══════════════════════════════════════════════════════════════
     function sendOLED() {
       var t = document.getElementById('oled-text').value.trim();
       if (!t) return;
       var err = document.getElementById('oled-err');
-      err.textContent = 'Sending...';
-      fetch('/oled?text=' + encodeURIComponent(t)).then(function () { err.textContent = ''; }).catch(function (e) { err.textContent = e; });
+      fetch('/oled?text=' + encodeURIComponent(t))
+        .then(function(){ err.textContent = ''; })
+        .catch(function(e){ err.textContent = e; });
     }
-    function playSelectedGame() {
-      var g = document.getElementById('game-select').value;
-      if (g == '1') fetch('/game_on_h');
-      else if (g == '2') fetch('/game_on_v');
-      else if (g == '3') fetch('/game_flappy');
-      else if (g == '4') fetch('/game_dino');
-      else if (g == '5') fetch('/game_snake');
-      else if (g == '6') fetch('/game_pacman');
-      else if (g == '7') fetch('/game_frogger');
-      else if (g == '8') fetch('/game_racing');
-      else if (g == '9') fetch('/game_math');
-      else if (g == '12') fetch('/game_us_shooter');
-      else if (g == '13') fetch('/game_piano');
+
+    // ══════════════════════════════════════════════════════════════
+    //  Schedule
+    // ══════════════════════════════════════════════════════════════
+    function scheduleAction() {
+      var d = document.getElementById('sched-delay').value;
+      var a = document.getElementById('sched-action').value;
+      fetch('/schedule?action=' + a + '&delay=' + d)
+        .then(function(r){ return r.json(); })
+        .then(function(j){ document.getElementById('sched-err').textContent = 'Scheduled ' + a + ' in ' + d + 's'; })
+        .catch(function(e){ document.getElementById('sched-err').textContent = e; });
     }
-    // Polling for Ultrasonic Data and Buttons
-    setInterval(function () {
-      fetch('/us_data').then(r => r.json()).then(j => {
+
+    // ══════════════════════════════════════════════════════════════
+    //  Polling: status, ultrasonic
+    // ══════════════════════════════════════════════════════════════
+    var timeOffset = 0;
+    function syncTime() {
+      fetch('/time').then(function(r){ return r.json(); }).then(function(d){
+        if (d.synced) {
+          timeOffset = (d.epoch * 1000) - Date.now();
+        } else {
+          fetch('/sync_time?epoch=' + Math.floor(Date.now()/1000));
+        }
+      }).catch(function(){});
+    }
+    syncTime();
+    setInterval(syncTime, 15000);
+
+    setInterval(function(){
+      var d = new Date(Date.now() + timeOffset);
+      var f = ('0'+d.getHours()).slice(-2) + ':' + ('0'+d.getMinutes()).slice(-2) + ':' + ('0'+d.getSeconds()).slice(-2);
+      document.getElementById('clock').textContent = f;
+    }, 500);
+
+    setInterval(function(){
+      fetch('/us_data').then(function(r){ return r.json(); }).then(function(j){
         if (j.active) {
-          document.getElementById('us-val').textContent = j.dist + ' cm';
-          var pct = Math.min(100, Math.max(0, ((50 - j.dist) / 50) * 100));
+          document.getElementById('us-val').textContent = j.dist.toFixed(1) + ' cm';
+          var pct = Math.min(100, Math.max(0, ((60 - j.dist) / 60) * 100));
           document.getElementById('us-bar').style.width = pct + '%';
+          document.getElementById('s-dist').textContent = j.dist.toFixed(0);
         } else {
           document.getElementById('us-val').textContent = '-- cm';
           document.getElementById('us-bar').style.width = '0%';
+          document.getElementById('s-dist').textContent = '--';
         }
-      }).catch(() => { });
+      }).catch(function(){});
 
-      fetch('/btn_data').then(r => r.json()).then(j => {
-        document.getElementById('btn1-ind').style.background = j.btn1 ? '#00e5a0' : '#444';
-        document.getElementById('btn2-ind').style.background = j.btn2 ? '#00e5a0' : '#444';
-        document.getElementById('btn1-ind').style.boxShadow = j.btn1 ? '0 0 8px #00e5a0' : 'none';
-        document.getElementById('btn2-ind').style.boxShadow = j.btn2 ? '0 0 8px #00e5a0' : 'none';
-
-        var active_game = j.game_mode;
-        if (active_game > 0 && active_game < 10) {
-          document.getElementById('game-select').value = active_game;
-          document.getElementById('game-play-btn').style.background = '#00e5a0';
-          document.getElementById('game-play-btn').style.color = '#fff';
-          document.getElementById('game-stop-btn').style.background = '#1a1a35';
-          document.getElementById('game-stop-btn').style.color = '#f7736a';
-        } else {
-          document.getElementById('game-play-btn').style.background = '#1a1a35';
-          document.getElementById('game-play-btn').style.color = '#00e5a0';
-          document.getElementById('game-stop-btn').style.background = '#f7736a';
-          document.getElementById('game-stop-btn').style.color = '#fff';
+      fetch('/motor_state').then(function(r){ return r.json(); }).then(function(j){
+        if (!throttleDragging && !qFwdActive && !qRevActive) {
+          document.getElementById('s-throttle').textContent = j.throttle;
         }
+        document.getElementById('s-brake').textContent = j.braking ? 'YES' : 'no';
+        document.getElementById('s-brake').className = 'value ' + (j.braking ? 'red' : 'green');
+      }).catch(function(){});
+    }, 300);
 
-        if (active_game == 10) {
-          document.getElementById('anim-play-btn').style.background = '#00e5a0';
-          document.getElementById('anim-play-btn').style.color = '#fff';
-          document.getElementById('anim-stop-btn').style.background = '#1a1a35';
-          document.getElementById('anim-stop-btn').style.color = '#f7736a';
-        } else {
-          document.getElementById('anim-play-btn').style.background = '#1a1a35';
-          document.getElementById('anim-play-btn').style.color = '#00e5a0';
-          document.getElementById('anim-stop-btn').style.background = '#f7736a';
-          document.getElementById('anim-stop-btn').style.color = '#fff';
-        }
-      }).catch(() => { });
-    }, 250);
-
+    // ══════════════════════════════════════════════════════════════
+    //  WiFi
+    // ══════════════════════════════════════════════════════════════
     function scanWifi() {
       var sr = document.getElementById('scan-results');
-      sr.innerHTML = '<div style="color:#666;font-size:12px;">Scanning...</div>';
-      fetch('/wifi_scan').then(function(r) { return r.json(); }).then(function(d) {
+      sr.innerHTML = '<div style="color:#445;font-size:12px;">Scanning...</div>';
+      fetch('/wifi_scan').then(function(r){ return r.json(); }).then(function(d){
         var h = '';
         if (d.networks && d.networks.length) {
-          d.networks.forEach(function(n) {
-            h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin:4px 0;background:#0a0a1e;border-radius:8px;border:1px solid #1e1e3a;cursor:pointer;" onclick="document.getElementById(\'wifi-ssid\').value=\'' + n.ssid.replace(/'/g, '') + '\';">';
-            h += '<span style="color:#e0e0f0;font-size:13px;">' + n.ssid + '</span>';
-            h += '<span style="color:#666;font-size:11px;">' + n.rssi + 'dBm</span></div>';
+          d.networks.forEach(function(n){
+            h += '<div class="net-item" onclick="document.getElementById(\'wifi-ssid\').value=\'' + n.ssid.replace(/'/g,'') + '\'">' +
+                 '<span>' + n.ssid + '</span><span style="color:#445;font-size:11px;">' + n.rssi + 'dBm</span></div>';
           });
         } else {
-          h = '<div style="color:#666;font-size:12px;">No networks found</div>';
+          h = '<div style="color:#445;font-size:12px;">No networks found</div>';
         }
         sr.innerHTML = h;
-      }).catch(function(e) { sr.innerHTML = '<div class="err-msg">Scan error: ' + e + '</div>'; });
+      }).catch(function(e){ sr.innerHTML = '<div class="err-msg">Scan error: ' + e + '</div>'; });
     }
 
     function saveWifi() {
@@ -586,39 +930,43 @@
       var p = document.getElementById('wifi-pass').value;
       var e = document.getElementById('wifi-err');
       if (!s) { e.textContent = 'Enter an SSID'; return; }
-      e.style.color = '#a0a0d0'; e.textContent = 'Saving & rebooting...';
-      fetch('/wifi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ssid: s, pass: p }) })
-        .then(function(r) { return r.json(); }).then(function(d) {
-          if (d.ok) { e.style.color = '#00e5a0'; e.textContent = 'Saved! Rebooting in 3s...'; }
-          else { e.style.color = '#f7736a'; e.textContent = 'Error: ' + (d.error || 'unknown'); }
-        }).catch(function(x) { e.style.color = '#f7736a'; e.textContent = 'Network error: ' + x; });
+      e.style.color = '#aac'; e.textContent = 'Saving & rebooting...';
+      fetch('/wifi', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ssid:s,pass:p}) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.ok) { e.style.color = '#2ea'; e.textContent = 'Saved! Rebooting in 3s...'; }
+          else { e.style.color = '#f65'; e.textContent = 'Error: ' + (d.error || 'unknown'); }
+        }).catch(function(x){ e.style.color = '#f65'; e.textContent = 'Error: ' + x; });
     }
 
     function loadSavedNets() {
-      fetch('/wifi').then(function(r) { return r.json(); }).then(function(d) {
-        var h = '', ws = document.getElementById('wifi-status');
+      fetch('/wifi').then(function(r){ return r.json(); }).then(function(d){
+        var ws = document.getElementById('wifi-status');
         if (d.ap_mode) {
-          ws.innerHTML = '<div style="padding:8px 12px;background:#2a1a1a;border:1px solid #5a2a2a;border-radius:8px;color:#f7a56a;font-size:13px;">⚠️ Running in AP mode — add a WiFi network below to connect.</div>';
+          ws.innerHTML = '<div style="padding:8px;background:#2a1a0d;border:1px solid #5a3a0d;border-radius:8px;color:#fa8;font-size:12px;">⚠️ AP mode — connect to a network below</div>';
         } else {
-          ws.innerHTML = '<div style="padding:8px 12px;background:#1a2a1a;border:1px solid #2a5a2a;border-radius:8px;color:#00e5a0;font-size:13px;">✓ Connected to WiFi</div>';
+          ws.innerHTML = '<div style="padding:8px;background:#0d2a1a;border:1px solid #1a5a2a;border-radius:8px;color:#2ea;font-size:12px;">✓ Connected to WiFi</div>';
         }
+        var h = '';
         if (d.saved && d.saved.length) {
-          h = '<div style="font-size:11px;color:#666;margin-bottom:6px;font-weight:700;">SAVED NETWORKS</div>';
-          d.saved.forEach(function(n, i) {
-            h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin:3px 0;background:#0a0a1e;border-radius:6px;border:1px solid #1e1e3a;">';
-            h += '<span style="color:#a0a0d0;font-size:12px;">' + n + '</span>';
-            h += '<button onclick="deleteNet(' + i + ')" style="background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:0 4px;">&times;</button></div>';
+          h = '<div style="font-size:10px;color:#445;margin-bottom:4px;font-weight:700;">SAVED NETWORKS</div>';
+          d.saved.forEach(function(n, i){
+            h += '<div class="net-item"><span>' + n + '</span>' +
+                 '<button onclick="deleteNet(' + i + ')" style="background:none;border:none;color:#445;cursor:pointer;font-size:18px;">&times;</button></div>';
           });
         }
         document.getElementById('saved-nets').innerHTML = h;
-      }).catch(function() { });
+      }).catch(function(){});
     }
 
     function deleteNet(idx) {
-      fetch('/wifi?delete=' + idx, { method: 'DELETE' }).then(function() { loadSavedNets(); }).catch(function() { });
+      fetch('/wifi?delete=' + idx, {method:'DELETE'}).then(function(){ loadSavedNets(); }).catch(function(){});
     }
     loadSavedNets();
 
+    // ══════════════════════════════════════════════════════════════
+    //  OTA
+    // ══════════════════════════════════════════════════════════════
     function doOTA() {
       var f = document.getElementById('ota-file').files[0];
       var msg = document.getElementById('ota-msg');
@@ -626,18 +974,50 @@
       var btn = document.getElementById('ota-btn');
       if (!f) { msg.textContent = 'Pick a .bin file first'; return; }
       btn.disabled = true; btn.style.opacity = '.5';
-      msg.style.color = '#a0a0d0'; msg.textContent = 'Uploading...';
+      msg.style.color = '#aac'; msg.textContent = 'Uploading...';
       var xhr = new XMLHttpRequest();
-      xhr.upload.onprogress = function (e) { if (e.lengthComputable) { var p = (e.loaded / e.total) * 100; bar.style.width = p + '%'; } };
-      xhr.onload = function () {
-        if (xhr.status === 200) { msg.style.color = '#00e5a0'; msg.textContent = 'Success! Rebooting...'; }
-        else { msg.style.color = '#f7736a'; msg.textContent = 'Error ' + xhr.status; }
+      xhr.upload.onprogress = function(e){ if (e.lengthComputable) bar.style.width = (e.loaded/e.total*100) + '%'; };
+      xhr.onload = function(){
+        if (xhr.status === 200) { msg.style.color = '#2ea'; msg.textContent = 'Success! Rebooting...'; }
+        else { msg.style.color = '#f65'; msg.textContent = 'Error ' + xhr.status; }
         btn.disabled = false; btn.style.opacity = '1';
       };
-      xhr.onerror = function () { msg.style.color = '#f7736a'; msg.textContent = 'Upload failed'; btn.disabled = false; btn.style.opacity = '1'; };
+      xhr.onerror = function(){ msg.style.color = '#f65'; msg.textContent = 'Upload failed'; btn.disabled = false; btn.style.opacity = '1'; };
       xhr.open('POST', '/ota', true);
       xhr.send(f);
     }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Keyboard controls
+    // ══════════════════════════════════════════════════════════════
+    var keysDown = {};
+    document.addEventListener('keydown', function(e) {
+      if (keysDown[e.key]) return;
+      keysDown[e.key] = true;
+      if (e.key === 'ArrowUp'   || e.key === 'w') qFwd(true);
+      if (e.key === 'ArrowDown' || e.key === 's') qRev(true);
+      if (e.key === 'ArrowLeft' || e.key === 'a') qLeft(true);
+      if (e.key === 'ArrowRight'|| e.key === 'd') qRight(true);
+      if (e.key === ' ') { e.preventDefault(); emergencyStop(); }
+    });
+    document.addEventListener('keyup', function(e) {
+      keysDown[e.key] = false;
+      if (e.key === 'ArrowUp'   || e.key === 'w') qFwd(false);
+      if (e.key === 'ArrowDown' || e.key === 's') qRev(false);
+      if (e.key === 'ArrowLeft' || e.key === 'a') qLeft(false);
+      if (e.key === 'ArrowRight'|| e.key === 'd') qRight(false);
+    });
+
+    // ══════════════════════════════════════════════════════════════
+    //  Init
+    // ══════════════════════════════════════════════════════════════
+    window.addEventListener('load', function() {
+      initThrottle();
+      initSteer();
+      // Place sliders at center
+      applyThrottle(0);
+      applySteer(50);
+    });
   </script>
 </body>
 
