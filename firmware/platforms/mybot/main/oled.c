@@ -43,6 +43,9 @@ void oled_set_emotion(eye_emotion_t emotion) { s_eye_emotion = emotion; }
 eye_emotion_t oled_get_emotion(void) { return s_eye_emotion; }
 void oled_set_paddle_input(bool left, bool right) { s_paddle_left = left; s_paddle_right = right; }
 
+static volatile bool s_random_look_oled = false;
+void oled_set_random_look(bool enable) { s_random_look_oled = enable; }
+
 static volatile bool s_ap_client_just_connected = false;
 void oled_notify_ap_client_connected(void) {
     s_ap_client_just_connected = true;
@@ -220,6 +223,33 @@ static void oled_eyes_task(void *arg) {
     static int pupil_dy = 0;
     static int pupil_target_dx = 0;
     static int pupil_target_dy = 0;
+
+    // ── Face auto-change timer ─────────────────────────────────────────────
+    // Normal: 5000 frames × 60ms ≈ 5 min. Random-look: 167 frames ≈ 10s.
+    static int face_change_timer = 0;
+    // Emotions to cycle (SAD removed from rotation — now just a dot anyway)
+    static const eye_emotion_t face_cycle[] = {
+        EYE_EMOTION_NORMAL, EYE_EMOTION_MAD, EYE_EMOTION_SLEEPY, EYE_EMOTION_NORMAL,
+        EYE_EMOTION_SURPRISED, EYE_EMOTION_NORMAL
+    };
+    static int face_cycle_idx = 0;
+    // Emotion-change blink transition (flutters eyes for 3 frames)
+    static int emotion_blink_frames = 0;
+
+    // ── Mouth micro-animation state ────────────────────────────────────────
+    typedef enum { MOUTH_IDLE, MOUTH_YAWN, MOUTH_LICK } mouth_anim_state_t;
+    static mouth_anim_state_t mouth_state = MOUTH_IDLE;
+    static int   mouth_timer      = 0;   // frames in current state
+    static float mouth_open       = 0.0f; // 0=closed 1=fully open
+    static float mouth_lick_phase = 0.0f; // 0..1 sweep position
+    static int   mouth_idle_tick  = 0;    // drives subtle idle twitch
+
+    // ── Life-like quirk state ─────────────────────────────────────────────
+    static int   quirk_squint_frames  = 0;  // >0 → eyes squinting
+    static float quirk_squint_scale   = 1.0f;
+    static bool  quirk_double_glance  = false; // mid-servo pause-reglance
+    static int   quirk_fidget_timer   = 0; // eye micro-fidget without servo
+    static int   quirk_fidget_dx      = 0, quirk_fidget_dy = 0;
 
     const int eye_cx[2] = { 32, 96 };
     const int eye_cy = 32;
@@ -1837,41 +1867,379 @@ static void oled_eyes_task(void *arg) {
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(60));
             continue;
+        } else if (s_oled_mode == OLED_MODE_BIG_YAWN) {
+            // ── 🥱 BIG YAWN — Exaggerated, animated, non-blocking ─────────
+            // Phases: pre-yawn droop → dramatic open → peak hold → close → recovery
+            // Each phase is computed per-frame; no blocking sleeps or nested loops.
+            static int   by_frame    = 0;
+            static float by_zzz_y[3];
+            static int   by_zzz_x[3];
+            static bool  by_zzz_on   = false;
+            static int   by_shake    = 0;
+
+            if (last_mode != s_oled_mode) {
+                by_frame   = 0;
+                by_shake   = 0;
+                by_zzz_on  = false;
+                for (int i = 0; i < 3; i++) {
+                    by_zzz_y[i] = 50.0f - i * 8.0f;
+                    by_zzz_x[i] = 84 + i * 10;
+                }
+                last_mode = s_oled_mode;
+            }
+            by_frame++;
+
+            // ── Derive per-frame parameters from phase ──────────────────────────
+            float mouth_t  = 0.0f; // 0=closed 1=max open
+            float squint_t = 0.0f; // 0=normal 1=fully squinted
+            float brow_lift = 0.0f; // eyebrow raise amount
+            bool  show_innards = false;
+
+            if (by_frame < 18) {
+                // Phase 1: pre-yawn droop — eyes start to feel heavy
+                float p     = by_frame / 18.0f;
+                squint_t    = p * 0.30f;
+                mouth_t     = p * 0.03f;
+                brow_lift   = p * 2.0f;
+            } else if (by_frame < 58) {
+                // Phase 2: dramatic opening — smoothstep ease-in-out
+                float p     = (by_frame - 18) / 40.0f;
+                p           = p * p * (3.0f - 2.0f * p); // smoothstep
+                squint_t    = 0.30f + p * 0.70f;
+                mouth_t     = 0.03f + p * 0.97f;
+                brow_lift   = 2.0f  + p * 6.0f; // brows shoot up dramatically
+            } else if (by_frame < 85) {
+                // Phase 3: PEAK HOLD — max open, teeth, tongue, ZZZs, shake
+                squint_t     = 1.0f;
+                mouth_t      = 1.0f;
+                brow_lift    = 8.0f;
+                show_innards = true;
+                by_shake     = ((by_frame % 4) < 2) ? 1 : -1; // micro screen shake
+                by_zzz_on    = true;
+            } else if (by_frame < 128) {
+                // Phase 4: closing — smoothstep ease-out
+                float p      = (by_frame - 85) / 43.0f;
+                p            = p * p * (3.0f - 2.0f * p);
+                squint_t     = 1.0f - p * 0.85f;
+                mouth_t      = 1.0f - p;
+                brow_lift    = 8.0f * (1.0f - p);
+                show_innards = (mouth_t > 0.45f);
+                by_shake     = 0;
+            } else if (by_frame < 148) {
+                // Phase 5: recovery drowsy blinks
+                squint_t  = ((by_frame - 128) % 10 < 4) ? 0.88f : 0.12f;
+                mouth_t   = 0.0f;
+                brow_lift = 0.0f;
+                by_shake  = 0;
+            } else {
+                // Done — return to normal eyes
+                by_frame   = 0;
+                by_shake   = 0;
+                by_zzz_on  = false;
+                s_oled_mode = OLED_MODE_NORMAL;
+                oled_send_buffer();
+                vTaskDelay(pdMS_TO_TICKS(60));
+                continue;
+            }
+
+            // ── Draw squinted eyes ────────────────────────────────────────────
+            const int by_ecx[2] = { 32, 96 };
+            const int by_ecy    = 27;  // slightly higher — head tilted back
+            const int by_erx    = 24;
+            int by_ery          = (int)(24.0f * (1.0f - squint_t * 0.88f));
+            if (by_ery < 2) by_ery = 2;
+
+            {
+                long erx_sq = (long)by_erx * by_erx;
+                long ery_sq = (long)by_ery * by_ery;
+                long ey_lim = erx_sq * ery_sq;
+
+                for (int ei = 0; ei < 2; ei++) {
+                    int cx = by_ecx[ei];
+                    // Pupil radius shrinks as eyes squint
+                    int eprad = base_pupil_r - (int)(squint_t * 4.0f);
+                    if (eprad < 3) eprad = 3;
+                    int eprad_sq = eprad * eprad;
+
+                    for (int y = by_ecy - by_ery; y <= by_ecy + by_ery; y++) {
+                        if (y < 0 || y >= OLED_HEIGHT) continue;
+                        int dy = y - by_ecy;
+                        for (int x = cx - by_erx; x <= cx + by_erx; x++) {
+                            if (x < 0 || x >= OLED_WIDTH) continue;
+                            int dx = x - cx;
+                            if ((long)dx*dx * ery_sq + (long)dy*dy * erx_sq > ey_lim) continue;
+
+                            int pdx = dx - pupil_dx;
+                            int pdy = dy - pupil_dy;
+                            if (pdx*pdx + pdy*pdy <= eprad_sq) {
+                                // pupil — black, skip
+                            } else {
+                                // Sclera — heavy eyelid during squint
+                                bool draw_it = true;
+                                // Top-eyelid droop: hide upper fraction based on squint
+                                if (dy < -(int)(by_ery * (1.0f - squint_t * 0.70f)) + 1) draw_it = false;
+                                if (draw_it) draw_pixel(x, y, 1);
+                            }
+                        }
+                    }
+
+                    // Catch-lights in pupils (always visible)
+                    draw_pixel(cx + pupil_dx - 3, by_ecy + pupil_dy - 3, 1);
+                    draw_pixel(cx + pupil_dx - 2, by_ecy + pupil_dy - 3, 1);
+                    draw_pixel(cx + pupil_dx - 3, by_ecy + pupil_dy - 2, 1);
+
+                    // ── Eyebrow: thick arc, rises dramatically then settles ──
+                    int brow_base_y = by_ecy - by_ery - 4;
+                    int brow_offset = -(int)brow_lift;
+                    int brow_hw     = 14;
+                    for (int xi = -brow_hw; xi <= brow_hw; xi++) {
+                        // Arch: slightly curved
+                        int by2 = brow_base_y + brow_offset - (xi * xi) / 55;
+                        if (by2 >= 0 && by2 < OLED_HEIGHT) {
+                            draw_pixel(cx + xi, by2,     1);
+                            draw_pixel(cx + xi, by2 + 1, 1); // 2px thick
+                        }
+                    }
+                }
+            }
+
+            // ── Draw HUGE mouth ─────────────────────────────────────────────
+            {
+                int mcx  = 64 + by_shake;
+                int mcy  = 52;
+                int m_hw = (int)(mouth_t * 36.0f);  // max half-width  36px
+                int m_hh = (int)(mouth_t * 13.0f);  // max half-height 13px
+
+                if (m_hw > 0 && m_hh > 0) {
+                    long mhh_sq = (long)m_hh * m_hh;
+
+                    // Draw ellipse outline row-by-row (no sqrtf loop - use Bresenham)
+                    for (int dy = -m_hh; dy <= m_hh; dy++) {
+                        int row_y = mcy + dy;
+                        if (row_y < 0 || row_y >= OLED_HEIGHT) continue;
+                        // x half-width at this dy via integer approximation
+                        float frac = 1.0f - (float)(dy * dy) / (float)mhh_sq;
+                        if (frac <= 0.0f) continue;
+                        int dx = (int)(m_hw * sqrtf(frac));
+
+                        // Left & right edges
+                        draw_pixel(mcx - dx, row_y, 1);
+                        draw_pixel(mcx + dx, row_y, 1);
+                        // Solid lips: top 2 and bottom 2 rows of ellipse
+                        if (dy <= -m_hh + 2 || dy >= m_hh - 2) {
+                            for (int xi = -dx; xi <= dx; xi++)
+                                draw_pixel(mcx + xi, row_y, 1);
+                        }
+                    }
+
+                    // ── Internals (teeth, tongue, uvula) when wide enough ──
+                    if (show_innards && m_hw > 12 && m_hh > 5) {
+                        // TOP TEETH — white bar just inside top lip, with slots
+                        int tt_y     = mcy - m_hh + 3;
+                        int teeth_hw = (int)(m_hw * 0.72f);
+                        for (int xi = -teeth_hw; xi <= teeth_hw; xi++) {
+                            draw_pixel(mcx + xi, tt_y,     1);
+                            draw_pixel(mcx + xi, tt_y + 1, 1);
+                            // Tooth gap: erase slot every 6 px
+                            if (abs(xi) % 6 == 5 && xi != -teeth_hw && xi != teeth_hw) {
+                                draw_pixel(mcx + xi, tt_y,     0);
+                                draw_pixel(mcx + xi, tt_y + 1, 0);
+                            }
+                        }
+
+                        // BOTTOM TEETH — narrower row
+                        int bt_y      = mcy + m_hh - 4;
+                        int bteeth_hw = (int)(m_hw * 0.52f);
+                        for (int xi = -bteeth_hw; xi <= bteeth_hw; xi++) {
+                            draw_pixel(mcx + xi, bt_y,     1);
+                            draw_pixel(mcx + xi, bt_y + 1, 1);
+                        }
+
+                        // TONGUE — small rounded tongue-tip above bottom lip
+                        if (mouth_t > 0.68f) {
+                            int tng_y  = mcy + m_hh - 8;
+                            int tng_hw = (int)(m_hw * 0.28f);
+                            for (int tdy = 0; tdy <= 4; tdy++) {
+                                for (int tdx = -tng_hw; tdx <= tng_hw; tdx++) {
+                                    // Round top corners
+                                    if (tdy == 0 && abs(tdx) > tng_hw - 2) continue;
+                                    draw_pixel(mcx + tdx, tng_y + tdy, 1);
+                                }
+                            }
+                        }
+
+                        // UVULA — dangles from centre of top teeth
+                        if (mouth_t > 0.82f) {
+                            int uv_x = mcx, uv_y = tt_y + 2;
+                            draw_pixel(uv_x,     uv_y,     1);
+                            draw_pixel(uv_x,     uv_y + 1, 1);
+                            draw_pixel(uv_x,     uv_y + 2, 1);
+                            draw_pixel(uv_x - 1, uv_y + 3, 1);
+                            draw_pixel(uv_x,     uv_y + 3, 1);
+                            draw_pixel(uv_x + 1, uv_y + 3, 1);
+                            draw_pixel(uv_x - 1, uv_y + 4, 1);
+                            draw_pixel(uv_x,     uv_y + 4, 1);
+                            draw_pixel(uv_x + 1, uv_y + 4, 1);
+                        }
+
+                        // SOUND WAVES — animated ~ ripples from both corners
+                        {
+                            int wave_phase = by_frame % 6;
+                            // Left waves (3 ripples, staggered)
+                            for (int wi = 0; wi < 3; wi++) {
+                                int wx = mcx - m_hw - 4 - wi * 5;
+                                int wy = mcy + ((wave_phase + wi) % 3) - 1;
+                                if (wx >= 0) {
+                                    draw_pixel(wx,     wy,     1);
+                                    draw_pixel(wx + 1, wy - 1, 1);
+                                    draw_pixel(wx + 2, wy,     1);
+                                    draw_pixel(wx + 3, wy + 1, 1);
+                                    draw_pixel(wx + 4, wy,     1);
+                                }
+                            }
+                            // Right waves (mirrored)
+                            for (int wi = 0; wi < 3; wi++) {
+                                int wx = mcx + m_hw + wi * 5;
+                                int wy = mcy + ((wave_phase + wi) % 3) - 1;
+                                if (wx + 4 < OLED_WIDTH) {
+                                    draw_pixel(wx,     wy,     1);
+                                    draw_pixel(wx + 1, wy - 1, 1);
+                                    draw_pixel(wx + 2, wy,     1);
+                                    draw_pixel(wx + 3, wy + 1, 1);
+                                    draw_pixel(wx + 4, wy,     1);
+                                }
+                            }
+                        }
+                    }
+                } else if (mouth_t > 0.0f) {
+                    // Still tiny — just a thin parting line
+                    int small_hw = (int)(mouth_t * 7.0f) + 1;
+                    for (int xi = -small_hw; xi <= small_hw; xi++)
+                        draw_pixel(mcx + xi, mcy + (xi * xi) / 14, 1);
+                }
+            }
+
+            // ── ZZZs drifting upward and right ──────────────────────────────
+            if (by_zzz_on) {
+                static const char *z_labels[3] = { "z", "Z", "Z" };
+                static const int   z_scale[3]  = { 1, 1, 2 };   // biggest Z is largest
+                for (int i = 0; i < 3; i++) {
+                    by_zzz_y[i] -= 0.45f;   // float upward
+                    by_zzz_x[i] += (i & 1) ? 0 : 0; // slight rightward per-z drift could go here
+                    int zy = (int)by_zzz_y[i];
+                    int zx = by_zzz_x[i];
+                    if (zy > -8 && zy < OLED_HEIGHT && zx > 0 && zx + 12 < OLED_WIDTH) {
+                        draw_text(zx, zy, z_labels[i], z_scale[i]);
+                    }
+                }
+                // Recycle when lead Z floats off top
+                if (by_zzz_y[0] < -8.0f) {
+                    for (int i = 0; i < 3; i++) {
+                        by_zzz_y[i] = 50.0f - i * 8.0f;
+                        by_zzz_x[i] = 84 + i * 10;
+                    }
+                }
+            }
+
+            oled_send_buffer();
+            vTaskDelay(pdMS_TO_TICKS(60));
+            continue;
         }
 
-        // Animated eyes
+        // ── Animated eyes ─────────────────────────────────────────────────
 
+        // ── Face auto-change timer ────────────────────────────────────────
+        {
+            int face_threshold = s_random_look_oled ? 167 : 5000; // 10s or 5 min
+            face_change_timer++;
+            if (face_change_timer >= face_threshold) {
+                face_change_timer = 0;
+                face_cycle_idx = (face_cycle_idx + 1) % (int)(sizeof(face_cycle)/sizeof(face_cycle[0]));
+                s_eye_emotion = face_cycle[face_cycle_idx];
+                // Emotion-change flutter: 3-frame slow blink
+                emotion_blink_frames = 3;
+            }
+        }
+
+        // ── Life-like quirks (only when random look active) ───────────────
+        if (s_random_look_oled) {
+            // 1) Micro eye-fidget: occasionally shift pupils slightly w/o servo
+            quirk_fidget_timer--;
+            if (quirk_fidget_timer <= 0) {
+                quirk_fidget_timer = 150 + (esp_random() % 250); // 9-24s between fidgets
+                quirk_fidget_dx = ((int)(esp_random() % 5)) - 2;
+                quirk_fidget_dy = ((int)(esp_random() % 3)) - 1;
+            }
+
+            // 2) Squint-surprise: rare — briefly squint then spring open
+            if (quirk_squint_frames > 0) {
+                quirk_squint_frames--;
+                if (quirk_squint_frames > 5) {
+                    quirk_squint_scale = 0.55f; // squint phase
+                } else {
+                    // Spring back (wide-open overshoot for a frame)
+                    quirk_squint_scale = (quirk_squint_frames == 4) ? 1.12f : 1.0f;
+                }
+            } else {
+                quirk_squint_scale = 1.0f;
+                if (esp_random() % 400 == 0) quirk_squint_frames = 12;
+            }
+        } else {
+            quirk_fidget_dx = 0; quirk_fidget_dy = 0;
+            quirk_squint_scale = 1.0f;
+        }
+
+        // ── Blink logic ───────────────────────────────────────────────────
         blink_timer++;
         if (!blinking && blink_timer > next_blink) {
             blinking = true;
             blink_timer = 0;
         }
 
-        int max_ry = base_ry;
-        if (blinking) {
+        // Emotion-blink flutter counts as a blink too
+        if (emotion_blink_frames > 0) {
+            blinking = true;
+            emotion_blink_frames--;
+        }
+
+        // Slow blink (random look): 1-in-80 chance of slow blink (4 frames)
+        static int slow_blink_hold = 0;
+        if (s_random_look_oled && !blinking && slow_blink_hold <= 0 && esp_random() % 80 == 0) {
+            slow_blink_hold = 4;
+        }
+
+        int max_ry = (int)(base_ry * quirk_squint_scale);
+        if (blinking || slow_blink_hold > 0) {
             max_ry = 3;
-            if (blink_timer > 1) {
+            if (slow_blink_hold > 0) {
+                slow_blink_hold--;
+            } else if (blink_timer > 1 && emotion_blink_frames == 0) {
                 blinking = false;
                 blink_timer = 0;
                 next_blink = 40 + (esp_random() % 100);
             }
         }
 
+        // ── Pupil tracking ────────────────────────────────────────────────
         if (esp_random() % 20 == 0) {
             pupil_target_dx = (esp_random() % 14) - 7;
             pupil_target_dy = (esp_random() % 8) - 4;
         }
-        if (pupil_dx < pupil_target_dx) pupil_dx++;
-        if (pupil_dx > pupil_target_dx) pupil_dx--;
-        if (pupil_dy < pupil_target_dy) pupil_dy++;
-        if (pupil_dy > pupil_target_dy) pupil_dy--;
+        if (pupil_dx < pupil_target_dx + quirk_fidget_dx) pupil_dx++;
+        if (pupil_dx > pupil_target_dx + quirk_fidget_dx) pupil_dx--;
+        if (pupil_dy < pupil_target_dy + quirk_fidget_dy) pupil_dy++;
+        if (pupil_dy > pupil_target_dy + quirk_fidget_dy) pupil_dy--;
 
         int pupil_r = base_pupil_r + ((frame_count / 12) % 3) - 1;
         int pupil_r_sq = pupil_r * pupil_r;
         int rx_sq = eye_rx * eye_rx;
         int ry_sq = max_ry * max_ry;
+        if (ry_sq < 1) ry_sq = 1;
         int ellipse_limit = rx_sq * ry_sq;
 
+        // ── SAD eyelid modifier — heavy drooped top-lid ───────────────────
+        // For sad emotion: top lid droops significantly (heavy, glassy look)
+        // We trim the top of the sclera more aggressively than before.
         for (int y = 0; y < OLED_HEIGHT; y++) {
             int dy = y - eye_cy;
             int dy_sq_rx = dy * dy * rx_sq;
@@ -1891,19 +2259,23 @@ static void oled_eyes_task(void *arg) {
 
                     int idx = dx - pupil_dx;
                     int idy = dy - pupil_dy;
-                    if (idx * idx + idy * idy <= pupil_r_sq) {
-                        // Pupil (black)
+                    bool in_pupil = (idx * idx + idy * idy <= pupil_r_sq);
+
+                    if (in_pupil) {
+                        // Pupil drawn as black (not set) — depth highlights added below
                     } else {
-                        // Sclera (white)
+                        // Sclera
                         bool draw_it = true;
                         if (s_eye_emotion == EYE_EMOTION_MAD) {
+                            // Angry: top-inner corner clipped — sharp V brow
                             if (dy < ((ei == 0) ? dx : -dx) / 2 - 4) draw_it = false;
                         } else if (s_eye_emotion == EYE_EMOTION_SAD) {
-                            if (dy < ((ei == 0) ? -dx : dx) / 2 - 4) draw_it = false;
+                            // Sad: top-outer corner drooped — wide puppy eyes
+                            if (dy < ((ei == 0) ? -dx : dx) / 2 - 2) draw_it = false;
                         } else if (s_eye_emotion == EYE_EMOTION_SLEEPY) {
+                            // Sleepy: top half hidden
                             if (dy < 0) draw_it = false;
                         }
-                        
                         if (draw_it) draw_pixel(x, y, 1);
                     }
                     break;
@@ -1911,36 +2283,154 @@ static void oled_eyes_task(void *arg) {
             }
         }
 
-        // ── Tiny smile / expression below the eyes ─────────────────────────
-        // Mouth centered at x=64, y=56. Arc drawn as 11 pixels wide.
-        {
-            const int mx = 64;  // mouth center x
-            const int my = 56;  // mouth center y
-            const int mw = 10;  // half-width of mouth
+        // ── Pupil depth highlights (glossy 3-D sheen) ─────────────────────
+        // Two small white circles overlaid on each pupil: primary catch-light
+        // (upper-left, r=2) and a tiny secondary dot (upper-right, r=1).
+        for (int ei = 0; ei < 2; ei++) {
+            int pcx = eye_cx[ei] + pupil_dx; // pupil centre x
+            int pcy = eye_cy   + pupil_dy;   // pupil centre y
 
-            for (int xi = -mw; xi <= mw; xi++) {
-                int px_m = mx + xi;
-                int py_m;
-
-                if (s_eye_emotion == EYE_EMOTION_NORMAL) {
-                    // Gentle smile: parabola opening upward (curve up = happy)
-                    py_m = my + (xi * xi) / 14;
-                } else if (s_eye_emotion == EYE_EMOTION_MAD) {
-                    // Flat grimace: nearly straight line, very slight downward curve
-                    py_m = my + (xi * xi) / 40;
-                } else if (s_eye_emotion == EYE_EMOTION_SAD) {
-                    // Frown: parabola opening downward
-                    py_m = my - (xi * xi) / 14;
-                } else if (s_eye_emotion == EYE_EMOTION_SLEEPY) {
-                    // Drowsy: very shallow upward curve
-                    py_m = my + (xi * xi) / 30;
-                } else {
-                    py_m = my;
+            // Primary catch-light — upper-left
+            int hl1x = pcx - 3, hl1y = pcy - 3;
+            for (int hdy = -2; hdy <= 2; hdy++) {
+                for (int hdx = -2; hdx <= 2; hdx++) {
+                    if (hdx*hdx + hdy*hdy <= 4) {
+                        draw_pixel(hl1x + hdx, hl1y + hdy, 1);
+                    }
                 }
+            }
+            // Secondary dot — upper-right
+            int hl2x = pcx + 3, hl2y = pcy - 2;
+            draw_pixel(hl2x, hl2y, 1);
+            draw_pixel(hl2x + 1, hl2y, 1);
+        }
 
-                draw_pixel(px_m, py_m, 1);
-                // Add one pixel of thickness for visibility
-                draw_pixel(px_m, py_m + 1, 1);
+        // ── Mouth micro-animation state machine ───────────────────────────
+        // States: MOUTH_IDLE (subtle breathing twitch),
+        //         MOUTH_YAWN (rare wide open → close),
+        //         MOUTH_LICK (rare sweep arc L→R).
+        mouth_idle_tick++;
+        switch (mouth_state) {
+            case MOUTH_IDLE:
+                // Very subtle open/close: sine-like using idle_tick, ~2 s cycle
+                mouth_open = 0.0f; // stays tiny — just 1px twitch handled at draw
+                // Rare triggers
+                if (esp_random() % 400 == 0) {
+                    mouth_state = MOUTH_YAWN;
+                    mouth_timer = 0;
+                    mouth_open  = 0.0f;
+                } else if (esp_random() % 4000 == 0) {
+                    mouth_state = MOUTH_LICK;
+                    mouth_timer = 0;
+                    mouth_lick_phase = 0.0f;
+                }
+                break;
+
+            case MOUTH_YAWN:
+                mouth_timer++;
+                // Open: 0→1 over 30 frames, hold 10, close 30 frames
+                if (mouth_timer < 30) {
+                    mouth_open = mouth_timer / 30.0f;
+                } else if (mouth_timer < 40) {
+                    mouth_open = 1.0f;
+                } else if (mouth_timer < 70) {
+                    mouth_open = 1.0f - (mouth_timer - 40) / 30.0f;
+                } else {
+                    mouth_open  = 0.0f;
+                    mouth_state = MOUTH_IDLE;
+                    mouth_timer = 0;
+                }
+                break;
+
+            case MOUTH_LICK:
+                mouth_timer++;
+                // Sweep phase 0→1 over 20 frames then done
+                mouth_lick_phase = mouth_timer / 20.0f;
+                if (mouth_timer > 20) {
+                    mouth_state      = MOUTH_IDLE;
+                    mouth_timer      = 0;
+                    mouth_lick_phase = 0.0f;
+                }
+                break;
+        }
+
+        // ── Draw mouth ────────────────────────────────────────────────────
+        {
+            const int mx = 64;   // mouth center x
+            const int my = 56;   // base y
+
+            if (mouth_state == MOUTH_YAWN) {
+                // Oval that opens vertically
+                int open_px = (int)(mouth_open * 6.0f); // max 6px tall
+                int half_w = 8;
+                for (int xi = -half_w; xi <= half_w; xi++) {
+                    // Top lip
+                    draw_pixel(mx + xi, my - open_px / 2, 1);
+                    // Bottom lip
+                    draw_pixel(mx + xi, my + open_px / 2, 1);
+                    // Sides
+                    if (abs(xi) == half_w) {
+                        for (int yi = -open_px/2; yi <= open_px/2; yi++)
+                            draw_pixel(mx + xi, my + yi, 1);
+                    }
+                }
+            } else if (mouth_state == MOUTH_LICK) {
+                // Arc sweep from left to right
+                int sweep_x = mx - 8 + (int)(mouth_lick_phase * 16.0f);
+                // Draw the lick as a small teardrop moving across
+                draw_pixel(sweep_x, my, 1);
+                draw_pixel(sweep_x, my - 1, 1);
+                draw_pixel(sweep_x + 1, my - 1, 1);
+                // Plus the base tiny mouth behind
+                int half_w = 5;
+                for (int xi = -half_w; xi <= half_w; xi++) {
+                    int py_m = my + (xi * xi) / 28;
+                    draw_pixel(mx + xi, py_m, 1);
+                }
+            } else {
+                // ── Static / idle mouth by emotion ───────────────────────
+                // Subtle idle twitch: every ~120 frames, add 1 extra row
+                bool idle_twitch = ((mouth_idle_tick / 120) % 2 == 0) && (mouth_idle_tick % 120 > 110);
+
+                if (s_eye_emotion == EYE_EMOTION_NORMAL || s_eye_emotion == EYE_EMOTION_SURPRISED) {
+                    // Tiny subtle smile: very shallow arc, half-width 6 px
+                    int half_w = 6;
+                    for (int xi = -half_w; xi <= half_w; xi++) {
+                        int py_m = my + (xi * xi) / 28; // very shallow curve
+                        draw_pixel(mx + xi, py_m, 1);
+                        if (idle_twitch) draw_pixel(mx + xi, py_m + 1, 1);
+                    }
+                } else if (s_eye_emotion == EYE_EMOTION_MAD) {
+                    // Flat grimace: 7 px wide nearly straight
+                    int half_w = 7;
+                    for (int xi = -half_w; xi <= half_w; xi++) {
+                        int py_m = my + (xi * xi) / 60; // almost flat
+                        draw_pixel(mx + xi, py_m, 1);
+                    }
+                    // Corner ticks for severity
+                    draw_pixel(mx - half_w - 1, my + 1, 1);
+                    draw_pixel(mx + half_w + 1, my + 1, 1);
+                } else if (s_eye_emotion == EYE_EMOTION_SAD) {
+                    // Just a tiny 3-pixel dot — no frown, minimal sadness
+                    draw_pixel(mx - 1, my, 1);
+                    draw_pixel(mx,     my, 1);
+                    draw_pixel(mx + 1, my, 1);
+                    // Idle twitch: dot briefly extends to a tiny flat line
+                    if (idle_twitch) {
+                        draw_pixel(mx - 2, my, 1);
+                        draw_pixel(mx + 2, my, 1);
+                    }
+                } else if (s_eye_emotion == EYE_EMOTION_SLEEPY) {
+                    // Tiny 5-pixel flat line — too tired to smile
+                    draw_pixel(mx - 2, my, 1);
+                    draw_pixel(mx - 1, my, 1);
+                    draw_pixel(mx,     my, 1);
+                    draw_pixel(mx + 1, my, 1);
+                    draw_pixel(mx + 2, my, 1);
+                } else {
+                    // Fallback: single dot
+                    draw_pixel(mx, my, 1);
+                }
             }
         }
 

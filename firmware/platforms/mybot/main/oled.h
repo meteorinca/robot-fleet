@@ -31,7 +31,8 @@ typedef enum {
     OLED_MODE_ULTRASONIC_VIEW = 20,
     OLED_MODE_WIFI_RESET_CONFIRM = 21,  // "Forget all WiFi?" confirmation screen
     OLED_MODE_SHOW_IP = 22,
-    OLED_MODE_HOTSPOT_CONNECTED = 23
+    OLED_MODE_HOTSPOT_CONNECTED = 23,
+    OLED_MODE_BIG_YAWN = 24      // Exaggerated API-triggered yawn animation
 } oled_mode_t;
 
 
@@ -53,6 +54,7 @@ void oled_set_emotion(eye_emotion_t emotion);
 eye_emotion_t oled_get_emotion(void);
 void oled_set_paddle_input(bool left, bool right);
 void oled_notify_ap_client_connected(void);
+void oled_set_random_look(bool enable);  // Called by servo.c to sync random-look state
 
 #ifdef __cplusplus
 }

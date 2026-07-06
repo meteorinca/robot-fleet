@@ -419,6 +419,14 @@ static esp_err_t anim_matrix_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE
 static esp_err_t anim_invader_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_SPACE_INVADER); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 static esp_err_t anim_heartbeat_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_HEARTBEAT); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 
+static esp_err_t big_yawn_handler(httpd_req_t *req) {
+    // Non-blocking: just sets the OLED mode. The oled_eyes_task drives the animation.
+    oled_set_mode(OLED_MODE_BIG_YAWN);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
 static esp_err_t game_off_handler(httpd_req_t *req) {
     oled_set_mode(OLED_MODE_NORMAL);
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -922,6 +930,7 @@ void webserver_start(void) {
         { "/s1_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/s2_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/random_look", HTTP_GET, random_look_handler,   NULL },
+        { "/big_yawn",    HTTP_GET, big_yawn_handler,      NULL },
         // WiFi provisioning endpoints
         { "/wifi",      HTTP_GET,    wifi_get_handler,     NULL },
         { "/wifi",      HTTP_POST,   wifi_post_handler,    NULL },

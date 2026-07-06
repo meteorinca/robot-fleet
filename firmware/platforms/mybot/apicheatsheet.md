@@ -18,6 +18,17 @@ This document lists the available HTTP GET endpoints to control your MyBot via i
 - **Quick Action (Stepped)**: `GET /s1on` (Moves to ON position at medium speed, then returns to neutral and detaches)
 - **Manual Angle (URI style)**: `GET /s1_120` (Sets servo 1 to 120° and holds)
 - **Quick Actions list**: `s1on`, `s1off`, `s2on`, `s2off`
+- **Random Look Mode**: `GET /random_look?on=1` — Enables life-like random servo + OLED behaviors.
+  - `on=1` → Servo glances smoothly 60°–120°. Faces change every **10 seconds** automatically.
+  - `on=0` → Returns to calm idle. Faces still cycle, but every **5 minutes**.
+  - **Life-like OLED quirks** (active when `on=1`):
+    - Eye micro-fidgets (pupils drift subtly without servo moving)
+    - Rare slow-blink cascade (tired, lazy blink lasting 4 frames)
+    - Squint-surprise (brief 55% squint → snaps back wide open)
+    - Emotion-flutter: eyes blink during each face-emotion transition
+  - **OLED Auto Face Cycling**: always active in normal eyes mode.
+    - Cycles through: Normal → Mad → Sleepy → Normal → Surprised → Normal
+    - Sad removed from auto-cycle (now shows as a 3-dot mouth only)
 
 ## 🕒 Scheduling (For Synchronized Events!)
 You can queue an action to happen at an exact Unix timestamp across all bots simultaneously, or after a relative delay.
@@ -65,6 +76,11 @@ Requires `BUZZER_PIN` to be defined in `board_config.h`.
 - **Space Invaders parade**: `GET /anim_invader`
 - **Heartbeat/Love**: `GET /anim_heartbeat`
 - **Return to Eyes**: `GET /game_off`
+- **🥱 Big Yawn**: `GET /big_yawn` — Triggers the exaggerated yawn animation on the OLED face.
+  - **Non-blocking**: HTTP returns immediately; animation runs ~9 seconds on the OLED task.
+  - **Phases**: Pre-yawn droop → dramatic mouth opening → full peak (teeth, tongue, uvula, animated sound-wave ripples, ZZZs) → smooth close → drowsy recovery blinks.
+  - Eyebrows shoot upward at peak for full cartoon expressiveness.
+  - Regular (small) yawn also happens automatically every ~24 seconds on average.
 
 ---
 

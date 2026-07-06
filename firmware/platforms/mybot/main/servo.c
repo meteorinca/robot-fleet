@@ -1,6 +1,7 @@
 #include "servo.h"
 #include "config.h"
 #include "led.h"
+#include "oled.h"
 #include "driver/ledc.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -60,6 +61,7 @@ static bool s_random_look_enabled = false;
 
 void servo_set_random_look(bool enable) {
     s_random_look_enabled = enable;
+    oled_set_random_look(enable);   // sync face-change timer speed
     ESP_LOGI("SERVO", "Random look %s", enable ? "enabled" : "disabled");
 }
 

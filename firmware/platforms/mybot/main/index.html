@@ -222,6 +222,109 @@
       box-shadow: 0 1px 0 #bbb;
       transform: translateY(3px);
     }
+
+    /* ── Random Look pill toggle ── */
+    .rl-pill-wrap {
+      margin: 12px 0 4px;
+    }
+
+    .rl-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 16px;
+      border: 2px solid #2a2a50;
+      background: #0d0d22;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .rl-pill.active {
+      border-color: #00e5a0;
+      background: linear-gradient(135deg, #0d2a20, #0d1a2a);
+      box-shadow: 0 0 18px 4px rgba(0, 229, 160, 0.22), inset 0 0 12px rgba(0, 229, 160, 0.06);
+    }
+
+    .rl-pill-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .rl-pill-icon {
+      font-size: 22px;
+      line-height: 1;
+      transition: transform 0.3s ease;
+    }
+
+    .rl-pill.active .rl-pill-icon {
+      transform: rotate(15deg) scale(1.15);
+    }
+
+    .rl-pill-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .rl-pill-label {
+      font-size: 14px;
+      font-weight: 800;
+      color: #e0e0f0;
+      letter-spacing: 0.5px;
+    }
+
+    .rl-pill.active .rl-pill-label {
+      color: #00e5a0;
+    }
+
+    .rl-pill-sub {
+      font-size: 10px;
+      color: #555;
+      margin-top: 2px;
+      letter-spacing: 0.3px;
+    }
+
+    .rl-pill.active .rl-pill-sub {
+      color: #00a570;
+    }
+
+    .rl-pill-knob-wrap {
+      width: 48px;
+      height: 26px;
+      border-radius: 13px;
+      background: #1a1a35;
+      border: 1px solid #2a2a50;
+      position: relative;
+      transition: all 0.25s ease;
+      flex-shrink: 0;
+    }
+
+    .rl-pill.active .rl-pill-knob-wrap {
+      background: #00e5a0;
+      border-color: #00e5a0;
+      box-shadow: 0 0 8px rgba(0, 229, 160, 0.5);
+    }
+
+    .rl-pill-knob {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #555;
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      transition: all 0.25s ease;
+    }
+
+    .rl-pill.active .rl-pill-knob {
+      left: 25px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
   </style>
 </head>
 
@@ -231,7 +334,9 @@
       Quinn's MyBot V1.8</h1>
     <div class='card' style='text-align:center;'>
       <span class='status-badge' id='conn-badge'>●&nbsp;Online</span>
-      <button class='btn-primary' onclick='fetch("/show_ip")' style='display:block; margin:8px auto; width:80%; max-width:200px; padding:8px; font-size:13px; background:linear-gradient(135deg, #00e5a0, #00a570); color:#000;'>Show IP on Bot</button>
+      <button class='btn-primary' onclick='fetch("/show_ip")'
+        style='display:block; margin:8px auto; width:80%; max-width:200px; padding:8px; font-size:13px; background:linear-gradient(135deg, #00e5a0, #00a570); color:#000;'>Show
+        IP on Bot</button>
       <div class='time-big' id='clock'>--:--:--</div>
       <div class='epoch'>Epoch: <span id='epoch'>-</span>&nbsp;&nbsp;Synced: <span id='synced'>no</span></div>
     </div>
@@ -270,12 +375,21 @@
           <label>Angle (Left - Middle - Right)</label>
           <span id='s1-val'>90</span>
         </div>
-        <input type='range' min='5' max='175' value='90' class='slider' id='s1-slide' onchange='sv(1,this.value)' oninput='document.getElementById("s1-val").textContent=this.value'>
-        <div style='display:flex; justify-content:space-between; align-items:center; margin: 8px 0;'>
-          <label style='font-size: 11px; color: #7c6af7; font-weight: bold; cursor:pointer;'>
-            <input type='checkbox' id='servo-random' onchange='fetch("/random_look?on="+(this.checked?1:0))'
-              style='vertical-align:middle; width:auto; margin:0 4px 0 0;'> Random Look
-          </label>
+        <input type='range' min='5' max='175' value='90' class='slider' id='s1-slide' onchange='sv(1,this.value)'
+          oninput='document.getElementById("s1-val").textContent=this.value'>
+        <div class='rl-pill-wrap'>
+          <div class='rl-pill' id='rl-pill' onclick='toggleRandomLook()'>
+            <div class='rl-pill-left'>
+              <span class='rl-pill-icon' id='rl-icon'>🎲</span>
+              <div class='rl-pill-text'>
+                <span class='rl-pill-label' id='rl-label'>RANDOM LOOK — OFF</span>
+                <span class='rl-pill-sub' id='rl-sub'>Faces change every 5 min · Calm servo</span>
+              </div>
+            </div>
+            <div class='rl-pill-knob-wrap'>
+              <div class='rl-pill-knob'></div>
+            </div>
+          </div>
         </div>
         <div class='btn-led-grid' style='margin-top:5px;'>
           <button class='btn-led' onclick='dog("s1on")'>ON</button>
@@ -403,6 +517,17 @@
       <input type='text' id='oled-text' placeholder='Text to show on OLED...'>
       <button class='btn-primary' onclick='sendOLED()'>Send to Screen</button>
       <div class='err-msg' id='oled-err'></div>
+      <div style='margin-top:14px;'>
+        <button id='yawn-btn' onclick='triggerBigYawn()'
+          style='width:100%;padding:16px 12px;border:2px solid #7c6af7;border-radius:14px;
+                 background:linear-gradient(135deg,#1a1040,#0d0d22);color:#c0b0ff;
+                 font-size:22px;font-weight:800;cursor:pointer;letter-spacing:1px;
+                 transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px;'>
+          <span id='yawn-icon' style='font-size:28px;display:inline-block;'>🥱</span>
+          <span>BIG YAWN</span>
+        </button>
+        <div style='font-size:10px;color:#444;text-align:center;margin-top:5px;letter-spacing:.5px;'>Triggers exaggerated yawn animation on the OLED face</div>
+      </div>
     </div>
 
     <div class='card'>
@@ -414,14 +539,19 @@
       <h2>📡 WiFi Setup</h2>
       <div id='wifi-status' style='margin-bottom:12px;'></div>
       <div id='saved-nets' style='margin-bottom:12px;'></div>
-      <button class='btn-primary' onclick='scanWifi()' style='background:linear-gradient(135deg,#1a1a35,#20203d);border:1px solid #2a2a50;margin-bottom:10px;'>Scan for Networks</button>
+      <button class='btn-primary' onclick='scanWifi()'
+        style='background:linear-gradient(135deg,#1a1a35,#20203d);border:1px solid #2a2a50;margin-bottom:10px;'>Scan for
+        Networks</button>
       <div id='scan-results' style='margin-bottom:10px;'></div>
       <div style='border-top:1px solid #1e1e3a;padding-top:12px;margin-top:8px;'>
         <div style='font-size:11px;color:#666;font-weight:700;margin-bottom:8px;'>ADD NETWORK MANUALLY</div>
         <input type='text' id='wifi-ssid' placeholder='WiFi Name (SSID)' style='font-size:16px;padding:14px 12px;'>
         <div style='position:relative;margin-bottom:10px;'>
-          <input type='password' id='wifi-pass' placeholder='Password' autocomplete='current-password' style='width:100%;font-size:16px;padding:14px 48px 14px 12px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#e0e0f0;outline:none;box-sizing:border-box;'>
-          <button type='button' onclick="var i=document.getElementById('wifi-pass');i.type=i.type==='password'?'text':'password';" style='position:absolute;right:0;top:0;bottom:0;width:44px;background:none;border:none;color:#666;font-size:20px;cursor:pointer;'>👁</button>
+          <input type='password' id='wifi-pass' placeholder='Password' autocomplete='current-password'
+            style='width:100%;font-size:16px;padding:14px 48px 14px 12px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#e0e0f0;outline:none;box-sizing:border-box;'>
+          <button type='button'
+            onclick="var i=document.getElementById('wifi-pass');i.type=i.type==='password'?'text':'password';"
+            style='position:absolute;right:0;top:0;bottom:0;width:44px;background:none;border:none;color:#666;font-size:20px;cursor:pointer;'>👁</button>
         </div>
         <button class='btn-primary' onclick='saveWifi()' style='font-size:16px;padding:14px;'>Connect & Reboot</button>
         <div class='err-msg' id='wifi-err'></div>
@@ -441,6 +571,43 @@
 
   </div>
   <script>
+    var rlActive = false;
+    function toggleRandomLook() {
+      rlActive = !rlActive;
+      var pill = document.getElementById('rl-pill');
+      var label = document.getElementById('rl-label');
+      var sub = document.getElementById('rl-sub');
+      var icon = document.getElementById('rl-icon');
+      if (rlActive) {
+        pill.classList.add('active');
+        label.textContent = 'Looking around';
+        sub.textContent = '';
+        icon.textContent = '\u2728';
+      } else {
+        pill.classList.remove('active');
+        label.textContent = 'Random Look';
+        sub.textContent = 'Off';
+        icon.textContent = '\ud83c\udfb2';
+      }
+      fetch('/random_look?on=' + (rlActive ? 1 : 0));
+    }
+
+    function triggerBigYawn() {
+      var icon = document.getElementById('yawn-icon');
+      var btn  = document.getElementById('yawn-btn');
+      // Animate the button: pulse emoji and glow border
+      btn.style.borderColor = '#00e5a0';
+      btn.style.boxShadow   = '0 0 20px rgba(0,229,160,0.35)';
+      icon.style.transform  = 'scale(1.5) rotate(-10deg)';
+      icon.style.transition = 'transform 0.25s ease';
+      fetch('/big_yawn');
+      setTimeout(function() {
+        icon.style.transform = 'scale(1)';
+        btn.style.borderColor = '#7c6af7';
+        btn.style.boxShadow   = '';
+      }, 8800); // animation is ~148 frames × 60ms ≈ 8.9 s
+    }
+
     function led(a) { fetch('/' + a); }
     function dog(v) { fetch('/' + v); }
     function sv(n, a) {
@@ -566,10 +733,10 @@
     function scanWifi() {
       var sr = document.getElementById('scan-results');
       sr.innerHTML = '<div style="color:#666;font-size:12px;">Scanning...</div>';
-      fetch('/wifi_scan').then(function(r) { return r.json(); }).then(function(d) {
+      fetch('/wifi_scan').then(function (r) { return r.json(); }).then(function (d) {
         var h = '';
         if (d.networks && d.networks.length) {
-          d.networks.forEach(function(n) {
+          d.networks.forEach(function (n) {
             h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin:4px 0;background:#0a0a1e;border-radius:8px;border:1px solid #1e1e3a;cursor:pointer;" onclick="document.getElementById(\'wifi-ssid\').value=\'' + n.ssid.replace(/'/g, '') + '\';">';
             h += '<span style="color:#e0e0f0;font-size:13px;">' + n.ssid + '</span>';
             h += '<span style="color:#666;font-size:11px;">' + n.rssi + 'dBm</span></div>';
@@ -578,7 +745,7 @@
           h = '<div style="color:#666;font-size:12px;">No networks found</div>';
         }
         sr.innerHTML = h;
-      }).catch(function(e) { sr.innerHTML = '<div class="err-msg">Scan error: ' + e + '</div>'; });
+      }).catch(function (e) { sr.innerHTML = '<div class="err-msg">Scan error: ' + e + '</div>'; });
     }
 
     function saveWifi() {
@@ -588,14 +755,14 @@
       if (!s) { e.textContent = 'Enter an SSID'; return; }
       e.style.color = '#a0a0d0'; e.textContent = 'Saving & rebooting...';
       fetch('/wifi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ssid: s, pass: p }) })
-        .then(function(r) { return r.json(); }).then(function(d) {
+        .then(function (r) { return r.json(); }).then(function (d) {
           if (d.ok) { e.style.color = '#00e5a0'; e.textContent = 'Saved! Rebooting in 3s...'; }
           else { e.style.color = '#f7736a'; e.textContent = 'Error: ' + (d.error || 'unknown'); }
-        }).catch(function(x) { e.style.color = '#f7736a'; e.textContent = 'Network error: ' + x; });
+        }).catch(function (x) { e.style.color = '#f7736a'; e.textContent = 'Network error: ' + x; });
     }
 
     function loadSavedNets() {
-      fetch('/wifi').then(function(r) { return r.json(); }).then(function(d) {
+      fetch('/wifi').then(function (r) { return r.json(); }).then(function (d) {
         var h = '', ws = document.getElementById('wifi-status');
         if (d.ap_mode) {
           ws.innerHTML = '<div style="padding:8px 12px;background:#2a1a1a;border:1px solid #5a2a2a;border-radius:8px;color:#f7a56a;font-size:13px;">⚠️ Running in AP mode — add a WiFi network below to connect.</div>';
@@ -604,18 +771,18 @@
         }
         if (d.saved && d.saved.length) {
           h = '<div style="font-size:11px;color:#666;margin-bottom:6px;font-weight:700;">SAVED NETWORKS</div>';
-          d.saved.forEach(function(n, i) {
+          d.saved.forEach(function (n, i) {
             h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin:3px 0;background:#0a0a1e;border-radius:6px;border:1px solid #1e1e3a;">';
             h += '<span style="color:#a0a0d0;font-size:12px;">' + n + '</span>';
             h += '<button onclick="deleteNet(' + i + ')" style="background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:0 4px;">&times;</button></div>';
           });
         }
         document.getElementById('saved-nets').innerHTML = h;
-      }).catch(function() { });
+      }).catch(function () { });
     }
 
     function deleteNet(idx) {
-      fetch('/wifi?delete=' + idx, { method: 'DELETE' }).then(function() { loadSavedNets(); }).catch(function() { });
+      fetch('/wifi?delete=' + idx, { method: 'DELETE' }).then(function () { loadSavedNets(); }).catch(function () { });
     }
     loadSavedNets();
 
