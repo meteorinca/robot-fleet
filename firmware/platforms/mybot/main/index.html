@@ -442,7 +442,7 @@
     </div>
 
     <div class='card'>
-      <h2>Buttons & Game</h2>
+      <h2>Games</h2>
       <div style='display:flex;justify-content:space-between;margin-bottom:15px;align-items:center;'>
         <div>
           <span id='btn1-ind'
@@ -468,6 +468,7 @@
           <option value='9'>Times Table</option>
           <option value='12'>Spacesonic</option>
           <option value='13'>Buzzer Piano</option>
+          <option value='14'>Space Invader</option>
         </select>
         <button class='btn-led' id='game-play-btn' onclick='playSelectedGame()'
           style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
@@ -477,13 +478,24 @@
     </div>
 
     <div class='card'>
-      <h2>3D Animation Showcase</h2>
-      <p style='color:#7b7b98; font-size:12px; margin-bottom:15px;'>Experience advanced 3D math running in real-time.
-        Use the left/right paddle buttons on the bot to cycle through the 6 distinct 3D visualizations!</p>
+      <h2>Demos</h2>
       <div style='display:flex; gap:10px; align-items:center;'>
-        <button class='btn-led' id='anim-play-btn' onclick='fetch("/anim_3d")'
-          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY SHOWCASE</button>
-        <button class='btn-led' id='anim-stop-btn' onclick='fetch("/game_off")'
+        <select id='demo-select' style='flex:1; margin-bottom:0;'>
+          <option value='/anim_heartbeat'>Heartbeat</option>
+          <option value='/big_yawn'>Big Yawn</option>
+          <option value='/anim_3d?idx=1'>DNA Helix</option>
+          <option value='/anim_3d?idx=0'>3D Cube</option>
+          <option value='/anim_3d?idx=2'>Starfield</option>
+          <option value='/anim_3d?idx=3'>Torus</option>
+          <option value='/anim_3d?idx=4'>Wave Grid</option>
+          <option value='/anim_3d?idx=5'>Spirograph</option>
+          <option value='/anim_mario'>Mario</option>
+          <option value='/anim_fireworks'>Fireworks</option>
+          <option value='/anim_matrix'>Matrix Rain</option>
+        </select>
+        <button class='btn-led' id='demo-play-btn' onclick='playSelectedDemo()'
+          style='flex:1; color:#00e5a0;border-color:#00e5a0; height:42px;'>PLAY</button>
+        <button class='btn-led' id='demo-stop-btn' onclick='fetch("/game_off")'
           style='flex:1; color:#f7736a;border-color:#f7736a; height:42px;'>STOP</button>
       </div>
     </div>
@@ -517,17 +529,6 @@
       <input type='text' id='oled-text' placeholder='Text to show on OLED...'>
       <button class='btn-primary' onclick='sendOLED()'>Send to Screen</button>
       <div class='err-msg' id='oled-err'></div>
-      <div style='margin-top:14px;'>
-        <button id='yawn-btn' onclick='triggerBigYawn()'
-          style='width:100%;padding:16px 12px;border:2px solid #7c6af7;border-radius:14px;
-                 background:linear-gradient(135deg,#1a1040,#0d0d22);color:#c0b0ff;
-                 font-size:22px;font-weight:800;cursor:pointer;letter-spacing:1px;
-                 transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px;'>
-          <span id='yawn-icon' style='font-size:28px;display:inline-block;'>🥱</span>
-          <span>BIG YAWN</span>
-        </button>
-        <div style='font-size:10px;color:#444;text-align:center;margin-top:5px;letter-spacing:.5px;'>Triggers exaggerated yawn animation on the OLED face</div>
-      </div>
     </div>
 
     <div class='card'>
@@ -592,20 +593,9 @@
       fetch('/random_look?on=' + (rlActive ? 1 : 0));
     }
 
-    function triggerBigYawn() {
-      var icon = document.getElementById('yawn-icon');
-      var btn  = document.getElementById('yawn-btn');
-      // Animate the button: pulse emoji and glow border
-      btn.style.borderColor = '#00e5a0';
-      btn.style.boxShadow   = '0 0 20px rgba(0,229,160,0.35)';
-      icon.style.transform  = 'scale(1.5) rotate(-10deg)';
-      icon.style.transition = 'transform 0.25s ease';
-      fetch('/big_yawn');
-      setTimeout(function() {
-        icon.style.transform = 'scale(1)';
-        btn.style.borderColor = '#7c6af7';
-        btn.style.boxShadow   = '';
-      }, 8800); // animation is ~148 frames × 60ms ≈ 8.9 s
+    function playSelectedDemo() {
+      var sel = document.getElementById('demo-select');
+      fetch(sel.value);
     }
 
     function led(a) { fetch('/' + a); }
@@ -682,6 +672,7 @@
       else if (g == '9') fetch('/game_math');
       else if (g == '12') fetch('/game_us_shooter');
       else if (g == '13') fetch('/game_piano');
+      else if (g == '14') fetch('/anim_invader');
     }
     // Polling for Ultrasonic Data and Buttons
     setInterval(function () {

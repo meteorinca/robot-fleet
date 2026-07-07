@@ -212,6 +212,8 @@ static bool project_3d(vec3_t v, int *px, int *py) {
     *py = (int)(OLED_HEIGHT/2 - (v.y * focal_len) / v.z);
     return true;
 }
+// Used to override 3D showcase from web UI
+int g_override_anim_idx = -1;
 
 static void oled_eyes_task(void *arg) {
     int blink_timer = 0;
@@ -830,6 +832,10 @@ static void oled_eyes_task(void *arg) {
                 anim_idx = 0; angle_x = 0; angle_y = 0; angle_z = 0; t = 0;
                 last_mode = s_oled_mode;
             }
+            if (g_override_anim_idx >= 0) {
+                anim_idx = g_override_anim_idx;
+                g_override_anim_idx = -1;
+            }
             
             if (s_paddle_left && !p_left) anim_idx = (anim_idx + 5) % 6;
             if (s_paddle_right && !p_right) anim_idx = (anim_idx + 1) % 6;
@@ -1297,49 +1303,68 @@ static void oled_eyes_task(void *arg) {
             oled_send_buffer(); vTaskDelay(pdMS_TO_TICKS(30));
             continue;
         } else if (s_oled_mode == OLED_MODE_MARIO_DANCE) {
-            // ── Big Boo Ghost ────────────────────────────────────────────────
-            static const uint32_t boo_frame0[32] = {
-                0x00FFFF80, 0x03FFFFE0, 0x07FFFFF0, 0x0FFFFFF8,
-                0x1FFFFFFC, 0x3FFFFFFE, 0x3FFFFFFE, 0x3FFFFFFE,
-                0x7F81F81C, 0x7F00F00C, 0x7F00F00C, 0x7F00F00C,
-                0x7F81F81C, 0x3FFFFFFE, 0x3FFFFFFE, 0x3CFFFF9E,
-                0x3800000E, 0x3918C64E, 0x38E739CE, 0x3800000E,
-                0x1E00003C, 0x1FFFFFFC, 0x0FFFFFF8, 0x0FFFFFF8,
-                0x07FFFFF0, 0x07FFFFE0, 0x03FC7FC0, 0x01F83F80,
-                0x00F01F00, 0x00000000, 0x00000000, 0x00000000,
+            // ── Mario Dance ────────────────────────────────────────────────
+            static const uint32_t mario_frame0[32] = {
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
+                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
+                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
+                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
+                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
+                0x00018000, 0x00018000, 0x00000000, 0x00000000,
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
             };
-            static const uint32_t boo_frame1[32] = {
-                0x00FFFF80, 0x03FFFFE0, 0x07FFFFF0, 0x0FFFFFF8,
-                0x1FFFFFFC, 0x3FFFFFFE, 0x3FFFFFFE, 0x3FFFFFFE,
-                0x7F81F81C, 0x7F00F00C, 0x7F20F20C, 0x7F00F00C,
-                0x7F81F81C, 0x3FFFFFFE, 0x3FFFFFFE, 0x3CFFFF9E,
-                0x3800000E, 0x3800000E, 0x3800000E, 0x3800000E,
-                0x1E00003C, 0x1FFFFFFC, 0x0FFFFFF8, 0x0FFFFFF8,
-                0x07FFFFF0, 0x07FFFFE0, 0x03FC7FC0, 0x01F83F80,
-                0x00F01F00, 0x00000000, 0x00000000, 0x00000000,
+            static const uint32_t mario_frame1[32] = {
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
+                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
+                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
+                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
+                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
+                0x0001C000, 0x0001C000, 0x00000000, 0x00000000,
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+            };
+            static const uint32_t mario_frame2[32] = {
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
+                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
+                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
+                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
+                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
+                0x0001C000, 0x0001C000, 0x00000000, 0x00000000,
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+            };
+            static const uint32_t mario_frame3[32] = {
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
+                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
+                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
+                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
+                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
+                0x0001C000, 0x0001C000, 0x00000000, 0x00000000,
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
             };
 
             static int anim_frame = 0;
             static int anim_tick = 0;
             
-
             if (last_mode != s_oled_mode) {
                 anim_frame = 0; anim_tick = 0;
                 buzzer_demo_mario();
                 last_mode = s_oled_mode;
             }
 
-            // Flip frame every 8 ticks (~240ms at 30ms frame)
             anim_tick++;
             if (anim_tick >= 8) {
-                anim_frame ^= 1;
+                anim_frame = (anim_frame + 1) % 4;
                 anim_tick = 0;
             }
 
-            const uint32_t *sprite = (anim_frame == 0) ? boo_frame0 : boo_frame1;
+            const uint32_t *sprite = (anim_frame == 0) ? mario_frame0 :
+                                     (anim_frame == 1) ? mario_frame1 :
+                                     (anim_frame == 2) ? mario_frame2 : mario_frame3;
 
             int bob = (int)(sinf(frame_count * 0.25f) * 3.0f);
-
             int mx = 32, my = bob; 
             for (int r = 0; r < 32; r++) {
                 uint32_t row = sprite[r];
@@ -1352,20 +1377,6 @@ static void oled_eyes_task(void *arg) {
                     }
                 }
             }
-
-            // Spinning stars around boo
-            float t_star = frame_count * 0.12f;
-            for (int i = 0; i < 6; i++) {
-                float base_angle = i * 1.047f + t_star;
-                int sx = 72 + (int)(cosf(base_angle) * 32.0f);
-                int sy = 32 + (int)(sinf(base_angle) * 30.0f);
-                draw_pixel(sx,   sy,   1);
-                draw_pixel(sx+1, sy,   1);
-                draw_pixel(sx,   sy+1, 1);
-                draw_pixel(sx+1, sy+1, 1);
-            }
-            draw_text(2, 2, "BOO!", 1);
-            draw_text(88, 54, "SPOOK!", 1);
 
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(30));
@@ -1527,8 +1538,7 @@ static void oled_eyes_task(void *arg) {
             continue;
 
         } else if (s_oled_mode == OLED_MODE_SPACE_INVADER) {
-            // ── Space Invader Parade ──────────────────────────────────────────
-            // Classic 11x8 invader sprites, 3 types, marching left-right
+            // ── Space Invader Game ──────────────────────────────────────────
             static const uint8_t inv_a0[8] = { 0x18, 0x3C, 0x7E, 0xDB, 0xFF, 0x24, 0x5A, 0xA5 };
             static const uint8_t inv_a1[8] = { 0x18, 0x3C, 0x7E, 0xDB, 0xFF, 0x24, 0x42, 0x81 };
             static const uint8_t inv_b0[8] = { 0x0C, 0x7E, 0xDB, 0xFF, 0x5A, 0x24, 0x66, 0x00 };
@@ -1542,13 +1552,18 @@ static void oled_eyes_task(void *arg) {
             static int parade_tick = 0;
             static int laser_x = -1, laser_y = -1;
             static int shoot_timer = 0;
+            static int player_x = 54;
+            static bool alien_alive[3][4];
             
-
             if (last_mode != s_oled_mode) {
                 parade_x = 0; parade_dir = 1; parade_frame = 0; parade_tick = 0;
-                laser_x = -1; laser_y = -1; shoot_timer = 0;
+                laser_x = -1; laser_y = -1; shoot_timer = 0; player_x = 54;
+                for (int r = 0; r < 3; r++) for (int c = 0; c < 4; c++) alien_alive[r][c] = true;
                 last_mode = s_oled_mode;
             }
+
+            if (s_paddle_left) { player_x -= 3; if (player_x < 0) player_x = 0; }
+            if (s_paddle_right) { player_x += 3; if (player_x > 120) player_x = 120; }
 
             parade_tick++;
             if (parade_tick >= 6) {
@@ -1557,27 +1572,30 @@ static void oled_eyes_task(void *arg) {
                 parade_x += parade_dir * 2;
                 if (parade_x > 30 || parade_x < -2) {
                     parade_dir = -parade_dir;
-                    // Drop down (bounce y instead of actual drop for screen room)
                 }
             }
 
-            // Draw 3 rows of invaders
             const uint8_t *sprites0[3][2] = {{inv_c0, inv_c1}, {inv_b0, inv_b1}, {inv_a0, inv_a1}};
+            bool any_alive = false;
             for (int row = 0; row < 3; row++) {
                 for (int col = 0; col < 4; col++) {
+                    if (!alien_alive[row][col]) continue;
+                    any_alive = true;
                     int ix = parade_x + col * 26;
                     int iy = 2 + row * 16;
                     if (ix < 0 || ix > 120) continue;
                     draw_sprite8(ix, iy, sprites0[row][parade_frame], 8, 8);
                 }
             }
+            if (!any_alive) {
+                for (int r = 0; r < 3; r++) for (int c = 0; c < 4; c++) alien_alive[r][c] = true;
+            }
 
-            // Laser shoot from bottom
             shoot_timer++;
-            if (shoot_timer >= 25) {
+            if (shoot_timer >= 25 && laser_x < 0) {
                 shoot_timer = 0;
-                laser_x = 60 + (esp_random() % 20);
-                laser_y = 63;
+                laser_x = player_x + 4;
+                laser_y = 54;
                 buzzer_play_tone(300, 30);
             }
             if (laser_x >= 0) {
@@ -1585,29 +1603,43 @@ static void oled_eyes_task(void *arg) {
                 draw_pixel(laser_x, laser_y, 1);
                 draw_pixel(laser_x, laser_y - 1, 1);
                 draw_pixel(laser_x, laser_y - 2, 1);
+                
+                bool hit = false;
+                for (int row = 0; row < 3; row++) {
+                    for (int col = 0; col < 4; col++) {
+                        if (!alien_alive[row][col]) continue;
+                        int ix = parade_x + col * 26;
+                        int iy = 2 + row * 16;
+                        if (laser_x >= ix && laser_x <= ix + 8 && laser_y >= iy && laser_y <= iy + 8) {
+                            alien_alive[row][col] = false;
+                            hit = true;
+                            laser_x = -1;
+                            buzzer_play_tone(800, 30);
+                            break;
+                        }
+                    }
+                    if (hit) break;
+                }
                 if (laser_y < 0) laser_x = -1;
             }
 
-            // Player ship at bottom
-            draw_sprite8(54, 55, inv_a0, 8, 8);
-
-            draw_text(2, 56, "SPACE", 1);
+            draw_sprite8(player_x, 55, inv_a0, 8, 8);
 
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(30));
             continue;
 
         } else if (s_oled_mode == OLED_MODE_HEARTBEAT) {
-            // ── Heartbeat (~120 BPM lub-dub) ──────────────────────────────────
+            // ── Artsy Continuous Line Heartbeat ──────────────────────────────
+            typedef struct { float x, y; } vec2_t;
             static int      beat_frame  = 0;
             static float    heart_scale = 1.0f;
             static float    scale_vel   = 0.0f;
-            static uint32_t ekg_pos     = 0;
             static bool     snd_lub = false, snd_dub = false;
 
             if (last_mode != s_oled_mode) {
                 beat_frame = 0; heart_scale = 1.0f; scale_vel = 0.0f;
-                ekg_pos = 0; snd_lub = false; snd_dub = false;
+                snd_lub = false; snd_dub = false;
                 last_mode = s_oled_mode;
             }
 
@@ -1626,90 +1658,84 @@ static void oled_eyes_task(void *arg) {
             if (heart_scale < 0.85f) heart_scale = 0.85f;
             if (heart_scale > 1.42f) heart_scale = 1.42f;
 
-            // Buzzer fires exactly once per beat event
             if (beat_frame == 0  && !snd_lub) { buzzer_play_tone(120, 30); snd_lub = true; }
             if (beat_frame == 1)                snd_lub = false;
             if (beat_frame == 7  && !snd_dub) { buzzer_play_tone(150, 40); snd_dub = true; }
             if (beat_frame == 8)                snd_dub = false;
 
-            static const int8_t hw[] = {
-                0, 3, 5, 7, 8, 9, 10, 11, 11, 12, 12, 11, 10,
-                9, 8, 7, 6, 5, 4,  3,  2,  1,  0, -1, -1, -1, -1, -1
-            };
-            const int HN  = (int)(sizeof(hw) / sizeof(hw[0]));
-            const int hcx = 64, hcy = 26;
+            // Bezier control points for the continuous line heart
+            vec2_t b1[4] = {{-64, 5}, {-32, -10}, {-16, 16}, {0, 10}};
+            vec2_t b2[4] = {{0, 10},  {16, 4},    {30, -20}, {0, -5}};
+            vec2_t b3[4] = {{0, -5},  {-30, -20}, {-16, 4},  {0, 10}};
+            vec2_t b4[4] = {{0, 10},  {16, 16},   {32, -10}, {64, 5}};
 
-            for (int r = 0; r < HN; r++) {
-                int dy = r - 12;
-                int w  = (int)(hw[r] * heart_scale);
-                if (w <= 0) continue;
-                int py = hcy + dy;
-                if (py < 0 || py >= 50) continue;
-                for (int dx = -w; dx <= w; dx++) {
-                    int px = hcx + dx;
-                    if (px >= 0 && px < OLED_WIDTH) draw_pixel(px, py, 1);
+            int prev_x = -1, prev_y = -1;
+            const int steps_per_seg = 32;
+            for (int seg = 0; seg < 4; seg++) {
+                vec2_t *b = (seg == 0) ? b1 : (seg == 1) ? b2 : (seg == 2) ? b3 : b4;
+                for (int i = 0; i <= steps_per_seg; i++) {
+                    float t = (float)i / steps_per_seg;
+                    float u = 1.0f - t;
+                    float tt = t * t, uu = u * u;
+                    float uuu = uu * u, ttt = tt * t;
+
+                    float bx = uuu * b[0].x + 3 * uu * t * b[1].x + 3 * u * tt * b[2].x + ttt * b[3].x;
+                    float by = uuu * b[0].y + 3 * uu * t * b[1].y + 3 * u * tt * b[2].y + ttt * b[3].y;
+
+                    // Blend the scale so tails stretch organically
+                    float blend = 1.0f;
+                    if (seg == 0) blend = t;
+                    else if (seg == 3) blend = 1.0f - t;
+                    
+                    // Add a tiny bit of floating animation to the whole line
+                    float float_y = sinf(frame_count * 0.05f + bx * 0.02f) * 2.0f;
+
+                    float scale = 1.0f + (heart_scale - 1.0f) * blend;
+                    int px = 64 + (int)(bx * scale);
+                    int py = 32 + (int)(by * scale + float_y);
+
+                    if (prev_x != -1) {
+                        draw_line(prev_x, prev_y, px, py, 1);
+                    }
+                    prev_x = px; prev_y = py;
                 }
             }
-
-            // ── Pulsing ring (visible during lub and dub expansion) ───────────
-            if ((beat_frame < 6) || (beat_frame >= 7 && beat_frame < 13)) {
-                float rs = heart_scale * 1.38f;
-                for (int r = 0; r < HN; r++) {
-                    int dy = r - 12;
-                    int w  = (int)(hw[r] * rs);
-                    if (w <= 0) continue;
-                    int py = hcy + dy;
-                    if (py < 0 || py >= 50) continue;
-                    int pxl = hcx - w, pxr = hcx + w;
-                    if (pxl >= 0 && pxl < OLED_WIDTH) draw_pixel(pxl, py, 1);
-                    if (pxr >= 0 && pxr < OLED_WIDTH) draw_pixel(pxr, py, 1);
-                }
-            }
-
-            draw_text(10, 54, "my heart. it beats", 1);
-
-            // ── EKG trace (scrolls left, unsigned counter = no negative modulo) ─────
-            ekg_pos += 3;
-            #define HB_EKG_PERIOD 64
-            int prev_py = -1;
-            for (int x = 0; x < OLED_WIDTH; x++) {
-                int ph = (int)((ekg_pos + (uint32_t)x) % HB_EKG_PERIOD);
-                int oy = 0;
-
-                // P wave: smooth gentle bump
-                if      (ph >= 8  && ph < 12) oy = -(ph - 8);
-                else if (ph >= 12 && ph < 16) oy = -(16 - ph);
-
-                // QRS complex: sharp spike -- Q dip, tall R, S recovery
-                else if (ph == 22) oy =  2;
-                else if (ph == 23) oy =  4;
-                else if (ph == 24) oy =  0;
-                else if (ph == 25) oy = -12;
-                else if (ph == 26) oy = -24;
-                else if (ph == 27) oy = -12;
-                else if (ph == 28) oy =  4;
-                else if (ph == 29) oy =  6;
-                else if (ph == 30) oy =  2;
-                else if (ph == 31) oy =  0;
-
-                // T wave: rounded bump
-                else if (ph >= 38 && ph < 42) oy = -(ph - 38);
-                else if (ph >= 42 && ph < 46) oy = -(46 - ph);
-
-                int py = 50 + oy;
-                if (py < 0) py = 0;
-                if (py >= OLED_HEIGHT) py = OLED_HEIGHT - 1;
-                if (prev_py != -1) {
-                    draw_line(x - 1, prev_py, x, py, 1);
-                } else {
-                    draw_pixel(x, py, 1);
-                }
-                prev_py = py;
-            }
-            #undef HB_EKG_PERIOD
+            
+            // Add a travelling "pulse" energy dot along the path
+            float pulse_u = fmodf((float)frame_count * 0.06f, 4.0f);
+            int p_seg = (int)pulse_u;
+            float p_t = pulse_u - p_seg;
+            vec2_t *pb = (p_seg == 0) ? b1 : (p_seg == 1) ? b2 : (p_seg == 2) ? b3 : b4;
+            float pu = 1.0f - p_t;
+            float pbx = pu*pu*pu * pb[0].x + 3 * pu*pu * p_t * pb[1].x + 3 * pu * p_t*p_t * pb[2].x + p_t*p_t*p_t * pb[3].x;
+            float pby = pu*pu*pu * pb[0].y + 3 * pu*pu * p_t * pb[1].y + 3 * pu * p_t*p_t * pb[2].y + p_t*p_t*p_t * pb[3].y;
+            
+            float pblend = 1.0f;
+            if (p_seg == 0) pblend = p_t;
+            else if (p_seg == 3) pblend = 1.0f - p_t;
+            
+            float pscale = 1.0f + (heart_scale - 1.0f) * pblend;
+            float pfloat_y = sinf(frame_count * 0.05f + pbx * 0.02f) * 2.0f;
+            int pulse_x = 64 + (int)(pbx * pscale);
+            int pulse_y = 32 + (int)(pby * pscale + pfloat_y);
+            
+            // Draw a glowing star/diamond at the pulse
+            draw_pixel(pulse_x, pulse_y - 2, 1);
+            draw_pixel(pulse_x - 1, pulse_y - 1, 1);
+            draw_pixel(pulse_x, pulse_y - 1, 0); // inner dark
+            draw_pixel(pulse_x + 1, pulse_y - 1, 1);
+            draw_pixel(pulse_x - 2, pulse_y, 1);
+            draw_pixel(pulse_x - 1, pulse_y, 0);
+            draw_pixel(pulse_x, pulse_y, 1); // center bright
+            draw_pixel(pulse_x + 1, pulse_y, 0);
+            draw_pixel(pulse_x + 2, pulse_y, 1);
+            draw_pixel(pulse_x - 1, pulse_y + 1, 1);
+            draw_pixel(pulse_x, pulse_y + 1, 0);
+            draw_pixel(pulse_x + 1, pulse_y + 1, 1);
+            draw_pixel(pulse_x, pulse_y + 2, 1);
 
             oled_send_buffer();
-            vTaskDelay(pdMS_TO_TICKS(20)); // 50fps, 25 frames = 500ms cycle (~120 BPM)
+            vTaskDelay(pdMS_TO_TICKS(20)); // 50fps
             continue;
 
         } else if (s_oled_mode == OLED_MODE_BUZZER_PIANO) {
@@ -1908,6 +1934,7 @@ static void oled_eyes_task(void *arg) {
                 squint_t    = 0.30f + p * 0.70f;
                 mouth_t     = 0.03f + p * 0.97f;
                 brow_lift   = 2.0f  + p * 6.0f; // brows shoot up dramatically
+                if (by_frame % 4 == 0) buzzer_play_tone(400 - (by_frame - 18) * 5, 120);
             } else if (by_frame < 85) {
                 // Phase 3: PEAK HOLD — max open, teeth, tongue, ZZZs, shake
                 squint_t     = 1.0f;
@@ -1925,9 +1952,11 @@ static void oled_eyes_task(void *arg) {
                 brow_lift    = 8.0f * (1.0f - p);
                 show_innards = (mouth_t > 0.45f);
                 by_shake     = 0;
-            } else if (by_frame < 148) {
-                // Phase 5: recovery drowsy blinks
-                squint_t  = ((by_frame - 128) % 10 < 4) ? 0.88f : 0.12f;
+                by_zzz_on    = false;
+            } else if (by_frame < 178) {
+                // Phase 5: recovery drowsy blinks (smooth interpolation)
+                float blink_p = (by_frame - 128) / 25.0f;
+                squint_t  = 0.15f + 0.75f * (0.5f - 0.5f * cosf(blink_p * 2 * 3.14159f));
                 mouth_t   = 0.0f;
                 brow_lift = 0.0f;
                 by_shake  = 0;
@@ -2184,9 +2213,32 @@ static void oled_eyes_task(void *arg) {
                 quirk_squint_scale = 1.0f;
                 if (esp_random() % 400 == 0) quirk_squint_frames = 12;
             }
+
+            // 3) Double glance: dart eyes left/right rapidly
+            if (quirk_double_glance) {
+                static int glance_phase = 0;
+                glance_phase++;
+                if (glance_phase < 6) {
+                    pupil_target_dx = 18; pupil_target_dy = -3;
+                    quirk_squint_scale = 0.8f;
+                } else if (glance_phase < 12) {
+                    pupil_target_dx = -18; pupil_target_dy = -3;
+                    quirk_squint_scale = 0.8f;
+                } else if (glance_phase < 18) {
+                    pupil_target_dx = 0; pupil_target_dy = 0;
+                    quirk_squint_scale = 1.15f; // slight surprise wide-eye
+                } else {
+                    quirk_double_glance = false;
+                    glance_phase = 0;
+                }
+            } else if (esp_random() % 350 == 0) {
+                quirk_double_glance = true;
+                blink_timer = next_blink + 1; // force blink at start
+            }
         } else {
             quirk_fidget_dx = 0; quirk_fidget_dy = 0;
             quirk_squint_scale = 1.0f;
+            quirk_double_glance = false;
         }
 
         // ── Blink logic ───────────────────────────────────────────────────
@@ -2221,7 +2273,7 @@ static void oled_eyes_task(void *arg) {
         }
 
         // ── Pupil tracking ────────────────────────────────────────────────
-        if (esp_random() % 20 == 0) {
+        if (esp_random() % 20 == 0 && !quirk_double_glance) {
             pupil_target_dx = (esp_random() % 14) - 7;
             pupil_target_dy = (esp_random() % 8) - 4;
         }
@@ -2319,7 +2371,7 @@ static void oled_eyes_task(void *arg) {
                     mouth_state = MOUTH_YAWN;
                     mouth_timer = 0;
                     mouth_open  = 0.0f;
-                } else if (esp_random() % 4000 == 0) {
+                } else if (esp_random() % 1500 == 0) { // Increased frequency from 4000
                     mouth_state = MOUTH_LICK;
                     mouth_timer = 0;
                     mouth_lick_phase = 0.0f;

@@ -408,7 +408,20 @@ static esp_err_t game_pacman_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE
 static esp_err_t game_frogger_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_FROGGER); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 static esp_err_t game_racing_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_RACING); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 static esp_err_t game_math_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_MATH); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
-static esp_err_t anim_3d_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_3D_SHOWCASE); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
+static esp_err_t anim_3d_handler(httpd_req_t *req) {
+    char buf[32];
+    extern int g_override_anim_idx;
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        char param[16];
+        if (httpd_query_key_value(buf, "idx", param, sizeof(param)) == ESP_OK) {
+            g_override_anim_idx = atoi(param);
+        }
+    }
+    oled_set_mode(OLED_MODE_3D_SHOWCASE);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
 static esp_err_t game_truth_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_TRUTH_TABLE); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 static esp_err_t game_piano_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_BUZZER_PIANO); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
 static esp_err_t game_us_shooter_handler(httpd_req_t *req) { oled_set_mode(OLED_MODE_US_SHOOTER); ultrasonic_set_active(true); httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*"); httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); return ESP_OK; }
