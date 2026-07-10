@@ -325,6 +325,24 @@
       background: #fff;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     }
+
+    /* Calibration */
+    .panel-cal{padding:16px;}
+    .vehicle{position:relative;width:180px;height:260px;background:#11112a;border-radius:18px;margin:20px auto;border:1px solid #1e1e3a;}
+    .servo{position:absolute;width:56px;height:56px;background:#1a1a35;border:1px solid #2a2a50;border-radius:10px;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;font-size:10px;color:#888;text-align:center;transition:all .15s;}
+    .servo.active{background:linear-gradient(135deg,#7c6af7,#5b4de8);border-color:#7c6af7;color:#fff;}
+    .servo .label{font-size:9px;}
+    .servo .value{font-size:13px;font-weight:700;}
+    .servo.fl{left:-28px;top:24px;} .servo.bl{left:-28px;bottom:16px;}
+    .servo.fr{right:-28px;top:24px;} .servo.br{right:-28px;bottom:16px;}
+    .dog-head{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:140px;height:28px;background:#11112a;border-radius:8px;border:1px solid #1e1e3a;display:flex;align-items:center;justify-content:center;font-size:11px;color:#7c6af7;font-weight:700;}
+    .adj{display:none;align-items:center;justify-content:center;gap:16px;margin:12px auto;}
+    .adj-btn{width:44px;height:44px;border:none;border-radius:10px;background:#1a1a35;color:#e0e0f0;font-size:22px;cursor:pointer;transition:background .15s;}
+    .adj-btn:active{background:#7c6af7;}
+    #val-disp{font-size:18px;font-weight:700;min-width:50px;text-align:center;color:#7c6af7;}
+    .cal-btn{display:block;width:100%;max-width:280px;margin:10px auto;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#7c6af7,#5b4de8);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+    .cal-intro p,.cal-intro li{font-size:13px;color:#888;margin:6px 0;line-height:1.5;}
+    .cal-intro ol{padding-left:20px;}
   </style>
 </head>
 
@@ -570,6 +588,37 @@
       <div class='err-msg' id='ota-msg'></div>
     </div>
 
+    <!-- CALIBRATION SECTION -->
+    <button onclick="document.getElementById('panel-cal').style.display='block'" style="margin-top:20px; background:none; border:none; color:#666; text-decoration:underline; cursor:pointer;">Show Calibration</button>
+    <div id='panel-cal' style='display:none; width:100%; max-width:460px; margin-top:20px;'>
+      <div class='panel-cal'>
+        <div id='cal-intro' class='cal-intro'>
+          <div class='card'>
+            <h2>Servo Calibration</h2>
+            <p>If legs are not level after assembly, use this to fine-tune each servo's neutral position.</p>
+            <ol><li>Press 'Enter Calibration Mode'.</li><li>Tap each leg corner to select it, then ± to adjust.</li><li>Press 'Exit Calibration Mode'.</li></ol>
+          </div>
+          <button class='cal-btn' id='btn-start-cal'>Enter Calibration Mode</button>
+        </div>
+        <div id='cal-iface' style='display:none'>
+          <div class='vehicle'>
+            <div class='dog-head'>PaulBot</div>
+            <div class='servo fl' data-pos='fl'><span class='label'>FL</span><span class='value' id='v-fl'>0</span></div>
+            <div class='servo fr' data-pos='fr'><span class='label'>FR</span><span class='value' id='v-fr'>0</span></div>
+            <div class='servo bl' data-pos='bl'><span class='label'>BL</span><span class='value' id='v-bl'>0</span></div>
+            <div class='servo br' data-pos='br'><span class='label'>BR</span><span class='value' id='v-br'>0</span></div>
+          </div>
+          <div class='adj' id='adj'>
+            <button class='adj-btn' id='btn-minus'>−</button>
+            <code id='val-disp'>0</code>
+            <button class='adj-btn' id='btn-plus'>+</button>
+          </div>
+          <button class='cal-btn' id='btn-exit-cal'>Exit Calibration Mode</button>
+          <div class='err-msg' id='cal-err'></div>
+        </div>
+      </div>
+    </div>
+
   </div>
   <script>
     var rlActive = false;
@@ -649,9 +698,75 @@
       var t = document.getElementById('say').value.trim();
       if (!t) return;
       var err = document.getElementById('tts-err');
-      err.textContent = 'Sending...';
-      fetch('/tts?say=' + encodeURIComponent(t)).then(function () { err.textContent = ''; }).catch(function (e) { err.textContent = e; });
+      err.textContent = 'Sending to bot...';
+      fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://translate.google.com/translate_tts?ie=UTF-8&q=' + encodeURIComponent(t) + '&tl=en&client=tw-ob'))
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+        .then(function (ab) {
+          var ctx = window._sharedCtx || (window._sharedCtx = new (window.AudioContext || window.webkitAudioContext)());
+          return ctx.decodeAudioData(ab).then(function (dec) {
+            var samples = Math.ceil(dec.duration * 16000);
+            if (samples < 1) throw new Error('empty');
+            var off = new OfflineAudioContext(1, samples, 16000);
+            var src = off.createBufferSource();
+            src.buffer = dec; src.connect(off.destination); src.start();
+            return off.startRendering();
+          }).then(function (ren) {
+            var dat = ren.getChannelData(0);
+            var pcm = new Int16Array(dat.length);
+            for (var i = 0; i < dat.length; i++) { var s = Math.max(-1, Math.min(1, dat[i])); pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF; }
+            var chunkSamples = 16000; var idx = 0;
+            function sendNext() {
+              if (idx * chunkSamples >= pcm.length) { err.textContent = ''; return; }
+              var sl = pcm.slice(idx * chunkSamples, (idx + 1) * chunkSamples);
+              idx++;
+              fetch('/audio', { method: 'POST', body: sl.buffer }).then(sendNext).catch(function (e) { err.textContent = 'Bot audio err: ' + e; });
+            }
+            sendNext();
+          });
+        }).catch(function (e) { err.textContent = 'Bot audio err (need internet): ' + e; });
     }
+
+    var CAL = { fl: 0, fr: 0, bl: 0, br: 0 }, curServo = null;
+    document.addEventListener("DOMContentLoaded", function() {
+        var btnStartCal = document.getElementById('btn-start-cal');
+        if(btnStartCal) {
+            btnStartCal.onclick = function () {
+              fetch('/start_calibration').then(function (r) { return r.json(); }).then(function (d) {
+                CAL = d;
+                ['fl', 'fr', 'bl', 'br'].forEach(function (k) { document.getElementById('v-' + k).textContent = CAL[k]; });
+                document.getElementById('cal-intro').style.display = 'none';
+                document.getElementById('cal-iface').style.display = '';
+              }).catch(function () { document.getElementById('cal-err').textContent = 'Could not enter calibration mode'; });
+            };
+        }
+        var btnExitCal = document.getElementById('btn-exit-cal');
+        if(btnExitCal) {
+            btnExitCal.onclick = function () {
+              fetch('/exit_calibration').then(function () { document.getElementById('cal-iface').style.display = 'none'; document.getElementById('cal-intro').style.display = ''; }).catch(function () { });
+            };
+        }
+        document.querySelectorAll('.servo').forEach(function (s) {
+          s.onclick = function () {
+            document.querySelectorAll('.servo').forEach(function (x) { x.classList.remove('active'); });
+            s.classList.add('active'); curServo = s.dataset.pos;
+            document.getElementById('val-disp').textContent = CAL[curServo];
+            document.getElementById('adj').style.display = 'flex';
+          };
+        });
+    });
+    function doAdj(delta) {
+      if (!curServo) return;
+      CAL[curServo] = Math.max(-25, Math.min(25, CAL[curServo] + delta));
+      document.getElementById('v-' + curServo).textContent = CAL[curServo];
+      document.getElementById('val-disp').textContent = CAL[curServo];
+      fetch('/adjust', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ servo: curServo, value: CAL[curServo] }) });
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        var btnMinus = document.getElementById('btn-minus');
+        if(btnMinus) btnMinus.onclick = function () { doAdj(-1); };
+        var btnPlus = document.getElementById('btn-plus');
+        if(btnPlus) btnPlus.onclick = function () { doAdj(1); };
+    });
     function sendOLED() {
       var t = document.getElementById('oled-text').value.trim();
       if (!t) return;

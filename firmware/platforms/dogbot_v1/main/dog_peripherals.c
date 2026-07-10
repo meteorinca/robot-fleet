@@ -42,6 +42,11 @@ void dog_set_oled_text(const char* msg, int duration_ms) {
     oled_text_timer = duration_ms / 60; // ~60ms per frame
 }
 
+volatile dog_disp_mode_t g_disp_mode = DISP_MODE_EYES;
+void dog_set_display_mode(dog_disp_mode_t mode) {
+    g_disp_mode = mode;
+}
+
 // --- OLED SPI Display ---
 static esp_lcd_panel_handle_t panel_handle = NULL;
 
@@ -188,6 +193,74 @@ static void dog_eyes_task(void *arg) {
                 }
             }
             vTaskDelay(1);
+        } else if (g_disp_mode == DISP_MODE_FIREWORKS) {
+            // Fade previous frame
+            for (int i=0; i<160*80; i++) {
+                uint16_t col = buffer[i];
+                if (col) {
+                    uint8_t r = (col >> 8) & 0xF8;
+                    uint8_t g = (col >> 3) & 0xFC;
+                    uint8_t b = (col << 3) & 0xF8;
+                    r = r > 10 ? r - 10 : 0;
+                    g = g > 10 ? g - 10 : 0;
+                    b = b > 10 ? b - 10 : 0;
+                    buffer[i] = rgb565(r, g, b);
+                }
+            }
+            // Draw new sparks
+            for (int i=0; i<40; i++) {
+                int x = fast_rand() % 160;
+                int y = fast_rand() % 80;
+                uint8_t r = (fast_rand() % 128) + 128;
+                uint8_t g = (fast_rand() % 128) + 128;
+                uint8_t b = (fast_rand() % 128) + 128;
+                buffer[y * 160 + x] = rgb565(r, g, b);
+            }
+        } else if (g_disp_mode == DISP_MODE_MATRIX_RAIN) {
+            // Shift down
+            for (int y = 79; y > 0; y--) {
+                for (int x = 0; x < 160; x++) {
+                    uint16_t col = buffer[(y-1) * 160 + x];
+                    if (col != 0) {
+                        uint8_t g = (col >> 3) & 0xFC;
+                        g = g > 12 ? g - 12 : 0; // fade green rapidly
+                        buffer[y * 160 + x] = rgb565(0, g, 0);
+                    } else {
+                        buffer[y * 160 + x] = 0;
+                    }
+                }
+            }
+            // Top row
+            for (int x = 0; x < 160; x++) {
+                if ((fast_rand() % 25) == 0) buffer[x] = rgb565(150, 255, 150);
+                else buffer[x] = 0;
+            }
+        } else if (g_disp_mode == DISP_MODE_HEARTBEAT) {
+            memset(buffer, 0, 160 * 80 * sizeof(uint16_t));
+            int size = 15 + (int)(sin((float)frame_count * 0.2f) * 8.0f);
+            if (size < 0) size = 0;
+            for (int y=0; y<80; y++) {
+                for (int x=0; x<160; x++) {
+                    int dx = x - 80, dy = y - 40;
+                    if (dx*dx + dy*dy < size*size) {
+                        buffer[y*160+x] = rgb565(255, 20, 50);
+                    }
+                }
+            }
+        } else if (g_disp_mode == DISP_MODE_MARIO_DANCE || g_disp_mode == DISP_MODE_SPACE_INVADER) {
+            memset(buffer, 0, 160 * 80 * sizeof(uint16_t));
+            int ox = 80 + (int)(sin((float)frame_count * 0.15f) * 40.0f);
+            int oy = 40 + (int)(cos((float)frame_count * 0.3f) * 15.0f);
+            uint16_t col = (g_disp_mode == DISP_MODE_MARIO_DANCE) ? rgb565(255,0,0) : rgb565(50,255,50);
+            for (int i=0; i<16; i++) {
+                for (int j=0; j<16; j++) {
+                    int px = ox + i - 8;
+                    int py = oy + j - 8;
+                    if (px>=0 && px<160 && py>=0 && py<80) {
+                        buffer[py*160+px] = col;
+                    }
+                }
+            }
         } else {
             for (int y = 0; y < 80; y++) {
                 int dy = y - eye_cy;
@@ -597,7 +670,7 @@ static void init_mic(void) {
 
     adc_oneshot_chan_cfg_t config = {
         .bitwidth = ADC_BITWIDTH_DEFAULT,
-        .atten = ADC_ATTEN_DB_11,
+        .atten = ADC_ATTEN_DB_12,
     };
     esp_err_t err = adc_oneshot_config_channel(adc1_handle, MIC_ADC_CHAN, &config);
     if(err != ESP_OK) { // fallback to 12 if 11 is undefined/fails

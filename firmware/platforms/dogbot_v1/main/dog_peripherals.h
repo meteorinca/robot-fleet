@@ -1,6 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
+#include "config.h"
 
 #ifdef DISP_MOSI_GPIO
 
@@ -16,5 +17,15 @@ void dog_audio_play_named(const char *name);
 
 void dog_set_eye_mood(int mood);
 void dog_set_oled_text(const char* msg, int duration_ms);
+typedef enum {
+    DISP_MODE_EYES = 0,
+    DISP_MODE_FIREWORKS,
+    DISP_MODE_MARIO_DANCE,
+    DISP_MODE_SPACE_INVADER,
+    DISP_MODE_HEARTBEAT,
+    DISP_MODE_MATRIX_RAIN
+} dog_disp_mode_t;
+
+void dog_set_display_mode(dog_disp_mode_t mode);
 
 #endif
