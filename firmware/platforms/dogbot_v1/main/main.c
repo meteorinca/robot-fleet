@@ -72,8 +72,10 @@ void app_main(void) {
 
 #ifdef DISP_MOSI_GPIO
     dog_peripherals_init();
-    dog_set_oled_text("moj sends\nhis regards", 2000);
+    led_action_set(true); // LED on early!
     dog_audio_play_bark(); // Woof Woof early!
+    dog_set_oled_text(" Mr MoJ \nsends his \nREGARDS", 9000);
+    vTaskDelay(pdMS_TO_TICKS(3000)); // Give user a chance to read the boot message
 #endif
 
     // Set all servos to neutral on boot

@@ -98,6 +98,9 @@ static esp_err_t sse_handler(httpd_req_t *req) {
 //  Named-action dispatcher (used by web handlers + scheduler)
 // ══════════════════════════════════════════════════════════════
 void execute_named_action(const char *action) {
+#ifdef DISP_MOSI_GPIO
+    dog_dismiss_oled();
+#endif
     if      (strcmp(action, "s1on")   == 0) servo_quick_action(1, POS1_ON,  POS1_NEUTRAL);
     else if (strcmp(action, "s1off")  == 0) servo_quick_action(1, POS1_OFF, POS1_NEUTRAL);
     else if (strcmp(action, "s2on")   == 0) servo_quick_action(2, POS2_ON,  POS2_NEUTRAL);

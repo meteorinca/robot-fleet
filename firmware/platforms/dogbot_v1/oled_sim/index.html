@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DogBot OLED Simulator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .container {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #fff;
+        }
+
+        .oled-bezel {
+            background: #000;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #444;
+            display: inline-block;
+            margin: 20px 0;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        /* The canvas represents the 160x80 OLED, but scaled up visually via CSS */
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+            width: 320px;
+            height: 160px;
+            background: #000;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            background: #111;
+            color: #0f0;
+            border: 1px solid #444;
+            padding: 10px;
+            font-family: monospace;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>OLED Simulator</h1>
+        <p>Type below to see exactly how it will be rendered by `draw_text_autoscale` on the 160x80 screen.</p>
+
+        <textarea id="textInput" placeholder="Enter text here..."></textarea>
+
+        <div class="controls">
+            <button onclick="render()">Render</button>
+            <button onclick="loadExample1()" style="background:#555;">IP Example</button>
+        </div>
+
+        <div style="text-align: center;">
+            <div class="oled-bezel">
+                <canvas id="oled" width="160" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="font.js"></script>
+    <script>
+        const canvas = document.getElementById('oled');
+        const ctx = canvas.getContext('2d');
+        const input = document.getElementById('textInput');
+
+        // JS Implementation of draw_text_autoscale from dog_peripherals.c
+        function draw_text_autoscale(text) {
+            // Clear screen
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, 160, 80);
+            ctx.fillStyle = 'white';
+
+            // Split into max 4 lines
+            let lines = text.split('\n').slice(0, 4);
+
+            let max_len = 0;
+            for (let line of lines) {
+                if (line.length > max_len) max_len = line.length;
+            }
+
+            let global_scale = 1;
+            if (max_len > 0) {
+                global_scale = Math.floor(160 / (6 * max_len - 1));
+                if (global_scale > 8) global_scale = 8;
+                if (global_scale < 1) global_scale = 1;
+            }
+
+            let total_h = lines.length * 8 * global_scale;
+            while (total_h > 80 && global_scale > 1) {
+                global_scale--;
+                total_h = lines.length * 8 * global_scale;
+            }
+
+            let current_y = Math.floor((80 - total_h) / 2);
+
+            for (let l = 0; l < lines.length; l++) {
+                let line = lines[l];
+                let scale = global_scale;
+                let total_w = line.length * 6 * scale - 1 * scale;
+                let start_x = Math.floor((160 - total_w) / 2);
+
+                for (let i = 0; i < line.length; i++) {
+                    let c = line.charCodeAt(i);
+                    if (c < 32 || c > 126) c = 32;
+                    let glyph_idx = (c - 32) * 8;
+                    let cx = start_x + i * 6 * scale;
+
+                    for (let gx = 0; gx < 5; gx++) {
+                        let col = font5x7[glyph_idx + gx];
+                        for (let gy = 0; gy < 7; gy++) {
+                            if (col & (1 << gy)) {
+                                ctx.fillRect(cx + gx * scale, current_y + gy * scale, scale, scale);
+                            }
+                        }
+                    }
+                }
+                current_y += 8 * scale;
+            }
+        }
+
+        function render() {
+            draw_text_autoscale(input.value);
+        }
+
+        // Auto-render on typing
+        input.addEventListener('input', render);
+
+        // Initial render
+        loadExample1();
+    </script>
+</body>
+
+</html>

@@ -223,7 +223,6 @@ void app_main(void) {
     servo_worker_start();
     ultrasonic_init();
     oled_init();
-    oled_set_text("moj sends his regards :)", 2000);
 
     // Buttons
     gpio_config_t btn_conf = {

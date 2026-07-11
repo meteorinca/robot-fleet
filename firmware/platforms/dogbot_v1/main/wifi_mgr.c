@@ -3,11 +3,9 @@
 #include "config.h"
 #ifdef DISP_MOSI_GPIO
 #include "dog_peripherals.h"
-#define OLED_MSG(msg, ms)  dog_set_oled_text((msg), (ms))
-#define OLED_FIREWORKS_IP(ip) dog_show_fireworks_ip((ip))
+#define OLED_MSG(msg, ms)  do { dog_set_oled_text((msg), (ms)); vTaskDelay(pdMS_TO_TICKS(ms)); } while(0)
 #else
 #define OLED_MSG(msg, ms)  ((void)0)
-#define OLED_FIREWORKS_IP(ip) ((void)0)
 #endif
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -302,7 +300,9 @@ static void start_softap(void) {
     ESP_LOGW(TAG, "STA failed — starting SoftAP at 192.168.4.1");
 
 #ifdef DISP_MOSI_GPIO
-    OLED_FIREWORKS_IP("192.168.4.1");
+    char combined[64];
+    snprintf(combined, sizeof(combined), "Hotspottin!\nPaulBot-%d\nJoin WiFi!", DEVICE_NUMBER);
+    dog_set_oled_text(combined, -1);
 #endif
 
     // Create AP netif (Moved to wifi_init so mDNS can bind to it)
@@ -431,6 +431,12 @@ static void on_wifi_event(void *arg, esp_event_base_t base,
     } else if (id == WIFI_EVENT_AP_STACONNECTED) {
         wifi_event_ap_staconnected_t *ev = event_data;
         ESP_LOGI(TAG, "AP client connected: " MACSTR, MAC2STR(ev->mac));
+#ifdef DISP_MOSI_GPIO
+        dog_audio_play_paulbot();
+        char combined[64];
+        snprintf(combined, sizeof(combined), "Go to:\n192.168.4.1");
+        dog_set_oled_text(combined, 15000);
+#endif
     } else if (id == WIFI_EVENT_AP_STADISCONNECTED) {
         wifi_event_ap_stadisconnected_t *ev = event_data;
         ESP_LOGI(TAG, "AP client disconnected: " MACSTR, MAC2STR(ev->mac));
@@ -443,10 +449,14 @@ static void on_ip_event(void *arg, esp_event_base_t base,
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         if (s_ap_timer) xTimerStop(s_ap_timer, 0);
-        // Show fireworks and IP on OLED for 4 s
+        // Show IP on OLED
         char ip_str[20];
         snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&event->ip_info.ip));
-        OLED_FIREWORKS_IP(ip_str);
+#ifdef DISP_MOSI_GPIO
+        char combined[64];
+        snprintf(combined, sizeof(combined), "Go to:\npaulbot%d.local\n%s", DEVICE_NUMBER, ip_str);
+        dog_set_oled_text(combined, 20000);
+#endif
         xEventGroupSetBits(s_wifi_events, WIFI_CONNECTED_BIT);
         webserver_start();
     }

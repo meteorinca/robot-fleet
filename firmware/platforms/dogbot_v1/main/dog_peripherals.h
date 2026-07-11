@@ -16,6 +16,6 @@ void dog_audio_play_named(const char *name);
 
 void dog_set_eye_mood(int mood);
 void dog_set_oled_text(const char* msg, int duration_ms);
-void dog_show_fireworks_ip(const char* ip);
+void dog_dismiss_oled(void);
 
 #endif
