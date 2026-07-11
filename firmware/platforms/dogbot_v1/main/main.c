@@ -72,6 +72,7 @@ void app_main(void) {
 
 #ifdef DISP_MOSI_GPIO
     dog_peripherals_init();
+    dog_set_oled_text("moj sends\nhis regards", 2000);
     dog_audio_play_bark(); // Woof Woof early!
 #endif
 

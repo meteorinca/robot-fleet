@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>PaulBot</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      font-family: system-ui, sans-serif;
+      background: #0d0d1a;
+      color: #e0e0f0;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #1e1e3a;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #0d0d1a;
+      z-index: 1000;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 14px 8px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+      letter-spacing: 0.5px;
+      transition:
+        color 0.2s,
+        border-color 0.2s;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab.active {
+      color: #7c6af7;
+      border-bottom-color: #7c6af7;
+    }
+
+    .content {
+      margin-top: 52px;
+      height: calc(100vh - 52px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Control panel */
+    .panel-ctrl {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: calc(100vh - 52px);
+      position: relative;
+      padding: 0;
+    }
+
+    /* Action buttons */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 12px 10px 8px;
+      width: 100%;
+      max-width: 460px;
+    }
+
+    .act-btn {
+      padding: 10px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #1a1a35, #20203d);
+      border: 1px solid #2a2a50;
+      border-radius: 10px;
+      color: #a0a0d0;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .act-btn:active,
+    .act-btn:hover {
+      background: linear-gradient(135deg, #7c6af7, #5b4de8);
+      border-color: #7c6af7;
+      color: #fff;
+      transform: scale(0.97);
+    }
+
+    /* Joystick zone */
+    .joy-zone {
+      flex: 1;
+      width: 100%;
+      max-width: 460px;
+      border: 2px dashed #1e1e3a;
+      border-radius: 16px;
+      margin: 0 10px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .joy-hint {
+      color: #333;
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .err-msg {
+      color: #f7736a;
+      font-size: 12px;
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* TTS panel */
+    .panel-tts {
+      padding: 20px;
+    }
+
+    .card {
+      background: #11112a;
+      border: 1px solid #1e1e3a;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+
+    .card h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #7c6af7;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .time-big {
+      font-size: 36px;
+      font-weight: 700;
+      font-family: monospace;
+      color: #00e5a0;
+    }
+
+    .epoch {
+      font-size: 12px;
+      color: #444;
+      margin-top: 4px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #2a2a50;
+      background: #0a0a1e;
+      color: #e0e0f0;
+      font-size: 15px;
+      margin-bottom: 10px;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: #7c6af7;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #7c6af7, #5b4de8);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary:active {
+      opacity: 0.8;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #1e1e3a;
+      color: #7c6af7;
+      margin-bottom: 6px;
+    }
+
+    /* Calibration */
+    .panel-cal {
+      padding: 16px;
+    }
+
+    .vehicle {
+      position: relative;
+      width: 180px;
+      height: 260px;
+      background: #11112a;
+      border-radius: 18px;
+      margin: 20px auto;
+      border: 1px solid #1e1e3a;
+    }
+
+    .servo {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      background: #1a1a35;
+      border: 1px solid #2a2a50;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      font-size: 10px;
+      color: #888;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .servo.active {
+      background: linear-gradient(135deg, #7c6af7, #5b4de8);
+      border-color: #7c6af7;
+      color: #fff;
+    }
+
+    .servo .label {
+      font-size: 9px;
+    }
+
+    .servo .value {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .servo.fl {
+      left: -28px;
+      top: 24px;
+    }
+
+    .servo.bl {
+      left: -28px;
+      bottom: 16px;
+    }
+
+    .servo.fr {
+      right: -28px;
+      top: 24px;
+    }
+
+    .servo.br {
+      right: -28px;
+      bottom: 16px;
+    }
+
+    .dog-head {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 140px;
+      height: 28px;
+      background: #11112a;
+      border-radius: 8px;
+      border: 1px solid #1e1e3a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #7c6af7;
+      font-weight: 700;
+    }
+
+    .adj {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 12px auto;
+    }
+
+    .adj-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 10px;
+      background: #1a1a35;
+      color: #e0e0f0;
+      font-size: 22px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .adj-btn:active {
+      background: #7c6af7;
+    }
+
+    #val-disp {
+      font-size: 18px;
+      font-weight: 700;
+      min-width: 50px;
+      text-align: center;
+      color: #7c6af7;
+    }
+
+    .cal-btn {
+      display: block;
+      width: 100%;
+      max-width: 280px;
+      margin: 10px auto;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #7c6af7, #5b4de8);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .cal-intro p,
+    .cal-intro li {
+      font-size: 13px;
+      color: #888;
+      margin: 6px 0;
+      line-height: 1.5;
+    }
+
+    .cal-intro ol {
+      padding-left: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="content" style="
+        margin-top: 0;
+        height: 100vh;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      ">
+    <h1>Paulbot v1.9</h1>
+    <div style="width: 100%; max-width: 460px">
+      <div class="card" style="text-align: center">
+        <span class="status-badge" id="conn-badge">●&nbsp;Online</span>
+        <div class="time-big" id="clock">--:--:--</div>
+        <div class="epoch">
+          Epoch: <span id="epoch">-</span>&nbsp;&nbsp;Synced:
+          <span id="synced">no</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Actions</h2>
+        <div class="action-grid" id="action-grid"></div>
+        <div class="err-msg" id="ctrl-err"></div>
+      </div>
+      <div class="card">
+        <h2>Schedule Action</h2>
+        <div style="display: flex; gap: 10px">
+          <input type="number" id="sched-delay" placeholder="Delay (sec)" value="5"
+            style="flex: 1; margin-bottom: 0" /><select id="sched-action" style="
+                flex: 2;
+                padding: 10px 12px;
+                border-radius: 8px;
+                border: 1px solid #2a2a50;
+                background: #0a0a1e;
+                color: #e0e0f0;
+                outline: none;
+              ">
+            <option value="hi">Say Hi</option>
+            <option value="bark">Bark</option>
+            <option value="wiggle">Wiggle</option>
+            <option value="stand">Stand</option>
+            <option value="lay">Lay</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="scheduleAction()" style="margin-top: 10px">
+          Schedule
+        </button>
+        <div class="err-msg" id="sched-err"></div>
+      </div>
+      <div class="card" id="tts-card">
+        <h2>Text to Speech</h2>
+        <input type="text" id="say" placeholder="What should PaulBot say?" /><button class="btn-primary"
+          onclick="sendTTS()">Speak</button>
+        <div class="err-msg" id="tts-err"></div>
+      </div>
+      <div class="card">
+        <h2>OTA Firmware Update</h2>
+        <input type="file" id="ota-file" accept=".bin" style="color: #a0a0d0; margin-bottom: 10px; width: 100%" />
+        <div style="
+              background: #0a0a1e;
+              border-radius: 6px;
+              height: 8px;
+              margin-bottom: 8px;
+              overflow: hidden;
+            ">
+          <div id="ota-bar" style="
+                width: 0%;
+                height: 100%;
+                background: linear-gradient(90deg, #00e5a0, #7c6af7);
+                transition: width 0.3s;
+              "></div>
+        </div>
+        <button class="btn-primary" id="ota-btn" onclick="doOTA()">
+          Flash Firmware
+        </button>
+        <div class="err-msg" id="ota-msg"></div>
+      </div>
+      <div class="card" id="wifi-card">
+        <h2>📶 WiFi Setup</h2>
+        <div id="wifi-status" style="margin-bottom: 12px"></div>
+        <div id="saved-nets" style="margin-bottom: 12px"></div>
+        <button class="btn-primary" onclick="scanWifi()" style="
+              background: linear-gradient(135deg, #1a1a35, #20203d);
+              border: 1px solid #2a2a50;
+              margin-bottom: 10px;
+            ">
+          Scan for Networks
+        </button>
+        <div id="scan-results" style="margin-bottom: 10px"></div>
+        <div style="
+              border-top: 1px solid #1e1e3a;
+              padding-top: 12px;
+              margin-top: 8px;
+            ">
+          <div style="
+                font-size: 11px;
+                color: #666;
+                font-weight: 700;
+                margin-bottom: 8px;
+              ">
+            ADD NETWORK MANUALLY
+          </div>
+          <input type="text" id="wifi-ssid" placeholder="WiFi Name (SSID)"
+            style="font-size: 16px; padding: 14px 12px" />
+          <div style="position: relative; margin-bottom: 10px">
+            <input type="password" id="wifi-pass" placeholder="Password" autocomplete="current-password" style="
+                  width: 100%;
+                  font-size: 16px;
+                  padding: 14px 48px 14px 12px;
+                  border-radius: 8px;
+                  border: 1px solid #2a2a50;
+                  background: #0a0a1e;
+                  color: #e0e0f0;
+                  outline: none;
+                  box-sizing: border-box;
+                " /><button type="button" onclick="
+                  var i = document.getElementById('wifi-pass');
+                  i.type = i.type === 'password' ? 'text' : 'password';
+                " style="
+                  position: absolute;
+                  right: 0;
+                  top: 0;
+                  bottom: 0;
+                  width: 44px;
+                  background: none;
+                  border: none;
+                  color: #666;
+                  font-size: 20px;
+                  cursor: pointer;
+                ">
+              &#128065;
+            </button>
+          </div>
+          <button class="btn-primary" onclick="saveWifi()" style="font-size: 16px; padding: 14px">
+            Connect &#38; Reboot
+          </button>
+          <div class="err-msg" id="wifi-err"></div>
+        </div>
+      </div>
+    </div>
+    <button onclick="document.getElementById('panel-cal').style.display = 'block'" style="
+          margin-top: 20px;
+          background: none;
+          border: none;
+          color: #666;
+          text-decoration: underline;
+        ">
+      Show Calibration
+    </button>
+    <div id="panel-cal" style="display: none; width: 100%; max-width: 460px; margin-top: 20px">
+      <div class="panel-cal">
+        <div id="cal-intro" class="cal-intro">
+          <div class="card">
+            <h2>Servo Calibration</h2>
+            <p>
+              If legs are not level after assembly, use this to fine-tune each
+              servo's neutral position.
+            </p>
+            <ol>
+              <li>Press 'Enter Calibration Mode'.</li>
+              <li>Tap each leg corner to select it, then ± to adjust.</li>
+              <li>Press 'Exit Calibration Mode'.</li>
+            </ol>
+          </div>
+          <button class="cal-btn" id="btn-start-cal">
+            Enter Calibration Mode
+          </button>
+        </div>
+        <div id="cal-iface" style="display: none">
+          <div class="vehicle">
+            <div class="dog-head">PaulBot</div>
+            <div class="servo fl" data-pos="fl">
+              <span class="label">FL</span><span class="value" id="v-fl">0</span>
+            </div>
+            <div class="servo fr" data-pos="fr">
+              <span class="label">FR</span><span class="value" id="v-fr">0</span>
+            </div>
+            <div class="servo bl" data-pos="bl">
+              <span class="label">BL</span><span class="value" id="v-bl">0</span>
+            </div>
+            <div class="servo br" data-pos="br">
+              <span class="label">BR</span><span class="value" id="v-br">0</span>
+            </div>
+          </div>
+          <div class="adj" id="adj">
+            <button class="adj-btn" id="btn-minus">−</button><code id="val-disp">0</code><button class="adj-btn"
+              id="btn-plus">+</button>
+          </div>
+          <button class="cal-btn" id="btn-exit-cal">
+            Exit Calibration Mode
+          </button>
+          <div class="err-msg" id="cal-err"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function scheduleAction() {
+      var d = document.getElementById("sched-delay").value;
+      var a = document.getElementById("sched-action").value;
+      fetch("/schedule?action=" + a + "&delay=" + d)
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (j) {
+          document.getElementById("sched-err").textContent =
+            "Scheduled for +" + d + "s";
+        })
+        .catch(function (e) {
+          document.getElementById("sched-err").textContent = e;
+        });
+    }
+    async function dog(val) {
+      var isMove = ["F", "B", "L", "R"].indexOf(val) >= 0;
+      var body = isMove
+        ? JSON.stringify({ move: val })
+        : JSON.stringify({ action: val });
+      try {
+        await fetch("/dog", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: body,
+        });
+      } catch (e) {
+        document.getElementById("ctrl-err").textContent = "Error: " + e;
+      }
+    }
+    var ACTIONS = {
+      1: "Lie",
+      2: "Bow",
+      3: "Lean",
+      4: "Wiggle",
+      5: "Rock",
+      6: "Sway",
+      7: "Shake",
+      8: "Poke",
+      9: "Kick",
+      10: "JumpFw",
+      11: "JumpBw",
+      12: "Stand",
+    };
+    (function () {
+      var g = document.getElementById("action-grid");
+      for (var k in ACTIONS) {
+        var b = document.createElement("button");
+        b.className = "act-btn";
+        b.textContent = ACTIONS[k];
+        (function (key) {
+          b.onclick = function () {
+            dog(key);
+          };
+        })(k);
+        g.appendChild(b);
+      }
+    })();
+    var timeOffset = 0,
+      isSynced = false;
+    function syncT() {
+      fetch("/time")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          if (d.synced) {
+            timeOffset = d.epoch * 1000 - Date.now();
+            isSynced = true;
+            document.getElementById("synced").textContent = "yes";
+          } else {
+            fetch("/sync_time?epoch=" + Math.floor(Date.now() / 1000));
+            timeOffset = 0;
+            isSynced = true;
+            document.getElementById("synced").textContent = "local";
+          }
+        })
+        .catch(function () { });
+    }
+    syncT();
+    setInterval(syncT, 10000);
+    setInterval(function () {
+      var d = new Date(Date.now() + timeOffset);
+      var f =
+        d.getFullYear() +
+        "-" +
+        ("0" + (d.getMonth() + 1)).slice(-2) +
+        "-" +
+        ("0" + d.getDate()).slice(-2) +
+        " " +
+        ("0" + d.getHours()).slice(-2) +
+        ":" +
+        ("0" + d.getMinutes()).slice(-2) +
+        ":" +
+        ("0" + d.getSeconds()).slice(-2);
+      document.getElementById("clock").textContent = f;
+      document.getElementById("epoch").textContent = Math.floor(
+        d.getTime() / 1000,
+      );
+    }, 100);
+    function sendTTS() {
+      var t = document.getElementById("say").value.trim();
+      if (!t) return;
+      var err = document.getElementById("tts-err");
+      err.textContent = "Sending to bot...";
+      fetch(
+        "https://api.codetabs.com/v1/proxy?quest=" +
+        encodeURIComponent(
+          "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
+          encodeURIComponent(t) +
+          "&tl=en&client=tw-ob",
+        ),
+      )
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.arrayBuffer();
+        })
+        .then(function (ab) {
+          var ctx =
+            window._sharedCtx ||
+            (window._sharedCtx = new (
+              window.AudioContext || window.webkitAudioContext
+            )());
+          return ctx
+            .decodeAudioData(ab)
+            .then(function (dec) {
+              var samples = Math.ceil(dec.duration * 16000);
+              if (samples < 1) throw new Error("empty");
+              var off = new OfflineAudioContext(1, samples, 16000);
+              var src = off.createBufferSource();
+              src.buffer = dec;
+              src.connect(off.destination);
+              src.start();
+              return off.startRendering();
+            })
+            .then(function (ren) {
+              var dat = ren.getChannelData(0);
+              var pcm = new Int16Array(dat.length);
+              for (var i = 0; i < dat.length; i++) {
+                var s = Math.max(-1, Math.min(1, dat[i]));
+                pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+              }
+              var chunkSamples = 16000;
+              var idx = 0;
+              function sendNext() {
+                if (idx * chunkSamples >= pcm.length) {
+                  err.textContent = "";
+                  return;
+                }
+                var sl = pcm.slice(
+                  idx * chunkSamples,
+                  (idx + 1) * chunkSamples,
+                );
+                idx++;
+                fetch("/audio", { method: "POST", body: sl.buffer })
+                  .then(sendNext)
+                  .catch(function (e) {
+                    err.textContent = "Bot audio err: " + e;
+                  });
+              }
+              sendNext();
+            });
+        })
+        .catch(function (e) {
+          err.textContent = "Bot audio err (need internet): " + e;
+        });
+    }
+      /* SSE auto-update — reconnects on drop */ function initSSE() {
+      var es = new EventSource("/events");
+      es.onmessage = function (e) { };
+      es.onerror = function () {
+        es.close();
+        setTimeout(initSSE, 8000);
+      };
+    }
+    initSSE();
+    var CAL = { fl: 0, fr: 0, bl: 0, br: 0 },
+      curServo = null;
+    document.getElementById("btn-start-cal").onclick = function () {
+      fetch("/start_calibration")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          CAL = d;
+          ["fl", "fr", "bl", "br"].forEach(function (k) {
+            document.getElementById("v-" + k).textContent = CAL[k];
+          });
+          document.getElementById("cal-intro").style.display = "none";
+          document.getElementById("cal-iface").style.display = "";
+        })
+        .catch(function () {
+          document.getElementById("cal-err").textContent =
+            "Could not enter calibration mode";
+        });
+    };
+    document.getElementById("btn-exit-cal").onclick = function () {
+      fetch("/exit_calibration")
+        .then(function () {
+          document.getElementById("cal-iface").style.display = "none";
+          document.getElementById("cal-intro").style.display = "";
+        })
+        .catch(function () { });
+    };
+    document.querySelectorAll(".servo").forEach(function (s) {
+      s.onclick = function () {
+        document.querySelectorAll(".servo").forEach(function (x) {
+          x.classList.remove("active");
+        });
+        s.classList.add("active");
+        curServo = s.dataset.pos;
+        document.getElementById("val-disp").textContent = CAL[curServo];
+        document.getElementById("adj").style.display = "flex";
+      };
+    });
+    function doAdj(delta) {
+      if (!curServo) return;
+      CAL[curServo] = Math.max(-25, Math.min(25, CAL[curServo] + delta));
+      document.getElementById("v-" + curServo).textContent = CAL[curServo];
+      document.getElementById("val-disp").textContent = CAL[curServo];
+      fetch("/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ servo: curServo, value: CAL[curServo] }),
+      });
+    }
+    document.getElementById("btn-minus").onclick = function () {
+      doAdj(-1);
+    };
+    document.getElementById("btn-plus").onclick = function () {
+      doAdj(1);
+    };
+    function doOTA() {
+      var f = document.getElementById("ota-file").files[0];
+      var msg = document.getElementById("ota-msg");
+      var bar = document.getElementById("ota-bar");
+      var btn = document.getElementById("ota-btn");
+      if (!f) {
+        msg.textContent = "Pick a .bin file first";
+        return;
+      }
+      btn.disabled = true;
+      btn.style.opacity = ".5";
+      msg.style.color = "#a0a0d0";
+      msg.textContent =
+        "Uploading " + f.name + " (" + Math.round(f.size / 1024) + "KB)...";
+      bar.style.width = "0%";
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", "/ota", true);
+      xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+          var pct = Math.round((e.loaded / e.total) * 100);
+          bar.style.width = pct + "%";
+          msg.textContent = "Uploading... " + pct + "%";
+        }
+      };
+      xhr.onload = function () {
+        bar.style.width = "100%";
+        if (xhr.status === 200) {
+          msg.style.color = "#00e5a0";
+          var t = 10;
+          var iv = setInterval(function () {
+            msg.textContent = "OTA OK! Rebooting... reload in " + t + "s";
+            if (--t < 0) {
+              clearInterval(iv);
+              location.reload();
+            }
+          }, 1000);
+        } else {
+          msg.style.color = "#f7736a";
+          msg.textContent = "OTA failed: HTTP " + xhr.status;
+          btn.disabled = false;
+          btn.style.opacity = "1";
+        }
+      };
+      xhr.onerror = function () {
+        msg.style.color = "#f7736a";
+        msg.textContent = "Upload error";
+        btn.disabled = false;
+        btn.style.opacity = "1";
+      };
+      xhr.send(f);
+    }
+    function scanWifi() {
+      var sr = document.getElementById("scan-results");
+      sr.innerHTML =
+        '<div style="color:#666;font-size:12px;">Scanning...</div>';
+      fetch("/wifi_scan")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          var h = "";
+          if (d.networks && d.networks.length) {
+            d.networks.forEach(function (n) {
+              h +=
+                '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin:4px 0;background:#0a0a1e;border-radius:8px;border:1px solid #1e1e3a;cursor:pointer;" ' +
+                "onclick=\"document.getElementById('wifi-ssid').value='" +
+                n.ssid.replace(/'/g, "") +
+                "';\">";
+              h +=
+                '<span style="color:#e0e0f0;font-size:13px;">' +
+                n.ssid +
+                "</span>";
+              h +=
+                '<span style="color:#666;font-size:11px;">' +
+                n.rssi +
+                "dBm</span></div>";
+            });
+          } else {
+            h =
+              '<div style="color:#666;font-size:12px;">No networks found</div>';
+          }
+          sr.innerHTML = h;
+        })
+        .catch(function (e) {
+          sr.innerHTML = '<div class="err-msg">Scan error: ' + e + "</div>";
+        });
+    }
+    function saveWifi() {
+      var s = document.getElementById("wifi-ssid").value.trim();
+      var p = document.getElementById("wifi-pass").value;
+      var e = document.getElementById("wifi-err");
+      if (!s) {
+        e.textContent = "Enter an SSID";
+        return;
+      }
+      e.style.color = "#a0a0d0";
+      e.textContent = "Saving & rebooting...";
+      fetch("/wifi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ssid: s, pass: p }),
+      })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          if (d.ok) {
+            e.style.color = "#00e5a0";
+            e.textContent = "Saved! Rebooting in 3s...";
+          } else {
+            e.style.color = "#f7736a";
+            e.textContent = "Error: " + (d.error || "unknown");
+          }
+        })
+        .catch(function (x) {
+          e.style.color = "#f7736a";
+          e.textContent = "Network error: " + x;
+        });
+    }
+    function loadSavedNets() {
+      fetch("/wifi")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          var h = "",
+            ws = document.getElementById("wifi-status");
+          if (d.ap_mode) {
+            ws.innerHTML =
+              '<div style="padding:8px 12px;background:#2a1a1a;border:1px solid #5a2a2a;border-radius:8px;color:#f7a56a;font-size:13px;">⚠ Running in AP mode — add a WiFi network below to connect.</div>';
+            var tc = document.getElementById("tts-card");
+            if (tc) tc.style.display = "none";
+          } else {
+            ws.innerHTML =
+              '<div style="padding:8px 12px;background:#1a2a1a;border:1px solid #2a5a2a;border-radius:8px;color:#00e5a0;font-size:13px;">✓ Connected to WiFi</div>';
+          }
+          if (d.saved && d.saved.length) {
+            h =
+              '<div style="font-size:11px;color:#666;margin-bottom:6px;font-weight:700;">SAVED NETWORKS</div>';
+            d.saved.forEach(function (n, i) {
+              h +=
+                '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin:3px 0;background:#0a0a1e;border-radius:6px;border:1px solid #1e1e3a;">';
+              h +=
+                '<span style="color:#a0a0d0;font-size:12px;">' +
+                n +
+                "</span>";
+              h +=
+                '<button onclick="deleteNet(' +
+                i +
+                ')" style="background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:0 4px;">&times;</button></div>';
+            });
+          }
+          document.getElementById("saved-nets").innerHTML = h;
+        })
+        .catch(function () { });
+    }
+    function deleteNet(idx) {
+      fetch("/wifi?delete=" + idx, { method: "DELETE" })
+        .then(function () {
+          loadSavedNets();
+        })
+        .catch(function () { });
+    }
+    loadSavedNets();
+  </script>
+</body>
+
+</html>

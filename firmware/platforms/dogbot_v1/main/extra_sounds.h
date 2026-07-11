@@ -32,16 +32,14 @@ typedef struct {
     const uint8_t *data;
     size_t len;
 } dog_sound_t;
-
 const dog_sound_t random_sounds[] = {
     { sound_freesound_community_huh_102688, 15744 },
     { dogbark_audio_8bit, dogbark_audio_8bit_len },
     { sound_sergequadrado_child_says_yes_113117, 23824 },
     { sound_freesound_community_cartoon_jump_6462, 28416 },
-    { sound_alexis_gaming_cam_ding_cartoon_346093, 34944 },
-    { paulbot_audio_8bit, paulbot_audio_8bit_len },
+    { sound_alexis_gaming_cam_ding_cartoon_346093, 34944 }
 };
 
-const size_t random_sounds_count = 6;
+const size_t random_sounds_count = 5;
 
 #endif
