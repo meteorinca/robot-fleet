@@ -663,17 +663,26 @@
       if (!t) return;
       var err = document.getElementById("tts-err");
       err.textContent = "Sending to bot...";
-      fetch(
-        "https://api.codetabs.com/v1/proxy?quest=" +
-        encodeURIComponent(
-          "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
-          encodeURIComponent(t) +
-          "&tl=en&client=tw-ob",
-        ),
-      )
+      
+      var targetUrl = "https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=" + encodeURIComponent(t);
+      var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl);
+
+      fetch(proxyUrl)
         .then(function (r) {
           if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.arrayBuffer();
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data.contents) throw new Error("No contents in response");
+          var b64 = data.contents.split(',')[1];
+          if (!b64) throw new Error("Invalid base64 data");
+          var binStr = window.atob(b64);
+          var len = binStr.length;
+          var bytes = new Uint8Array(len);
+          for (var i = 0; i < len; i++) {
+            bytes[i] = binStr.charCodeAt(i);
+          }
+          return bytes.buffer;
         })
         .then(function (ab) {
           var ctx =
@@ -712,6 +721,7 @@
                   (idx + 1) * chunkSamples,
                 );
                 idx++;
+                err.textContent = "Playing...";
                 fetch("/audio", { method: "POST", body: sl.buffer })
                   .then(sendNext)
                   .catch(function (e) {

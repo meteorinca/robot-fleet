@@ -383,6 +383,16 @@ static void dog_eyes_task(void *arg) {
                 vTaskDelay(1);
             }
         }
+
+            /* ---- Tiny Minimal Mouth ---- */
+            int mouth_w = 2 + ((frame_count / 12) % 2);
+            int mouth_h = 1 + ((frame_count / 25) % 2);
+            int mouth_y = 58; 
+            for (int my = mouth_y; my < mouth_y + mouth_h; my++) {
+                for (int mx = 80 - mouth_w; mx <= 80 + mouth_w; mx++) {
+                    buffer[my * 160 + mx] = warm_edge;
+                }
+            }
         }
 
         esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, 160, 80, buffer);
