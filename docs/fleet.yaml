@@ -1,0 +1,25 @@
+shipped_bots:
+  # Do not reuse these hostnames/IPs as they are already shipped to customers
+  - hostname: paulbot9.local
+    customer: "Zach from Robotics"
+    firmware_version: "1.0"
+    course_progress: "Module 1 (Updated manually)"
+    notes: "Very alpha test. The kid is 5-6 years old. Only gave paulbot9"
+
+active_fleet:
+  - name: MyBot 5
+    platform: mybot
+    version: v1.8
+    status: Active
+  - name: DogBot 2
+    platform: dogbot_v1
+    version: 1.0
+    status: Active
+  - name: Simple 1
+    platform: simplebot
+    version: 0.1
+    status: Dev
+  - name: RFBot 1
+    platform: rfbot
+    version: 0.1
+    status: Offline

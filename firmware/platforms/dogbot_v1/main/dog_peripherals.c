@@ -1,6 +1,6 @@
 #include "dog_peripherals.h"
 #include "config.h"
-#include "audio_clips.h"
+// audio_clips.h removed — clip_chirp/clip_bark unused in dogbot_v1 (saves ~34KB flash)
 #include "paulbot_audio_8bit.h"
 #include "dogbark_audio_8bit.h"
 #include "extra_sounds.h"
@@ -35,6 +35,19 @@ static QueueHandle_t button_evt_queue = NULL;
 static char oled_text_msg[64] = {0};
 static volatile int oled_text_timer = 0;
 
+// Display animation mode: 0=eyes(default), 1=fireworks, 2=matrix, 3=disco
+static volatile int dog_display_mode = 0;
+static volatile int dog_anim_timer   = 0; // >0: auto-expire after N frames; -1: permanent
+
+void dog_set_display_mode(int mode) {
+    dog_display_mode = (mode >= 0 && mode <= 3) ? mode : 0;
+    dog_anim_timer   = -1; // permanent until changed
+}
+
+void dog_set_display_mode_timed(int mode, int duration_ms) {
+    dog_display_mode = (mode >= 0 && mode <= 3) ? mode : 0;
+    dog_anim_timer   = duration_ms / 60; // ~60ms per frame
+}
 
 void dog_set_eye_mood(int mood) {
     if (mood >= 0 && mood <= 3) eye_mood = mood;
@@ -267,13 +280,171 @@ static void dog_eyes_task(void *arg) {
         uint16_t warm_edge = rgb565(240, 230, 220);
         uint16_t faint_catchlight = rgb565(200, 220, 255);
 
-        /* ---- Render both eyes ---- */
+        /* ---- Render both eyes / animations ---- */
         if (oled_text_timer > 0 || oled_text_timer == -1) {
+            // OLED text overlay — highest priority
             if (oled_text_timer > 0) oled_text_timer--;
             memset(buffer, 0, 160 * 80 * sizeof(uint16_t));
             draw_text_autoscale(buffer, oled_text_msg);
             vTaskDelay(1);
+        } else if (dog_display_mode == 1) {
+            // ════ FIREWORKS ════
+            // Persistent particle state (static so we keep particles across frames)
+            #define FW_MAX 24
+            typedef struct { int16_t x, y, vx, vy; uint8_t r, g, b, life; } FWParticle;
+            static FWParticle fw[FW_MAX];
+            static bool fw_init = false;
+            if (!fw_init) { for (int i = 0; i < FW_MAX; i++) fw[i].life = 0; fw_init = true; }
+
+            // Spawn new burst every ~20 frames
+            if (frame_count % 20 == 0) {
+                int bx = 10 + (int)(fast_rand() % 140);
+                int by = 5  + (int)(fast_rand() % 50);
+                uint8_t hr = 80  + (fast_rand() % 176);
+                uint8_t hg = 80  + (fast_rand() % 176);
+                uint8_t hb = 80  + (fast_rand() % 176);
+                for (int i = 0; i < FW_MAX; i++) {
+                    if (fw[i].life == 0) {
+                        int32_t angle = fast_rand() % 628; // 0..2π * 100
+                        int speed = 1 + (int)(fast_rand() % 3);
+                        // tiny trig via lookup avoidance: use modular offsets
+                        int16_t vx16 = (int16_t)(((angle < 157 || angle >= 471) ? 1 : -1) * speed);
+                        int16_t vy16 = (int16_t)(((angle < 314) ? -1 : 1) * speed);
+                        fw[i] = (FWParticle){bx*4, by*4, vx16*4 + (int16_t)(fast_rand()%8)-4,
+                                             vy16*4 + (int16_t)(fast_rand()%8)-4,
+                                             hr, hg, hb, 30 + (uint8_t)(fast_rand()%20)};
+                        break;
+                    }
+                }
+            }
+
+            // Fade background
+            for (int i = 0; i < 160 * 80; i++) {
+                uint16_t p = buffer[i];
+                // fade each channel by ~1/8
+                uint8_t r = ((p >> 11) & 0x1F);
+                uint8_t g = ((p >> 5)  & 0x3F);
+                uint8_t b = (p         & 0x1F);
+                r = r > 1 ? r - 1 : 0;
+                g = g > 2 ? g - 2 : 0;
+                b = b > 1 ? b - 1 : 0;
+                buffer[i] = (uint16_t)((r << 11) | (g << 5) | b);
+            }
+
+            // Update & draw particles
+            for (int i = 0; i < FW_MAX; i++) {
+                if (fw[i].life == 0) continue;
+                fw[i].x += fw[i].vx;
+                fw[i].y += fw[i].vy;
+                fw[i].vy += 2; // gravity in fixed-point (*4)
+                fw[i].life--;
+                int px = fw[i].x / 4;
+                int py = fw[i].y / 4;
+                if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                    uint8_t fade = fw[i].life * 8;
+                    uint8_t r = (fw[i].r * fade) >> 8;
+                    uint8_t g = (fw[i].g * fade) >> 8;
+                    uint8_t b = (fw[i].b * fade) >> 8;
+                    buffer[py * 160 + px] = rgb565(r, g, b);
+                    // draw 2x2 dot for visibility
+                    if (px+1 < 160) buffer[py * 160 + px + 1] = rgb565(r, g, b);
+                    if (py+1 < 80)  buffer[(py+1) * 160 + px] = rgb565(r, g, b);
+                }
+            }
+
+            // Tick timed mode
+            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; fw_init = false; } }
+            vTaskDelay(1);
+
+        } else if (dog_display_mode == 2) {
+            // ════ MATRIX RAIN ════
+            #define MX_COLS 26  // 160/6 columns
+            static uint8_t  mx_head[MX_COLS];  // current head row (0..79)
+            static uint8_t  mx_speed[MX_COLS]; // frames per step
+            static uint8_t  mx_timer[MX_COLS]; // countdown
+            static uint8_t  mx_chars[MX_COLS]; // random char index
+            static bool     mx_init = false;
+            if (!mx_init) {
+                for (int c = 0; c < MX_COLS; c++) {
+                    mx_head[c]  = (uint8_t)(fast_rand() % 80);
+                    mx_speed[c] = 1 + (uint8_t)(fast_rand() % 4);
+                    mx_timer[c] = mx_speed[c];
+                    mx_chars[c] = (uint8_t)(fast_rand() % 95);
+                }
+                mx_init = true;
+            }
+
+            // Fade background to black (green fade)
+            for (int i = 0; i < 160 * 80; i++) {
+                uint16_t p = buffer[i];
+                uint8_t g = ((p >> 5) & 0x3F);
+                g = g > 3 ? g - 3 : 0;
+                buffer[i] = (uint16_t)(g << 5);
+            }
+
+            // Draw rain heads and update
+            for (int c = 0; c < MX_COLS; c++) {
+                int cx = c * 6;
+                int row = mx_head[c];
+                mx_chars[c] = (uint8_t)((mx_chars[c] + 1) % 95);
+                char ch = 32 + mx_chars[c];
+                if (ch < 32 || ch > 126) ch = 65;
+                const uint8_t *glyph = &font5x7[(ch - 32) * 8];
+                // Draw head char in bright white-green
+                for (int gx = 0; gx < 5; gx++) {
+                    uint8_t col = glyph[gx];
+                    for (int gy = 0; gy < 7; gy++) {
+                        int px = cx + gx;
+                        int py = row + gy;
+                        if (px < 160 && py < 80)
+                            buffer[py * 160 + px] = col & (1 << gy) ? rgb565(180, 255, 180) : rgb565(0, 60, 0);
+                    }
+                }
+                // Advance
+                if (--mx_timer[c] == 0) {
+                    mx_timer[c] = mx_speed[c];
+                    mx_head[c] = (uint8_t)((row + 8) % 80);
+                }
+            }
+
+            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; mx_init = false; } }
+            vTaskDelay(1);
+
+        } else if (dog_display_mode == 3) {
+            // ════ DISCO COLOR PULSE ════
+            // Smooth hue-wave sweeping across the screen
+            static int disco_hue = 0;
+            disco_hue = (disco_hue + 3) % 360;
+
+            for (int y = 0; y < 80; y++) {
+                for (int x = 0; x < 160; x++) {
+                    int h = (disco_hue + x + y * 2) % 360;
+                    // Simple HSV->RGB at full sat/val (6-sector)
+                    int sector = h / 60;
+                    int frac   = (h % 60) * 255 / 60;
+                    uint8_t r, g, b;
+                    switch (sector) {
+                        case 0: r=255; g=frac;    b=0;       break;
+                        case 1: r=255-frac; g=255; b=0;      break;
+                        case 2: r=0;   g=255;    b=frac;     break;
+                        case 3: r=0;   g=255-frac; b=255;    break;
+                        case 4: r=frac; g=0;    b=255;       break;
+                        default:r=255; g=0;    b=255-frac;   break;
+                    }
+                    // Pulse brightness with frame_count
+                    int bright = 180 + (int)(fast_rand() % 76);
+                    r = (uint8_t)((r * bright) >> 8);
+                    g = (uint8_t)((g * bright) >> 8);
+                    b = (uint8_t)((b * bright) >> 8);
+                    buffer[y * 160 + x] = rgb565(r, g, b);
+                }
+                if ((y & 0xF) == 0xF) vTaskDelay(1);
+            }
+
+            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; } }
+
         } else {
+            // ════ MODE 0: EYES (default) ════
             for (int y = 0; y < 80; y++) {
                 int dy = y - eye_cy;
                 int dy_sq_rx = dy * dy * rx_sq;  // pre-compute for this row
@@ -561,26 +732,8 @@ void dog_audio_play_async(uint8_t *data, size_t size) {
     }
 }
 
-void dog_audio_play_tone(void) {
-    if (!audio_rb) return;
-    ESP_LOGI(TAG, "Playing bark clip...");
-    size_t samples = sizeof(clip_bark) / sizeof(clip_bark[0]);
-    uint8_t *tone_buf = malloc(2048);
-    if (!tone_buf) return;
-    
-    for (size_t i = 0; i < samples; i++) {
-        int16_t val = clip_bark[i];
-        int buf_idx = (i % 1024) * 2;
-        tone_buf[buf_idx] = val & 0xFF;           // Low byte
-        tone_buf[buf_idx + 1] = (val >> 8) & 0xFF; // High byte
-        
-        if (buf_idx == 2046 || i == samples - 1) {
-            dog_audio_play_chunk(tone_buf, buf_idx + 2);
-        }
-    }
-    free(tone_buf);
-    ESP_LOGI(TAG, "Bark clip finished");
-}
+// dog_audio_play_tone() removed — was dead code using clip_bark from audio_clips.h
+// Barking now uses dog_audio_play_bark() (dogbark_audio_8bit.h) everywhere
 
 void dog_audio_play_8bit(const uint8_t *data, size_t len) {
     if (!audio_rb || !data || len == 0) return;

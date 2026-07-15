@@ -140,6 +140,11 @@ void execute_named_action(const char *action) {
     else if (strcmp(action, "jumpbck") == 0 || strcmp(action, "jump_bwd") == 0) dog_action_send("jump_bwd");
     // tts:<text> — push text to SSE clients for browser-side synthesis
     else if (strncmp(action, "tts:", 4) == 0) sse_broadcast_tts(action + 4);
+    // Display animation aliases
+    else if (strcmp(action, "anim_eyes")      == 0) dog_set_display_mode(0);
+    else if (strcmp(action, "anim_fireworks") == 0) dog_set_display_mode(1);
+    else if (strcmp(action, "anim_matrix")    == 0) dog_set_display_mode(2);
+    else if (strcmp(action, "anim_disco")     == 0) dog_set_display_mode(3);
     else ESP_LOGW("ACTION", "Unknown action: %s", action);
 }
 
@@ -188,6 +193,10 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     size_t len = index_html_end - index_html_start;
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, (const char *)index_html_start, len);
+#ifdef DISP_MOSI_GPIO
+    // Welcome animation: fireworks for 4 seconds when someone loads the page
+    dog_set_display_mode_timed(1, 4000);
+#endif
     return ESP_OK;
 }
 
@@ -394,18 +403,47 @@ static esp_err_t eye_mood_handler(httpd_req_t *req) {
 
 static esp_err_t oled_text_handler(httpd_req_t *req) {
     char buf[200];
-    char msg[32] = {0};
+    char raw[64] = {0};
     if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
-        httpd_query_key_value(buf, "msg", msg, sizeof(msg));
+        httpd_query_key_value(buf, "msg", raw, sizeof(raw));
     }
-    for (char *p = msg; *p; p++) if (*p == '+') *p = ' '; // simple URL decode
+    // Full URL decode: '+' → space, '%XX' → byte
+    char msg[64] = {0};
+    int d = 0;
+    for (int i = 0; raw[i] && d < 63; i++) {
+        if (raw[i] == '+') {
+            msg[d++] = ' ';
+        } else if (raw[i] == '%' && raw[i+1] && raw[i+2]) {
+            char hex[3] = { raw[i+1], raw[i+2], 0 };
+            msg[d++] = (char)strtol(hex, NULL, 16);
+            i += 2;
+        } else {
+            msg[d++] = raw[i];
+        }
+    }
     if (msg[0]) {
-        dog_set_oled_text(msg, 3000); // show for 3 seconds
+        dog_set_oled_text(msg, 4000); // show for 4 seconds
     }
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
+
+#ifdef DISP_MOSI_GPIO
+static esp_err_t anim_handler(httpd_req_t *req) {
+    char buf[64];
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        char p[8];
+        if (httpd_query_key_value(buf, "mode", p, sizeof(p)) == ESP_OK) {
+            int mode = atoi(p);
+            dog_set_display_mode(mode);
+        }
+    }
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+#endif
 
 static esp_err_t sync_time_handler(httpd_req_t *req) {
     char buf[100];
@@ -888,6 +926,9 @@ void webserver_start(void) {
         // OLED APIs
         { "/eye_mood",  HTTP_GET,  eye_mood_handler,       NULL },
         { "/oled_text", HTTP_GET,  oled_text_handler,      NULL },
+#ifdef DISP_MOSI_GPIO
+        { "/anim",      HTTP_GET,  anim_handler,           NULL },
+#endif
         // Servo direct-angle shortcuts: /s1_90  /s2_0  etc.
         { "/s1_*",      HTTP_GET,  servo_angle_uri_handler,NULL },
         { "/s2_*",      HTTP_GET,  servo_angle_uri_handler,NULL },

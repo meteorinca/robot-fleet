@@ -7,7 +7,6 @@
 void dog_peripherals_init(void);
 void dog_audio_play_chunk(const uint8_t *data, size_t size);
 void dog_audio_play_async(uint8_t *data, size_t size); // takes ownership of malloc'd data
-void dog_audio_play_tone(void);
 void dog_audio_play_paulbot(void);
 void dog_audio_play_bark(void);
 void dog_audio_play_random(void);
@@ -17,5 +16,9 @@ void dog_audio_play_named(const char *name);
 void dog_set_eye_mood(int mood);
 void dog_set_oled_text(const char* msg, int duration_ms);
 void dog_dismiss_oled(void);
+
+// Display animation modes: 0=eyes, 1=fireworks, 2=matrix, 3=disco
+void dog_set_display_mode(int mode);                          // permanent
+void dog_set_display_mode_timed(int mode, int duration_ms);  // auto-returns to eyes
 
 #endif

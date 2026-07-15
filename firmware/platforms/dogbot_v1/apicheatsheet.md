@@ -21,7 +21,21 @@ This document lists the available HTTP GET endpoints to control your PaulBot via
   - `2`: Neutral
   - `3`: Sad
 - **Display Text**: `GET /oled_text?msg=Hello+World`
-  - *Displays the green 5x7 retro text on the OLED screen for 3 seconds, then automatically reverts to the animated eyes.*
+  - *Displays white 5x7 retro text on the OLED screen for 4 seconds, then automatically reverts to the animated eyes.*
+
+## 🎆 Display Animations API
+- **Direct mode endpoint**: `GET /anim?mode=X`
+  - `0`: 👁 Eyes (default — animated eyes with pupils)
+  - `1`: 🎆 Fireworks (colorful particle bursts)
+  - `2`: 🟢 Matrix Rain (falling green characters)
+  - `3`: 🪩 Disco (full-screen rainbow color wave)
+- **Named action aliases** (work with `/schedule` and `/paulbot`):
+  - `GET /anim_eyes` — switch to eyes mode
+  - `GET /anim_fireworks` — switch to fireworks
+  - `GET /anim_matrix` — switch to matrix rain
+  - `GET /anim_disco` — switch to disco
+
+> **Note**: Fireworks also auto-play for 4 seconds whenever someone loads the WebUI (a welcome animation). All other modes are permanent until changed.
 
 ## 🐾 Movement & Servos
 - **Move exact servo angle**: 

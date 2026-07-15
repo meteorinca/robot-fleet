@@ -416,6 +416,22 @@
           onclick="sendTTS()">Speak</button>
         <div class="err-msg" id="tts-err"></div>
       </div>
+      <div class="card" id="oled-card">
+        <h2>OLED Display</h2>
+        <input type="text" id="oled-text" placeholder="Text to show on OLED..." />
+        <button class="btn-primary" onclick="sendOLED()">Send to Screen</button>
+        <div class="err-msg" id="oled-err"></div>
+      </div>
+      <div class="card" id="anim-card">
+        <h2>Display Animations</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-primary" onclick="setAnim(0)" id="anim-btn-0">👁 Eyes</button>
+          <button class="btn-primary" onclick="setAnim(1)" id="anim-btn-1">🎆 Fireworks</button>
+          <button class="btn-primary" onclick="setAnim(2)" id="anim-btn-2">🟢 Matrix</button>
+          <button class="btn-primary" onclick="setAnim(3)" id="anim-btn-3">🪩 Disco</button>
+        </div>
+        <div class="err-msg" id="anim-err"></div>
+      </div>
       <div class="card">
         <h2>OTA Firmware Update</h2>
         <input type="file" id="ota-file" accept=".bin" style="color: #a0a0d0; margin-bottom: 10px; width: 100%" />
@@ -663,7 +679,7 @@
       if (!t) return;
       var err = document.getElementById("tts-err");
       err.textContent = "Sending to bot...";
-      
+
       var targetUrl = "https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=" + encodeURIComponent(t);
       var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl);
 
@@ -734,6 +750,27 @@
         .catch(function (e) {
           err.textContent = "Bot audio err (need internet): " + e;
         });
+    }
+    function sendOLED() {
+      var t = document.getElementById("oled-text").value.trim();
+      if (!t) return;
+      var err = document.getElementById("oled-err");
+      err.textContent = "Sending...";
+      fetch("/oled_text?msg=" + encodeURIComponent(t))
+        .then(function () { err.textContent = ""; document.getElementById("oled-text").value = ""; })
+        .catch(function (e) { err.textContent = "Error: " + e; });
+    }
+    var _animNames = ["👁 Eyes", "🎆 Fireworks", "🟢 Matrix", "🪩 Disco"];
+    function setAnim(mode) {
+      fetch("/anim?mode=" + mode)
+        .then(function () {
+          document.getElementById("anim-err").textContent = "Active: " + _animNames[mode];
+          for (var i = 0; i < 4; i++) {
+            var b = document.getElementById("anim-btn-" + i);
+            if (b) b.style.opacity = (i === mode) ? "1" : "0.5";
+          }
+        })
+        .catch(function (e) { document.getElementById("anim-err").textContent = "Error: " + e; });
     }
       /* SSE auto-update — reconnects on drop */ function initSSE() {
       var es = new EventSource("/events");
