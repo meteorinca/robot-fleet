@@ -2,7 +2,7 @@
 
 This document lists the available HTTP GET endpoints to control your PaulBot via its local web server. You can trigger these directly from your browser, via `curl`, or using Python scripts.
 
-**Base URL**: `http://paulbot3.local:81` (Replace `paulbot3` with your specific bot's hostname or IP address).
+**Base URL**: `http://paulbot3.local` (Replace `paulbot3` with your specific bot's hostname or IP address).
 
 ## 🗣️ Voice & Audio API
 - **Say a phrase**: `GET /tts?say=My%20name%20is%20Paulbot`
@@ -17,9 +17,9 @@ This document lists the available HTTP GET endpoints to control your PaulBot via
 ## 👁️ OLED Display API
 - **Change Eye Mood**: `GET /eye_mood?val=X`
   - `0`: Happy (Full Eyeball - Default)
-  - `1`: Angry
+  - `1`: Sad
   - `2`: Neutral
-  - `3`: Sad
+  - `3`: Angry
 - **Display Text**: `GET /oled_text?msg=Hello+World`
   - *Displays white 5x7 retro text on the OLED screen for 4 seconds, then automatically reverts to the animated eyes.*
 
@@ -28,12 +28,12 @@ This document lists the available HTTP GET endpoints to control your PaulBot via
   - `0`: 👁 Eyes (default — animated eyes with pupils)
   - `1`: 🎆 Fireworks (colorful particle bursts)
   - `2`: 🟢 Matrix Rain (falling green characters)
-  - `3`: 🪩 Disco (full-screen rainbow color wave)
+  - `3`: ❤️ Heartbeat (artsy continuous line pulse)
 - **Named action aliases** (work with `/schedule` and `/paulbot`):
   - `GET /anim_eyes` — switch to eyes mode
   - `GET /anim_fireworks` — switch to fireworks
   - `GET /anim_matrix` — switch to matrix rain
-  - `GET /anim_disco` — switch to disco
+  - `GET /anim_heartbeat` — switch to heartbeat
 
 > **Note**: Fireworks also auto-play for 4 seconds whenever someone loads the WebUI (a welcome animation). All other modes are permanent until changed.
 

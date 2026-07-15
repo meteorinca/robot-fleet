@@ -142,9 +142,9 @@ void execute_named_action(const char *action) {
     else if (strncmp(action, "tts:", 4) == 0) sse_broadcast_tts(action + 4);
     // Display animation aliases
     else if (strcmp(action, "anim_eyes")      == 0) dog_set_display_mode(0);
-    else if (strcmp(action, "anim_fireworks") == 0) dog_set_display_mode(1);
-    else if (strcmp(action, "anim_matrix")    == 0) dog_set_display_mode(2);
-    else if (strcmp(action, "anim_disco")     == 0) dog_set_display_mode(3);
+    else if (strcmp(action, "anim_fireworks") == 0) dog_set_display_mode_timed(1, 10000);
+    else if (strcmp(action, "anim_matrix")    == 0) dog_set_display_mode_timed(2, 10000);
+    else if (strcmp(action, "anim_heartbeat") == 0) dog_set_display_mode_timed(3, 10000);
     else ESP_LOGW("ACTION", "Unknown action: %s", action);
 }
 
@@ -193,10 +193,6 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     size_t len = index_html_end - index_html_start;
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, (const char *)index_html_start, len);
-#ifdef DISP_MOSI_GPIO
-    // Welcome animation: fireworks for 4 seconds when someone loads the page
-    dog_set_display_mode_timed(1, 4000);
-#endif
     return ESP_OK;
 }
 
@@ -436,7 +432,11 @@ static esp_err_t anim_handler(httpd_req_t *req) {
         char p[8];
         if (httpd_query_key_value(buf, "mode", p, sizeof(p)) == ESP_OK) {
             int mode = atoi(p);
-            dog_set_display_mode(mode);
+            if (mode == 0) {
+                dog_set_display_mode(0);
+            } else {
+                dog_set_display_mode_timed(mode, 10000);
+            }
         }
     }
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -923,6 +923,7 @@ void webserver_start(void) {
         // SSE push channel
         { "/events",    HTTP_GET,  sse_handler,            NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },
+        { "/tts",       HTTP_GET,  tts_api_handler,        NULL },
         // OLED APIs
         { "/eye_mood",  HTTP_GET,  eye_mood_handler,       NULL },
         { "/oled_text", HTTP_GET,  oled_text_handler,      NULL },

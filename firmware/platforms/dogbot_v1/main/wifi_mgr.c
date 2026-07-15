@@ -435,7 +435,7 @@ static void on_wifi_event(void *arg, esp_event_base_t base,
         dog_audio_play_paulbot();
         char combined[64];
         snprintf(combined, sizeof(combined), "Go to:\n192.168.4.1");
-        dog_set_oled_text(combined, 15000);
+        dog_set_oled_text(combined, 10000); // This sets OLED for 10 seconds
 #endif
     } else if (id == WIFI_EVENT_AP_STADISCONNECTED) {
         wifi_event_ap_stadisconnected_t *ev = event_data;

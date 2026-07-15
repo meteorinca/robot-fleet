@@ -5,6 +5,7 @@
 #include "dogbark_audio_8bit.h"
 #include "extra_sounds.h"
 #include "font5x7.h"
+#include <math.h>
 
 #ifdef DISP_MOSI_GPIO
 
@@ -35,9 +36,22 @@ static QueueHandle_t button_evt_queue = NULL;
 static char oled_text_msg[64] = {0};
 static volatile int oled_text_timer = 0;
 
-// Display animation mode: 0=eyes(default), 1=fireworks, 2=matrix, 3=disco
+// Display animation mode: 0=eyes(default), 1=fireworks, 2=matrix, 3=heartbeat
 static volatile int dog_display_mode = 0;
 static volatile int dog_anim_timer   = 0; // >0: auto-expire after N frames; -1: permanent
+
+static void dog_draw_line(uint16_t* buf, int x0, int y0, int x1, int y1, uint16_t color) {
+    int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1), sx = x0 < x1 ? 1 : -1;
+    int dy = -((y1 > y0) ? (y1 - y0) : (y0 - y1)), sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, e2;
+    for (;;) {
+        if (x0 >= 0 && x0 < 160 && y0 >= 0 && y0 < 80) buf[y0 * 160 + x0] = color;
+        if (x0 == x1 && y0 == y1) break;
+        e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
 
 void dog_set_display_mode(int mode) {
     dog_display_mode = (mode >= 0 && mode <= 3) ? mode : 0;
@@ -288,160 +302,195 @@ static void dog_eyes_task(void *arg) {
             draw_text_autoscale(buffer, oled_text_msg);
             vTaskDelay(1);
         } else if (dog_display_mode == 1) {
-            // ════ FIREWORKS ════
-            // Persistent particle state (static so we keep particles across frames)
-            #define FW_MAX 24
-            typedef struct { int16_t x, y, vx, vy; uint8_t r, g, b, life; } FWParticle;
-            static FWParticle fw[FW_MAX];
-            static bool fw_init = false;
-            if (!fw_init) { for (int i = 0; i < FW_MAX; i++) fw[i].life = 0; fw_init = true; }
+            // ════ FIREWORKS (FAST & MULTIPLE) ════
+            #define MAX_FW 4
+            static int fw_phase[MAX_FW] = {0};
+            static float fw_x[MAX_FW], fw_y[MAX_FW], fw_dy[MAX_FW];
+            static float spark_x[MAX_FW][24], spark_y[MAX_FW][24], spark_dx[MAX_FW][24], spark_dy[MAX_FW][24];
+            static uint16_t fw_color[MAX_FW] = {0};
+            
+            // Fade background
+            for (int i = 0; i < 160 * 80; i++) {
+                uint16_t p = buffer[i];
+                uint8_t r = ((p >> 11) & 0x1F), g = ((p >> 5)  & 0x3F), b = (p & 0x1F);
+                if (r > 0) r--;
+                if (g > 1) g -= 2;
+                if (b > 0) b--;
+                buffer[i] = (uint16_t)((r << 11) | (g << 5) | b);
+            }
 
-            // Spawn new burst every ~20 frames
-            if (frame_count % 20 == 0) {
-                int bx = 10 + (int)(fast_rand() % 140);
-                int by = 5  + (int)(fast_rand() % 50);
-                uint8_t hr = 80  + (fast_rand() % 176);
-                uint8_t hg = 80  + (fast_rand() % 176);
-                uint8_t hb = 80  + (fast_rand() % 176);
-                for (int i = 0; i < FW_MAX; i++) {
-                    if (fw[i].life == 0) {
-                        int32_t angle = fast_rand() % 628; // 0..2π * 100
-                        int speed = 1 + (int)(fast_rand() % 3);
-                        // tiny trig via lookup avoidance: use modular offsets
-                        int16_t vx16 = (int16_t)(((angle < 157 || angle >= 471) ? 1 : -1) * speed);
-                        int16_t vy16 = (int16_t)(((angle < 314) ? -1 : 1) * speed);
-                        fw[i] = (FWParticle){bx*4, by*4, vx16*4 + (int16_t)(fast_rand()%8)-4,
-                                             vy16*4 + (int16_t)(fast_rand()%8)-4,
-                                             hr, hg, hb, 30 + (uint8_t)(fast_rand()%20)};
+            if (frame_count % 12 == 0) { // launch often
+                for (int f = 0; f < MAX_FW; f++) {
+                    if (fw_phase[f] == 0) {
+                        fw_x[f] = 20 + (fast_rand() % 120); fw_y[f] = 80;
+                        fw_dy[f] = -(3.0f + (fast_rand() % 15) * 0.1f);
+                        fw_color[f] = rgb565(150 + fast_rand() % 105, 150 + fast_rand() % 105, 150 + fast_rand() % 105);
+                        fw_phase[f] = 1;
                         break;
                     }
                 }
             }
 
-            // Fade background
-            for (int i = 0; i < 160 * 80; i++) {
-                uint16_t p = buffer[i];
-                // fade each channel by ~1/8
-                uint8_t r = ((p >> 11) & 0x1F);
-                uint8_t g = ((p >> 5)  & 0x3F);
-                uint8_t b = (p         & 0x1F);
-                r = r > 1 ? r - 1 : 0;
-                g = g > 2 ? g - 2 : 0;
-                b = b > 1 ? b - 1 : 0;
-                buffer[i] = (uint16_t)((r << 11) | (g << 5) | b);
-            }
-
-            // Update & draw particles
-            for (int i = 0; i < FW_MAX; i++) {
-                if (fw[i].life == 0) continue;
-                fw[i].x += fw[i].vx;
-                fw[i].y += fw[i].vy;
-                fw[i].vy += 2; // gravity in fixed-point (*4)
-                fw[i].life--;
-                int px = fw[i].x / 4;
-                int py = fw[i].y / 4;
-                if (px >= 0 && px < 160 && py >= 0 && py < 80) {
-                    uint8_t fade = fw[i].life * 8;
-                    uint8_t r = (fw[i].r * fade) >> 8;
-                    uint8_t g = (fw[i].g * fade) >> 8;
-                    uint8_t b = (fw[i].b * fade) >> 8;
-                    buffer[py * 160 + px] = rgb565(r, g, b);
-                    // draw 2x2 dot for visibility
-                    if (px+1 < 160) buffer[py * 160 + px + 1] = rgb565(r, g, b);
-                    if (py+1 < 80)  buffer[(py+1) * 160 + px] = rgb565(r, g, b);
+            for (int f = 0; f < MAX_FW; f++) {
+                if (fw_phase[f] == 1) {
+                    fw_y[f] += fw_dy[f]; fw_dy[f] += 0.12f;
+                    int px = (int)fw_x[f], py = (int)fw_y[f];
+                    if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                        buffer[py * 160 + px] = fw_color[f];
+                        buffer[py * 160 + px + 1] = fw_color[f];
+                        if (py+1 < 80) buffer[(py+1) * 160 + px] = fw_color[f];
+                    }
+                    if (fw_dy[f] >= -0.2f) { // Apex
+                        fw_phase[f] = 2;
+                        for (int i = 0; i < 24; i++) {
+                            spark_x[f][i] = fw_x[f]; spark_y[f][i] = fw_y[f];
+                            float angle = i * 6.283f / 24.0f;
+                            float speed = 1.5f + (fast_rand() % 20) * 0.1f;
+                            spark_dx[f][i] = cosf(angle) * speed;
+                            spark_dy[f][i] = sinf(angle) * speed;
+                        }
+                    }
+                } else if (fw_phase[f] == 2) {
+                    bool active = false;
+                    for (int i = 0; i < 24; i++) {
+                        spark_x[f][i] += spark_dx[f][i]; spark_y[f][i] += spark_dy[f][i];
+                        spark_dy[f][i] += 0.05f;
+                        spark_dx[f][i] *= 0.92f; spark_dy[f][i] *= 0.92f;
+                        int sx = (int)spark_x[f][i], sy = (int)spark_y[f][i];
+                        if (sy < 80 && spark_dx[f][i]*spark_dx[f][i] + spark_dy[f][i]*spark_dy[f][i] > 0.02f) active = true;
+                        if (sx >= 0 && sx < 160 && sy >= 0 && sy < 80) {
+                            buffer[sy * 160 + sx] = fw_color[f];
+                            buffer[sy * 160 + sx + 1] = fw_color[f]; // 2x1 thick
+                        }
+                    }
+                    if (!active) fw_phase[f] = 0;
                 }
             }
-
-            // Tick timed mode
-            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; fw_init = false; } }
+            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; for(int f=0;f<MAX_FW;f++) fw_phase[f]=0; } }
             vTaskDelay(1);
 
         } else if (dog_display_mode == 2) {
             // ════ MATRIX RAIN ════
             #define MX_COLS 26  // 160/6 columns
-            static uint8_t  mx_head[MX_COLS];  // current head row (0..79)
-            static uint8_t  mx_speed[MX_COLS]; // frames per step
-            static uint8_t  mx_timer[MX_COLS]; // countdown
-            static uint8_t  mx_chars[MX_COLS]; // random char index
+            static uint8_t  mx_head[MX_COLS], mx_speed[MX_COLS], mx_timer[MX_COLS], mx_chars[MX_COLS];
             static bool     mx_init = false;
+            static int      mx_hue = 120; // start green
+            
             if (!mx_init) {
                 for (int c = 0; c < MX_COLS; c++) {
                     mx_head[c]  = (uint8_t)(fast_rand() % 80);
-                    mx_speed[c] = 1 + (uint8_t)(fast_rand() % 4);
+                    mx_speed[c] = 2 + (uint8_t)(fast_rand() % 3); // slower
                     mx_timer[c] = mx_speed[c];
                     mx_chars[c] = (uint8_t)(fast_rand() % 95);
                 }
                 mx_init = true;
             }
+            if (frame_count % 5 == 0) mx_hue = (mx_hue + 1) % 360; // slow color shift
 
-            // Fade background to black (green fade)
+            // HSV -> RGB logic
+            int sector = mx_hue / 60, frac = (mx_hue % 60) * 255 / 60;
+            uint8_t hr, hg, hb;
+            switch (sector) {
+                case 0: hr=255; hg=frac;    hb=0;       break;
+                case 1: hr=255-frac; hg=255; hb=0;      break;
+                case 2: hr=0;   hg=255;    hb=frac;     break;
+                case 3: hr=0;   hg=255-frac; hb=255;    break;
+                case 4: hr=frac; hg=0;    hb=255;       break;
+                default:hr=255; hg=0;    hb=255-frac;   break;
+            }
+            uint16_t head_color = rgb565(hr, hg, hb);
+            uint16_t dim_color = rgb565(hr/4, hg/4, hb/4);
+
+            // Fade background
             for (int i = 0; i < 160 * 80; i++) {
                 uint16_t p = buffer[i];
-                uint8_t g = ((p >> 5) & 0x3F);
-                g = g > 3 ? g - 3 : 0;
-                buffer[i] = (uint16_t)(g << 5);
+                uint8_t r = ((p >> 11) & 0x1F), g = ((p >> 5)  & 0x3F), b = (p & 0x1F);
+                if (r > 0) r--;
+                if (g > 1) g -= 2;
+                if (b > 0) b--;
+                buffer[i] = (uint16_t)((r << 11) | (g << 5) | b);
             }
 
-            // Draw rain heads and update
             for (int c = 0; c < MX_COLS; c++) {
-                int cx = c * 6;
-                int row = mx_head[c];
+                int cx = c * 6, row = mx_head[c];
                 mx_chars[c] = (uint8_t)((mx_chars[c] + 1) % 95);
                 char ch = 32 + mx_chars[c];
                 if (ch < 32 || ch > 126) ch = 65;
                 const uint8_t *glyph = &font5x7[(ch - 32) * 8];
-                // Draw head char in bright white-green
                 for (int gx = 0; gx < 5; gx++) {
                     uint8_t col = glyph[gx];
                     for (int gy = 0; gy < 7; gy++) {
-                        int px = cx + gx;
-                        int py = row + gy;
+                        int px = cx + gx, py = row + gy;
                         if (px < 160 && py < 80)
-                            buffer[py * 160 + px] = col & (1 << gy) ? rgb565(180, 255, 180) : rgb565(0, 60, 0);
+                            buffer[py * 160 + px] = col & (1 << gy) ? head_color : dim_color;
                     }
                 }
-                // Advance
                 if (--mx_timer[c] == 0) {
                     mx_timer[c] = mx_speed[c];
                     mx_head[c] = (uint8_t)((row + 8) % 80);
                 }
             }
-
             if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; mx_init = false; } }
             vTaskDelay(1);
 
         } else if (dog_display_mode == 3) {
-            // ════ DISCO COLOR PULSE ════
-            // Smooth hue-wave sweeping across the screen
-            static int disco_hue = 0;
-            disco_hue = (disco_hue + 3) % 360;
-
-            for (int y = 0; y < 80; y++) {
-                for (int x = 0; x < 160; x++) {
-                    int h = (disco_hue + x + y * 2) % 360;
-                    // Simple HSV->RGB at full sat/val (6-sector)
-                    int sector = h / 60;
-                    int frac   = (h % 60) * 255 / 60;
-                    uint8_t r, g, b;
-                    switch (sector) {
-                        case 0: r=255; g=frac;    b=0;       break;
-                        case 1: r=255-frac; g=255; b=0;      break;
-                        case 2: r=0;   g=255;    b=frac;     break;
-                        case 3: r=0;   g=255-frac; b=255;    break;
-                        case 4: r=frac; g=0;    b=255;       break;
-                        default:r=255; g=0;    b=255-frac;   break;
-                    }
-                    // Pulse brightness with frame_count
-                    int bright = 180 + (int)(fast_rand() % 76);
-                    r = (uint8_t)((r * bright) >> 8);
-                    g = (uint8_t)((g * bright) >> 8);
-                    b = (uint8_t)((b * bright) >> 8);
-                    buffer[y * 160 + x] = rgb565(r, g, b);
-                }
-                if ((y & 0xF) == 0xF) vTaskDelay(1);
+            // ════ HEARTBEAT PULSE ════
+            typedef struct { float x, y; } vec2_t;
+            static int beat_frame = 0;
+            static float heart_scale = 1.0f, scale_vel = 0.0f;
+            
+            // Fade background (reddish fade)
+            for (int i = 0; i < 160 * 80; i++) {
+                uint16_t p = buffer[i];
+                uint8_t r = ((p >> 11) & 0x1F), g = ((p >> 5)  & 0x3F), b = (p & 0x1F);
+                if (r > 1) r -= 2;
+                if (g > 0) g--;
+                if (b > 0) b--;
+                buffer[i] = (uint16_t)((r << 11) | (g << 5) | b);
             }
 
+            beat_frame++;
+            if (beat_frame >= 25) beat_frame = 0;
+            float scale_target = 1.0f;
+            if (beat_frame < 3) scale_target = 1.35f;
+            else if (beat_frame < 6) scale_target = 1.0f;
+            else if (beat_frame < 9) scale_target = 1.18f;
+
+            scale_vel = scale_vel * 0.3f + (scale_target - heart_scale) * 0.55f;
+            heart_scale += scale_vel;
+            if (heart_scale < 0.85f) heart_scale = 0.85f;
+            if (heart_scale > 1.42f) heart_scale = 1.42f;
+
+            vec2_t b1[4] = {{-64, 5}, {-32, -10}, {-16, 16}, {0, 10}};
+            vec2_t b2[4] = {{0, 10},  {16, 4},    {30, -20}, {0, -5}};
+            vec2_t b3[4] = {{0, -5},  {-30, -20}, {-16, 4},  {0, 10}};
+            vec2_t b4[4] = {{0, 10},  {16, 16},   {32, -10}, {64, 5}};
+
+            int prev_x = -1, prev_y = -1;
+            uint16_t hb_color = rgb565(255, 30, 50);
+            for (int seg = 0; seg < 4; seg++) {
+                vec2_t *b = (seg == 0) ? b1 : (seg == 1) ? b2 : (seg == 2) ? b3 : b4;
+                for (int i = 0; i <= 32; i++) {
+                    float t = (float)i / 32.0f, u = 1.0f - t;
+                    float tt = t * t, uu = u * u;
+                    float bx = u*uu * b[0].x + 3 * uu * t * b[1].x + 3 * u * tt * b[2].x + t*tt * b[3].x;
+                    float by = u*uu * b[0].y + 3 * uu * t * b[1].y + 3 * u * tt * b[2].y + t*tt * b[3].y;
+                    
+                    float blend = 1.0f;
+                    if (seg == 0) blend = t;
+                    else if (seg == 3) blend = 1.0f - t;
+                    
+                    float float_y = sinf(frame_count * 0.05f + bx * 0.02f) * 2.0f;
+                    float scale = 1.0f + (heart_scale - 1.0f) * blend;
+                    int px = 80 + (int)(bx * scale); // centered at 80
+                    int py = 40 + (int)(by * scale + float_y); // centered at 40
+
+                    if (prev_x != -1) dog_draw_line(buffer, prev_x, prev_y, px, py, hb_color);
+                    prev_x = px; prev_y = py;
+                }
+            }
             if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; } }
+            vTaskDelay(1);
 
         } else {
             // ════ MODE 0: EYES (default) ════
@@ -500,21 +549,21 @@ static void dog_eyes_task(void *arg) {
 
                         uint8_t r, g, b;
                         if (frac > 200) {
-                            r = 10; g = 50; b = 60;
+                            r = 100; g = 200; b = 255;
                         } else if (frac > 120) {
-                            r = 20; g = 120; b = 110;
+                            r = 80; g = 180; b = 240;
                         } else if (frac > 50) {
-                            r = 40; g = 180; b = 160;
+                            r = 60; g = 150; b = 220;
                         } else {
-                            r = 80; g = 220; b = 200;
+                            r = 40; g = 120; b = 200;
                         }
 
                         uint32_t rr = fast_rand();
                         if ((rr & 0xF) == 0) {
-                            r = 200; g = 160; b = 40;
+                            r = 255; g = 200; b = 100; // gold sparkle
                         }
                         if ((rr & 0x1F) == 1) {
-                            r = 5; g = 40; b = 35;
+                            r = 100; g = 255; b = 200; // cyan sparkle
                         }
 
                         // Apply subtle color wander (hue scaling avoids gradient pixelation)

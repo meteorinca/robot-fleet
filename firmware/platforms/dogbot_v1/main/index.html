@@ -428,7 +428,7 @@
           <button class="btn-primary" onclick="setAnim(0)" id="anim-btn-0">👁 Eyes</button>
           <button class="btn-primary" onclick="setAnim(1)" id="anim-btn-1">🎆 Fireworks</button>
           <button class="btn-primary" onclick="setAnim(2)" id="anim-btn-2">🟢 Matrix</button>
-          <button class="btn-primary" onclick="setAnim(3)" id="anim-btn-3">🪩 Disco</button>
+          <button class="btn-primary" onclick="setAnim(3)" id="anim-btn-3">❤️ Heartbeat</button>
         </div>
         <div class="err-msg" id="anim-err"></div>
       </div>
@@ -760,7 +760,7 @@
         .then(function () { err.textContent = ""; document.getElementById("oled-text").value = ""; })
         .catch(function (e) { err.textContent = "Error: " + e; });
     }
-    var _animNames = ["👁 Eyes", "🎆 Fireworks", "🟢 Matrix", "🪩 Disco"];
+    var _animNames = ["👁 Eyes", "🎆 Fireworks", "🟢 Matrix", "❤️ Heartbeat"];
     function setAnim(mode) {
       fetch("/anim?mode=" + mode)
         .then(function () {
