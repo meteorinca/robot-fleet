@@ -340,3 +340,57 @@ footer {
         align-items: flex-start;
     }
 }
+
+/* Shipped Bots */
+.status-shipped {
+    background: rgba(139, 92, 246, 0.2);
+    color: #8b5cf6;
+}
+.status-shipped::before { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; }
+
+.shipped-card {
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+/* Detail Rows */
+.card-details {
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+.detail-row {
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+.detail-row i {
+    color: var(--accent-glow);
+    margin-top: 0.15rem;
+}
+
+/* Ping Stats */
+.ping-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-left: 3px solid transparent;
+}
+.ping-up {
+    border-left-color: var(--status-active);
+    color: var(--status-active);
+}
+.ping-down {
+    border-left-color: var(--status-offline);
+    color: var(--status-offline);
+}
+.ping-unknown {
+    border-left-color: var(--text-muted);
+    color: var(--text-muted);
+}

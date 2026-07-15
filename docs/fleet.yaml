@@ -8,18 +8,26 @@ shipped_bots:
 
 active_fleet:
   - name: MyBot 5
+    hostname: mybot5.local
     platform: mybot
     version: v1.8
     status: Active
+    notes: "Main development unit in the lab. Usually powered on."
   - name: DogBot 2
+    hostname: dogbot2.local
     platform: dogbot_v1
     version: 1.0
     status: Active
+    notes: "Testing new leg kinematics. Requires external power supply for now."
   - name: Simple 1
+    hostname: simplebot1.local
     platform: simplebot
     version: 0.1
     status: Dev
+    notes: "Basic wheeled chassis for pathfinding."
   - name: RFBot 1
+    hostname: rfbot1.local
     platform: rfbot
     version: 0.1
     status: Offline
+    notes: "Radio module is currently detached for repair."

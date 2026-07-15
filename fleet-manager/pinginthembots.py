@@ -75,8 +75,8 @@ def main():
         
     print(f"Pinging bots with base names: {', '.join(base_names)}")
     
-    # Prepare CSV log file
-    log_filename = "ping_log.csv"
+    # Prepare CSV log file in docs folder
+    log_filename = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'docs', 'ping_log.csv')
     file_exists = os.path.isfile(log_filename)
     
     with open(log_filename, mode='a', newline='', encoding='utf-8') as csv_file:
