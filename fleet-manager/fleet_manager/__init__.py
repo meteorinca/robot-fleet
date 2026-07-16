@@ -20,8 +20,10 @@ from .discovery import Bot, Fleet, load_fleet_yaml, ping_bot, scan
 from .capabilities import probe_bot, probe_fleet
 from .orchestrator import (
     broadcast,
+    match_firmware_to_fleet,
     ota_update,
     ota_update_fleet,
+    scan_firmware_dir,
     send_command,
     sequence,
 )
@@ -43,6 +45,9 @@ __all__ = [
     "sequence",
     "ota_update",
     "ota_update_fleet",
+    # Firmware management
+    "scan_firmware_dir",
+    "match_firmware_to_fleet",
 ]
 
 __version__ = "2.0.0"

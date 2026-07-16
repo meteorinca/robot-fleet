@@ -293,3 +293,126 @@ def ota_update_fleet(
             results[hostname] = ok
 
     return results
+
+
+# ─── Firmware directory scanner ───────────────────────────────────────────────
+
+
+def scan_firmware_dir(
+    build_dir: str | Path,
+    pattern: str = "*.bin",
+) -> dict[str, Path]:
+    """
+    Scan a directory for firmware ``.bin`` files and map them by platform name.
+
+    The platform name is inferred from the filename by stripping common
+    suffixes (``_firmware``, ``_app``, ``_release``) and the extension.
+
+    Supported naming conventions::
+
+        dogbot_v1.bin            → "dogbot_v1"
+        dogbot_v1_firmware.bin   → "dogbot_v1"
+        firmware_dogbot_v1.bin   → "dogbot_v1"  (leading prefix stripped)
+        rfbot_app_v1.2.bin       → "rfbot_app_v1.2"
+
+    Args:
+        build_dir: Directory to search (non-recursive).
+        pattern:   Glob pattern for firmware files (default ``"*.bin"``).
+
+    Returns:
+        ``{platform_name: Path}`` — last-modified file wins on name collision.
+
+    Raises:
+        FileNotFoundError: If *build_dir* does not exist.
+
+    Example::
+
+        fw = scan_firmware_dir("firmware/build")
+        # → {"dogbot_v1": Path("firmware/build/dogbot_v1.bin"), ...}
+    """
+    build_dir = Path(build_dir)
+    if not build_dir.exists():
+        raise FileNotFoundError(f"Firmware directory not found: {build_dir}")
+
+    _STRIP_PREFIXES = ("firmware_", "build_", "app_", "release_")
+    _STRIP_SUFFIXES = ("_firmware", "_app", "_release", "_latest", "_ota")
+
+    fw_map: dict[str, Path] = {}
+
+    for path in sorted(build_dir.glob(pattern), key=lambda p: p.stat().st_mtime):
+        stem = path.stem  # filename without extension
+
+        # Strip known leading prefixes
+        for pfx in _STRIP_PREFIXES:
+            if stem.lower().startswith(pfx):
+                stem = stem[len(pfx):]
+                break
+
+        # Strip known trailing suffixes
+        for sfx in _STRIP_SUFFIXES:
+            if stem.lower().endswith(sfx):
+                stem = stem[: -len(sfx)]
+                break
+
+        fw_map[stem] = path  # later mtime wins
+
+    return fw_map
+
+
+def match_firmware_to_fleet(
+    fleet: Fleet,
+    fw_map: dict[str, Path],
+) -> dict[str, tuple["Bot", Path]]:
+    """
+    Pair each online bot with the best-matching firmware binary.
+
+    Matching strategy (in priority order):
+
+    1. **Exact** — ``bot.platform == fw_key`` (case-insensitive)
+    2. **Hostname prefix** — ``fw_key`` is a prefix of ``bot.hostname``
+    3. **Substring** — ``fw_key`` appears anywhere in ``bot.hostname``
+
+    Args:
+        fleet:  Fleet to match against (only online bots are considered).
+        fw_map: Output of :func:`scan_firmware_dir`.
+
+    Returns:
+        ``{hostname: (Bot, matching_firmware_Path)}`` for every matched bot.
+        Unmatched online bots are omitted.
+
+    Example::
+
+        fw   = scan_firmware_dir("firmware/build")
+        pairs = match_firmware_to_fleet(fleet, fw)
+        for hostname, (bot, fw_path) in pairs.items():
+            print(hostname, "←", fw_path.name)
+    """
+    matches: dict[str, tuple[Bot, Path]] = {}
+
+    for bot in fleet.online:
+        best: Path | None = None
+
+        for fw_key, fw_path in fw_map.items():
+            fk = fw_key.lower()
+            plat = (bot.platform or "").lower()
+            host = bot.hostname.lower()
+
+            # Priority 1 — exact platform match
+            if plat and plat == fk:
+                best = fw_path
+                break
+
+            # Priority 2 — fw_key is a prefix of hostname (without suffix)
+            host_stem = host.split(".")[0].rstrip("0123456789")
+            if host_stem and host_stem.startswith(fk):
+                best = fw_path
+                break
+
+            # Priority 3 — substring match on hostname
+            if fk in host:
+                best = fw_path
+
+        if best is not None:
+            matches[bot.hostname] = (bot, best)
+
+    return matches
