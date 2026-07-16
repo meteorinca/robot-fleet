@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "fleet-manager"
+version = "2.0.0"
+description = "Concurrent robot fleet management — discovery, HTTP probing, and orchestration."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+# Zero required dependencies — stdlib only.
+dependencies = []
+
+[project.optional-dependencies]
+# pip install fleet-manager[notebooks]
+notebooks = [
+    "jupyter>=1.0",
+    "ipykernel>=6.0",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "pyyaml>=6.0",
+]
+# pip install fleet-manager[rich]  — prettier terminal output
+rich = ["rich>=13"]
+
+[project.scripts]
+ping-bots = "pinginthembots:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fleet_manager*"]
