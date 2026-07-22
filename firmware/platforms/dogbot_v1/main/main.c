@@ -74,9 +74,9 @@ void app_main(void) {
     dog_peripherals_init();
     led_action_set(true); // LED on early!
     dog_audio_play_bark(); // Woof Woof early!
-    dog_set_oled_text("\'Ello\nHuman!", 9000);
+    dog_set_oled_text("\'Ello\nHuman!", 6000);
     vTaskDelay(pdMS_TO_TICKS(2000)); // Give user a chance to read the boot message
-    dog_set_oled_text(" Mr MoJ \nsends his \nREGARDS", 9000);
+    dog_set_oled_text(" Mr MoJ \nsends his \nREGARDS", 6000);
     vTaskDelay(pdMS_TO_TICKS(3000)); // Give user a chance to read the boot message
 #endif
 

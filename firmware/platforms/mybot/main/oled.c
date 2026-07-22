@@ -17,6 +17,7 @@
 #include "ultrasonic.h"
 #include <math.h>
 #include "config.h"
+#include "mario_frames.h"
 
 static const char *TAG = "OLED";
 
@@ -111,6 +112,16 @@ static void draw_sprite8(int start_x, int start_y, const uint8_t *sprite, int wi
         uint8_t row = sprite[y];
         for (int x = 0; x < width; x++) {
             if (row & (1 << (7 - x))) {
+                draw_pixel(start_x + x, start_y + y, 1);
+            }
+        }
+    }
+}
+
+static void draw_bitmap(int start_x, int start_y, const uint8_t *bitmap, int width, int height) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            if (bitmap[y * (width / 8) + x / 8] & (128 >> (x & 7))) {
                 draw_pixel(start_x + x, start_y + y, 1);
             }
         }
@@ -212,12 +223,88 @@ static bool project_3d(vec3_t v, int *px, int *py) {
     *py = (int)(OLED_HEIGHT/2 - (v.y * focal_len) / v.z);
     return true;
 }
+
+static void draw_text_autoscale(const char* text, uint32_t frame_tick) {
+    char temp[128];
+    strncpy(temp, text, sizeof(temp)-1);
+    temp[sizeof(temp)-1] = '\0';
+    
+    int num_lines = 1;
+    for(int i=0; temp[i]; i++) {
+        if(temp[i] == '\n') num_lines++;
+    }
+    
+    char *lines[4];
+    int line_idx = 0;
+    char *p = temp;
+    lines[line_idx++] = p;
+    for(int i=0; p[i] && line_idx < 4; i++) {
+        if(p[i] == '\n') {
+            p[i] = '\0';
+            lines[line_idx++] = &p[i+1];
+        }
+    }
+    
+    int line_scale[4] = {1, 1, 1, 1};
+    int total_h = 0;
+    
+    for(int l=0; l<num_lines; l++) {
+        int len = strlen(lines[l]);
+        if (len > 0) {
+            line_scale[l] = OLED_WIDTH / (6 * len - 1);
+            if (line_scale[l] > 8) line_scale[l] = 8;
+            if (line_scale[l] < 2) line_scale[l] = 2; // minimum scale 2 for readability
+        }
+        total_h += 8 * line_scale[l];
+    }
+    
+    while(total_h > OLED_HEIGHT) {
+        int max_scale = 0;
+        int max_l = -1;
+        for (int l = 0; l < num_lines; l++) {
+            if (line_scale[l] > max_scale && line_scale[l] > 1) {
+                max_scale = line_scale[l];
+                max_l = l;
+            }
+        }
+        if (max_l == -1) break;
+        line_scale[max_l]--;
+        total_h -= 8;
+    }
+    
+    int current_y = (OLED_HEIGHT - total_h) / 2;
+    
+    for(int l=0; l<num_lines; l++) {
+        int len = strlen(lines[l]);
+        if (len == 0) continue;
+        int scale = line_scale[l];
+        int total_w = len * 6 * scale - 1 * scale;
+        int start_x = (OLED_WIDTH - total_w) / 2;
+        
+        if (total_w > OLED_WIDTH) {
+            int extra_w = total_w - OLED_WIDTH + 8; // 8 pixels padding
+            int pause = 30; // 30 frames pause (~1.8 seconds)
+            int cycle = frame_tick % ((extra_w + pause) * 2);
+            int offset = 0;
+            if (cycle < pause) offset = 0;
+            else if (cycle < pause + extra_w) offset = cycle - pause;
+            else if (cycle < pause * 2 + extra_w) offset = extra_w;
+            else offset = extra_w - (cycle - (pause * 2 + extra_w));
+            
+            start_x = 4 - offset;
+        }
+        
+        draw_text(start_x, current_y, lines[l], scale);
+        current_y += 8 * scale;
+    }
+}
+
 // Used to override 3D showcase from web UI
 int g_override_anim_idx = -1;
 
 static void oled_eyes_task(void *arg) {
     int blink_timer = 0;
-    int next_blink = 50 + (esp_random() % 100);
+    int next_blink = 50 + (esp_random() % 140);
     bool blinking = false;
     int frame_count = 0;
 
@@ -229,14 +316,28 @@ static void oled_eyes_task(void *arg) {
     // ── Face auto-change timer ─────────────────────────────────────────────
     // Normal: 5000 frames × 60ms ≈ 5 min. Random-look: 167 frames ≈ 10s.
     static int face_change_timer = 0;
-    // Emotions to cycle (SAD removed from rotation — now just a dot anyway)
+    // Emotions to cycle (SAD added back)
     static const eye_emotion_t face_cycle[] = {
         EYE_EMOTION_NORMAL, EYE_EMOTION_MAD, EYE_EMOTION_SLEEPY, EYE_EMOTION_NORMAL,
-        EYE_EMOTION_SURPRISED, EYE_EMOTION_NORMAL
+        EYE_EMOTION_SURPRISED, EYE_EMOTION_SAD, EYE_EMOTION_NORMAL
     };
     static int face_cycle_idx = 0;
     // Emotion-change blink transition (flutters eyes for 3 frames)
     static int emotion_blink_frames = 0;
+
+    // ── Blink variety ─────────────────────────────────────────────────────
+    typedef enum {
+        BLINK_NORMAL,      // single fast blink
+        BLINK_SLOW,        // dreamy slow close
+        BLINK_HALF,        // eyelid only drops halfway
+        BLINK_TRIPLE,      // three quick blinks
+        BLINK_FLUTTER,     // rapid stutter (emotion transition)
+    } blink_type_t;
+    static blink_type_t current_blink_type = BLINK_NORMAL;
+    static int triple_blink_phase = 0;
+    // Slow-blink droop (0..base_ry, reduces max_ry gradually)
+    static int slow_blink_hold = 0;
+    static int slow_blink_ry   = 26; // current ry during slow blink
 
     // ── Mouth micro-animation state ────────────────────────────────────────
     typedef enum { MOUTH_IDLE, MOUTH_YAWN, MOUTH_LICK } mouth_anim_state_t;
@@ -252,6 +353,9 @@ static void oled_eyes_task(void *arg) {
     static bool  quirk_double_glance  = false; // mid-servo pause-reglance
     static int   quirk_fidget_timer   = 0; // eye micro-fidget without servo
     static int   quirk_fidget_dx      = 0, quirk_fidget_dy = 0;
+
+    // ── Micro-tremor (subtle emotion-driven pupil shake) ─────────────────
+    static float tremor_phase = 0.0f;
 
     const int eye_cx[2] = { 32, 96 };
     const int eye_cy = 32;
@@ -285,17 +389,7 @@ static void oled_eyes_task(void *arg) {
         if (s_oled_text_timer > 0) {
             s_oled_text_timer--;
             
-            int msg_len = strlen(s_oled_text_msg);
-            int scale = (msg_len == 0) ? 2 : (OLED_WIDTH / (6 * msg_len - 1));
-            if (scale > 2) scale = 2;
-            if (scale < 1) scale = 1;
-            int fw = 5 * scale;
-            int fh = 7 * scale;
-            int char_space = 1 * scale;
-            int total_w = msg_len * (fw + char_space) - char_space;
-            int start_x = (OLED_WIDTH - total_w) / 2;
-            int start_y = (OLED_HEIGHT - fh) / 2;
-            draw_text(start_x, start_y, s_oled_text_msg, scale);
+            draw_text_autoscale(s_oled_text_msg, frame_count);
             
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(60));
@@ -314,7 +408,7 @@ static void oled_eyes_task(void *arg) {
         }
 
         if (wstate == WIFI_STATE_CONNECTING && s_oled_mode == OLED_MODE_NORMAL) {
-            draw_text(10, 24, "Connecting...", 1);
+            draw_text_autoscale("Connecting...", frame_count);
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
@@ -336,33 +430,14 @@ static void oled_eyes_task(void *arg) {
             }
 
             if (wstate == WIFI_STATE_AP_MODE) {
-                draw_text(4, 0, "Hotspottin", 2);
-
-                char name_buf[32];
-                snprintf(name_buf, sizeof(name_buf), "Find me in WiFi:");
-                draw_text(0, 18, name_buf, 1);
-
-                snprintf(name_buf, sizeof(name_buf), "mybot-%d", DEVICE_NUMBER);
-                draw_text(4, 30, name_buf, 2);
-
-                /* show IP address */
-                char ip_buf[20];
-                snprintf(ip_buf, sizeof(ip_buf), "%d.%d.%d.%d",
-                        192, 168, 4, 1);
-                draw_text(-2, 50, ip_buf, 2);
+                char hs_text[128];
+                snprintf(hs_text, sizeof(hs_text), "Hotspottin\nFind me in WiFi:\nmybot-%d\n192.168.4.1", DEVICE_NUMBER);
+                draw_text_autoscale(hs_text, frame_count);
             } else {
-                char cd_buf[16];
+                char conn_text[128];
                 int sec_left = (300 - ip_show_timer) / 10;
-                snprintf(cd_buf, sizeof(cd_buf), "%02d", sec_left);
-                draw_text(115, 0, cd_buf, 1);
-                
-                char ip_buf[32];
-                snprintf(ip_buf, sizeof(ip_buf), "%s", wifi_mgr_get_ip());
-                draw_text(0, 20, ip_buf, 2);
-                
-                char mdns_buf[32];
-                snprintf(mdns_buf, sizeof(mdns_buf), "%s.local", MDNS_HOSTNAME);
-                draw_text(0, 44, mdns_buf, 1);
+                snprintf(conn_text, sizeof(conn_text), "WiFi:) (%ds)\nIP: %s\n%s.local", sec_left, wifi_mgr_get_ip(), MDNS_HOSTNAME);
+                draw_text_autoscale(conn_text, frame_count);
             }
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(100));
@@ -375,28 +450,13 @@ static void oled_eyes_task(void *arg) {
             }
             hs_timer++;
             
-            draw_text(10, 0, "Yayyyy!", 2);
-            draw_text(4, 18, "You connected to me!", 1);
-
-            int cx = 64, cy = 44;
-            for (int a = 0; a < 360; a+=5) {
-                float rad = a * 3.14159f / 180.0f;
-                draw_pixel(cx + (int)(18 * cosf(rad)), cy + (int)(18 * sinf(rad)), 1);
-            }
-            draw_pixel(cx - 6, cy - 4, 1); draw_pixel(cx - 5, cy - 4, 1);
-            draw_pixel(cx - 6, cy - 3, 1); draw_pixel(cx - 5, cy - 3, 1);
-            draw_pixel(cx + 6, cy - 4, 1); draw_pixel(cx + 5, cy - 4, 1);
-            draw_pixel(cx + 6, cy - 3, 1); draw_pixel(cx + 5, cy - 3, 1);
-            for (int a = 20; a < 160; a+=5) {
-                float rad = a * 3.14159f / 180.0f;
-                draw_pixel(cx + (int)(10 * cosf(rad)), cy + 4 + (int)(10 * sinf(rad)), 1);
-            }
+            draw_text_autoscale("In browser\ngo to\n192.168.4.1", frame_count);
 
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(100));
 
-            if (hs_timer > 30) {
-                s_oled_mode = OLED_MODE_FIREWORKS;
+            if (hs_timer > 150) {
+                s_oled_mode = OLED_MODE_NORMAL;
             }
             continue;
         }
@@ -1304,47 +1364,6 @@ static void oled_eyes_task(void *arg) {
             continue;
         } else if (s_oled_mode == OLED_MODE_MARIO_DANCE) {
             // ── Mario Dance ────────────────────────────────────────────────
-            static const uint32_t mario_frame0[32] = {
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
-                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
-                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
-                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
-                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
-                0x00018000, 0x00018000, 0x00000000, 0x00000000,
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-            };
-            static const uint32_t mario_frame1[32] = {
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
-                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
-                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
-                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
-                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
-                0x0001C000, 0x0001C000, 0x00000000, 0x00000000,
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-            };
-            static const uint32_t mario_frame2[32] = {
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
-                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
-                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
-                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
-                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
-                0x0001C000, 0x0001C000, 0x00000000, 0x00000000,
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-            };
-            static const uint32_t mario_frame3[32] = {
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-                0x00078000, 0x000FC000, 0x001FE000, 0x003FF000,
-                0x001FE000, 0x061F8300, 0x0F1F8F00, 0x0F1F8F00,
-                0x0F1F8F00, 0x061F8300, 0x0007E000, 0x0007E000,
-                0x0007E000, 0x0007E000, 0x0007E000, 0x0007E000,
-                0x0003C000, 0x0003C000, 0x0003C000, 0x0003C000,
-                0x0001C000, 0x0001C000, 0x00000000, 0x00000000,
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-            };
-
             static int anim_frame = 0;
             static int anim_tick = 0;
             
@@ -1355,28 +1374,12 @@ static void oled_eyes_task(void *arg) {
             }
 
             anim_tick++;
-            if (anim_tick >= 8) {
-                anim_frame = (anim_frame + 1) % 4;
+            if (anim_tick >= 3) {
+                anim_frame = (anim_frame + 1) % 9;
                 anim_tick = 0;
             }
 
-            const uint32_t *sprite = (anim_frame == 0) ? mario_frame0 :
-                                     (anim_frame == 1) ? mario_frame1 :
-                                     (anim_frame == 2) ? mario_frame2 : mario_frame3;
-
-            int bob = (int)(sinf(frame_count * 0.25f) * 3.0f);
-            int mx = 32, my = bob; 
-            for (int r = 0; r < 32; r++) {
-                uint32_t row = sprite[r];
-                for (int c = 0; c < 32; c++) {
-                    if (row & (1 << (31 - c))) {
-                        draw_pixel(mx + c*2, my + r*2, 1);
-                        draw_pixel(mx + c*2 + 1, my + r*2, 1);
-                        draw_pixel(mx + c*2, my + r*2 + 1, 1);
-                        draw_pixel(mx + c*2 + 1, my + r*2 + 1, 1);
-                    }
-                }
-            }
+            draw_bitmap(0, 0, mario_frames[anim_frame], 128, 64);
 
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(30));
@@ -1464,9 +1467,6 @@ static void oled_eyes_task(void *arg) {
                     draw_pixel((int)particles[p].x, (int)particles[p].y, 1);
                 }
             }
-
-            draw_text(28, 56, "FIREWORKS!", 1);
-
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(30));
             continue;
@@ -2243,33 +2243,82 @@ static void oled_eyes_task(void *arg) {
 
         // ── Blink logic ───────────────────────────────────────────────────
         blink_timer++;
-        if (!blinking && blink_timer > next_blink) {
+        if (!blinking && slow_blink_hold <= 0 && blink_timer > next_blink) {
+            // Pick a blink type randomly
+            uint32_t r = esp_random() % 100;
+            if (r < 55)       current_blink_type = BLINK_NORMAL;
+            else if (r < 70)  current_blink_type = BLINK_SLOW;
+            else if (r < 82)  current_blink_type = BLINK_HALF;
+            else if (r < 94)  current_blink_type = BLINK_TRIPLE;
+            else              current_blink_type = BLINK_FLUTTER;
+
             blinking = true;
             blink_timer = 0;
+            triple_blink_phase = 0;
         }
 
         // Emotion-blink flutter counts as a blink too
         if (emotion_blink_frames > 0) {
             blinking = true;
+            current_blink_type = BLINK_FLUTTER;
             emotion_blink_frames--;
         }
 
-        // Slow blink (random look): 1-in-80 chance of slow blink (4 frames)
-        static int slow_blink_hold = 0;
-        if (s_random_look_oled && !blinking && slow_blink_hold <= 0 && esp_random() % 80 == 0) {
-            slow_blink_hold = 4;
+        // Rare spontaneous slow blink
+        if (s_random_look_oled && !blinking && slow_blink_hold <= 0 && esp_random() % 120 == 0) {
+            current_blink_type = BLINK_SLOW;
+            slow_blink_hold = 8;
+            slow_blink_ry   = base_ry;
         }
 
         int max_ry = (int)(base_ry * quirk_squint_scale);
-        if (blinking || slow_blink_hold > 0) {
-            max_ry = 3;
-            if (slow_blink_hold > 0) {
-                slow_blink_hold--;
-            } else if (blink_timer > 1 && emotion_blink_frames == 0) {
-                blinking = false;
-                blink_timer = 0;
-                next_blink = 40 + (esp_random() % 100);
+        if (blinking) {
+            if (current_blink_type == BLINK_HALF) {
+                // Eyelid drops to halfway then immediately comes back
+                max_ry = base_ry / 2;
+                if (blink_timer > 1 && emotion_blink_frames == 0) {
+                    blinking = false;
+                    blink_timer = 0;
+                    next_blink = 50 + (esp_random() % 140);
+                }
+            } else if (current_blink_type == BLINK_TRIPLE) {
+                // Three fast blinks
+                triple_blink_phase++;
+                bool closed = (triple_blink_phase % 4 < 2);
+                max_ry = closed ? 2 : base_ry;
+                if (triple_blink_phase >= 12) {
+                    blinking = false;
+                    triple_blink_phase = 0;
+                    blink_timer = 0;
+                    next_blink = 50 + (esp_random() % 140);
+                }
+            } else if (current_blink_type == BLINK_FLUTTER) {
+                max_ry = (blink_timer % 2 == 0) ? 3 : base_ry;
+                if (blink_timer > 3 && emotion_blink_frames == 0) {
+                    blinking = false;
+                    blink_timer = 0;
+                    next_blink = 50 + (esp_random() % 140);
+                }
+            } else {
+                // NORMAL or SLOW — fully closed for 1 frame
+                max_ry = 2;
+                if (blink_timer > 1 && emotion_blink_frames == 0) {
+                    blinking = false;
+                    blink_timer = 0;
+                    next_blink = 50 + (esp_random() % 140);
+                }
             }
+        } else if (slow_blink_hold > 0) {
+            // Dreamy slow-blink: ease down then ease back up
+            if (slow_blink_hold > 4) {
+                slow_blink_ry -= 3;
+                if (slow_blink_ry < 2) slow_blink_ry = 2;
+            } else {
+                slow_blink_ry += 5;
+                if (slow_blink_ry > base_ry) slow_blink_ry = base_ry;
+            }
+            max_ry = slow_blink_ry;
+            slow_blink_hold--;
         }
 
         // ── Pupil tracking ────────────────────────────────────────────────
@@ -2282,16 +2331,65 @@ static void oled_eyes_task(void *arg) {
         if (pupil_dy < pupil_target_dy + quirk_fidget_dy) pupil_dy++;
         if (pupil_dy > pupil_target_dy + quirk_fidget_dy) pupil_dy--;
 
+        // ── Micro-tremor: tiny emotion-driven oscillation ─────────────────
+        tremor_phase += (s_eye_emotion == EYE_EMOTION_MAD) ? 0.35f : 0.12f;
+        int tremor_dx = (s_eye_emotion == EYE_EMOTION_MAD || s_eye_emotion == EYE_EMOTION_SURPRISED)
+                        ? (int)(sinf(tremor_phase) * 0.7f) : 0;
+        int tremor_dy = (s_eye_emotion == EYE_EMOTION_SAD)
+                        ? (int)(sinf(tremor_phase * 0.7f) * 0.5f) : 0;
+
         int pupil_r = base_pupil_r + ((frame_count / 12) % 3) - 1;
+
+        // ── Clamp pupil so the pupil disc never leaves the visible iris ────
+        // The sclera ellipse has semi-axes eye_rx (x) and max_ry (y).
+        // The pupil disc (radius pupil_r) must stay fully inside it, so the
+        // pupil centre must satisfy the ellipse inequality with effective
+        // semi-axes (eye_rx - pupil_r) and (max_ry - pupil_r).
+        // Additionally, emotion eyelid clips further reduce the usable range.
+        {
+            int eff_rx = eye_rx - pupil_r - 1;   // keep 1 px margin
+            int eff_ry = max_ry - pupil_r - 1;
+            if (eff_rx < 0) eff_rx = 0;
+            if (eff_ry < 0) eff_ry = 0;
+
+            // Extra dy bias per emotion: shift pupil downward into the visible
+            // sclera region (eyelids hide the top, so pupils look wrong there)
+            int dy_bias = 0;
+            if (s_eye_emotion == EYE_EMOTION_MAD)    dy_bias =  4; // pulled toward centre
+            if (s_eye_emotion == EYE_EMOTION_SAD)    dy_bias =  3;
+            if (s_eye_emotion == EYE_EMOTION_SLEEPY) dy_bias =  6;
+
+            // Clamp raw offset into the effective ellipse
+            // Use the standard ellipse boundary: (dx/eff_rx)^2 + (dy/eff_ry)^2 <= 1
+            // Rescale by eff_rx, eff_ry to convert to circle, clamp, then scale back.
+            if (eff_rx > 0 && eff_ry > 0) {
+                float fx = (float)(pupil_dx + tremor_dx) / (float)eff_rx;
+                float fy = (float)(pupil_dy + tremor_dy + dy_bias) / (float)eff_ry;
+                float dist_sq = fx * fx + fy * fy;
+                if (dist_sq > 1.0f) {
+                    float scale = 0.97f / sqrtf(dist_sq);
+                    fx *= scale;
+                    fy *= scale;
+                }
+                pupil_dx = (int)(fx * eff_rx) - tremor_dx;
+                pupil_dy = (int)(fy * eff_ry) - tremor_dy - dy_bias;
+            } else {
+                // Eye is nearly closed — park pupil at centre
+                pupil_dx = 0;
+                pupil_dy = 0;
+            }
+        }
+
         int pupil_r_sq = pupil_r * pupil_r;
         int rx_sq = eye_rx * eye_rx;
         int ry_sq = max_ry * max_ry;
         if (ry_sq < 1) ry_sq = 1;
         int ellipse_limit = rx_sq * ry_sq;
 
-        // ── SAD eyelid modifier — heavy drooped top-lid ───────────────────
-        // For sad emotion: top lid droops significantly (heavy, glassy look)
-        // We trim the top of the sclera more aggressively than before.
+        // ── Draw eyes ─────────────────────────────────────────────────────
+        // The pupil is drawn as BLACK (unset) inside the white sclera ellipse.
+        // Pupil containment is already guaranteed by the clamp block above, so
+        // no pixel will be rendered outside the visible sclera region.
         for (int y = 0; y < OLED_HEIGHT; y++) {
             int dy = y - eye_cy;
             int dy_sq_rx = dy * dy * rx_sq;
@@ -2309,23 +2407,26 @@ static void oled_eyes_task(void *arg) {
                     int ex_val = dx * dx * ry_sq + dy_sq_rx;
                     if (ex_val > ellipse_limit) continue;
 
-                    int idx = dx - pupil_dx;
-                    int idy = dy - pupil_dy;
+                    // Pupil: use tremor-adjusted centre
+                    int idx = dx - (pupil_dx + tremor_dx);
+                    int idy = dy - (pupil_dy + tremor_dy);
                     bool in_pupil = (idx * idx + idy * idy <= pupil_r_sq);
 
                     if (in_pupil) {
                         // Pupil drawn as black (not set) — depth highlights added below
                     } else {
-                        // Sclera
+                        // Sclera — apply emotion eyelid clip
                         bool draw_it = true;
                         if (s_eye_emotion == EYE_EMOTION_MAD) {
-                            // Angry: top-inner corner clipped — sharp V brow
-                            if (dy < ((ei == 0) ? dx : -dx) / 2 - 4) draw_it = false;
+                            // Angry: top-inner corner sharply clipped (V-shape brow)
+                            int clip = ((ei == 0) ? dx : -dx) / 2 - 4;
+                            if (dy < clip) draw_it = false;
                         } else if (s_eye_emotion == EYE_EMOTION_SAD) {
-                            // Sad: top-outer corner drooped — wide puppy eyes
-                            if (dy < ((ei == 0) ? -dx : dx) / 2 - 2) draw_it = false;
+                            // Sad: top-outer corner drooped (puppy-eye tilt)
+                            int clip = ((ei == 0) ? -dx : dx) / 2 - 2;
+                            if (dy < clip) draw_it = false;
                         } else if (s_eye_emotion == EYE_EMOTION_SLEEPY) {
-                            // Sleepy: top half hidden
+                            // Sleepy: top half hidden by heavy lid
                             if (dy < 0) draw_it = false;
                         }
                         if (draw_it) draw_pixel(x, y, 1);
@@ -2339,8 +2440,8 @@ static void oled_eyes_task(void *arg) {
         // Two small white circles overlaid on each pupil: primary catch-light
         // (upper-left, r=2) and a tiny secondary dot (upper-right, r=1).
         for (int ei = 0; ei < 2; ei++) {
-            int pcx = eye_cx[ei] + pupil_dx; // pupil centre x
-            int pcy = eye_cy   + pupil_dy;   // pupil centre y
+            int pcx = eye_cx[ei] + pupil_dx + tremor_dx; // pupil centre x
+            int pcy = eye_cy   + pupil_dy + tremor_dy;   // pupil centre y
 
             // Primary catch-light — upper-left
             int hl1x = pcx - 3, hl1y = pcy - 3;
@@ -2355,6 +2456,42 @@ static void oled_eyes_task(void *arg) {
             int hl2x = pcx + 3, hl2y = pcy - 2;
             draw_pixel(hl2x, hl2y, 1);
             draw_pixel(hl2x + 1, hl2y, 1);
+        }
+
+        // ── Emotion-specific micro-details ───────────────────────────────────
+        // These are tiny pixel-art accents that reinforce each emotion.
+        if (s_eye_emotion == EYE_EMOTION_MAD) {
+            // Angry brows: two short diagonal slashes above each eye
+            // (already handled by the eyelid clip; add stress lines)
+            for (int ei = 0; ei < 2; ei++) {
+                int bx = eye_cx[ei] + (ei == 0 ? -10 : 10);
+                int by = eye_cy - base_ry - 4;
+                // Short 3-px crease line
+                draw_pixel(bx,     by,     1);
+                draw_pixel(bx + 1, by + 1, 1);
+                draw_pixel(bx + 2, by + 2, 1);
+            }
+        } else if (s_eye_emotion == EYE_EMOTION_SAD) {
+            // Tear drop: small drip below each eye, phase-animated
+            int tear_phase = (frame_count / 6) % 12;
+            for (int ei = 0; ei < 2; ei++) {
+                int tx = eye_cx[ei] + (ei == 0 ? -12 : 12);
+                int ty = eye_cy + base_ry - 2 + tear_phase;
+                if (ty < OLED_HEIGHT - 2) {
+                    draw_pixel(tx,     ty,     1);
+                    draw_pixel(tx,     ty + 1, 1);
+                    draw_pixel(tx - 1, ty + 1, 1);
+                    draw_pixel(tx + 1, ty + 1, 1);
+                }
+            }
+        } else if (s_eye_emotion == EYE_EMOTION_SURPRISED) {
+            // Tiny exclamation sparks at outer eye corners
+            if ((frame_count / 4) % 2 == 0) {
+                draw_pixel(eye_cx[0] - eye_rx - 3, eye_cy, 1);
+                draw_pixel(eye_cx[0] - eye_rx - 5, eye_cy, 1);
+                draw_pixel(eye_cx[1] + eye_rx + 3, eye_cy, 1);
+                draw_pixel(eye_cx[1] + eye_rx + 5, eye_cy, 1);
+            }
         }
 
         // ── Mouth micro-animation state machine ───────────────────────────

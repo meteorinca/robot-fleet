@@ -574,7 +574,7 @@ static esp_err_t buzzer_demo_handler(httpd_req_t *req) {
             else if (strcmp(val, "gameover") == 0) buzzer_demo_gameover();
             else if (strcmp(val, "siren") == 0) buzzer_demo_siren();
             else if (strcmp(val, "laser") == 0) buzzer_demo_laser();
-            else if (strcmp(val, "mario") == 0) buzzer_demo_mario();
+            else if (strcmp(val, "mario") == 0) oled_set_mode(OLED_MODE_MARIO_DANCE);
             else if (strcmp(val, "1up") == 0) buzzer_demo_1up();
         }
     }

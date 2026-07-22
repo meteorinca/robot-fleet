@@ -282,7 +282,7 @@ static void oled_eyes_task(void *arg) {
         }
 
         if (wstate == WIFI_STATE_CONNECTING && s_oled_mode == OLED_MODE_NORMAL) {
-            draw_text(10, 24, "Connecting...", 1);
+            draw_text(10, 24, "Connecting", 1);
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
@@ -1423,8 +1423,6 @@ static void oled_eyes_task(void *arg) {
                     draw_pixel((int)particles[p].x, (int)particles[p].y, 1);
                 }
             }
-
-            draw_text(28, 56, "FIREWORKS!", 1);
 
             oled_send_buffer();
             vTaskDelay(pdMS_TO_TICKS(30));
