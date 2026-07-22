@@ -22,12 +22,89 @@
 
 
 
+#if defined(HAS_OLED) || defined(OLED_SDA_PIN)
+#include "oled.h"
+#endif
+
 static void button_task(void *arg) {
     while (1) {
+        // ── Boot button: Servo Hi on short tap, WiFi reset on 7-second hold ────
         if (gpio_get_level(BTN_BOOT_GPIO) == 0) {
-            ESP_LOGI("BTN", "Boot button pressed -> Servo Hi");
-            servo_quick_action(1, 40, 90);
-            vTaskDelay(pdMS_TO_TICKS(500));
+            int hold_time = 0;
+            bool reset_triggered = false;
+            while (gpio_get_level(BTN_BOOT_GPIO) == 0) {
+                vTaskDelay(pdMS_TO_TICKS(100));
+                hold_time += 100;
+                if (hold_time >= 4000 && hold_time < 7000) {
+                    int countdown = 7 - (hold_time / 1000);
+                    ESP_LOGW("BTN", "Hold to reset WiFi: %ds", countdown);
+                    led_blink(1, 50);
+#if defined(HAS_OLED) || defined(OLED_SDA_PIN)
+                    char msg[32];
+                    snprintf(msg, sizeof(msg), "Hold to\nReset: %d", countdown);
+                    oled_set_text(msg, 200);
+#endif
+                }
+                if (hold_time >= 7000) {
+                    reset_triggered = true;
+                    break;
+                }
+            }
+
+            if (reset_triggered) {
+                while (gpio_get_level(BTN_BOOT_GPIO) == 0) {
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                }
+                ESP_LOGW("BTN", "Release detected. Triple click BOOT button within 5s to confirm WiFi reset!");
+#if defined(HAS_OLED) || defined(OLED_SDA_PIN)
+                oled_set_text("Triple click\nto confirm", 5000);
+#endif
+
+                int click_count = 0;
+                int timeout = 5000;
+                while (timeout > 0) {
+                    if (gpio_get_level(BTN_BOOT_GPIO) == 0) {
+                        click_count++;
+                        led_blink(2, 50);
+                        while (gpio_get_level(BTN_BOOT_GPIO) == 0) {
+                            vTaskDelay(pdMS_TO_TICKS(50));
+                            timeout -= 50;
+                        }
+                        vTaskDelay(pdMS_TO_TICKS(50)); // Debounce
+                        if (click_count >= 3) break;
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                    timeout -= 50;
+                }
+
+                if (click_count >= 3) {
+                    ESP_LOGW("BTN", "WiFi reset CONFIRMED!");
+                    led_blink(10, 50);
+#if defined(HAS_OLED) || defined(OLED_SDA_PIN)
+                    oled_set_text("RESETTING\nWIFI...", 5000);
+#endif
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                    wifi_forget_all(); // Does not return
+                } else {
+                    ESP_LOGI("BTN", "WiFi reset cancelled");
+#if defined(HAS_OLED) || defined(OLED_SDA_PIN)
+                    oled_set_text("", 0);
+                    oled_set_text("Cancelled", 2000);
+#endif
+                }
+            } else {
+                if (hold_time < 4000) {
+                    // Short tap: Servo Hi action
+                    ESP_LOGI("BTN", "Boot button pressed -> Servo Hi");
+                    servo_quick_action(1, 40, 90);
+                } else {
+                    ESP_LOGI("BTN", "WiFi reset cancelled");
+#if defined(HAS_OLED) || defined(OLED_SDA_PIN)
+                    oled_set_text("", 0);
+                    oled_set_text("Cancelled", 2000);
+#endif
+                }
+            }
         }
         if (gpio_get_level(BTN_1_GPIO) == 0) {
             ESP_LOGI("BTN", "Button 1 pressed -> Servo 1 ON");
