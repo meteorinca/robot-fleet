@@ -260,9 +260,15 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "<div class='action-grid' id='action-grid'></div>"
         "</div>"
 
+#ifndef RF_FREQ_MHZ
+#define RF_FREQ_MHZ 433
+#endif
+#define _RF_STR(x) #x
+#define RF_FREQ_STR(x) _RF_STR(x)
+
         /* ── RF Radio Card ──────────────────────────────────────────────── */
         "<div class='card' id='rf-card'>"
-        "<h2>\xf0\x9f\x93\xa1 433 MHz Ballsssss RF Radio</h2>"
+        "<h2>\xf0\x9f\x93\xa1 " RF_FREQ_STR(RF_FREQ_MHZ) " MHz RF Radio</h2>"
         "<div style='display:flex;gap:10px;margin-bottom:12px;align-items:center;'>"
         "  <button class='btn-primary' id='rf-listen-btn' onclick='rfToggleListen()' style='flex:1;background:linear-gradient(135deg,#1b8f5e,#0d6644);'>\xe2\x97\x8f\xc2\xa0 Start Listening</button>"
         "  <span id='rf-listen-badge' style='font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:#1e1e3a;color:#555;white-space:nowrap;'>IDLE</span>"

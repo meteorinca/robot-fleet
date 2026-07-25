@@ -1,8 +1,8 @@
-// boards/esp32c3_rfbot/board_config.h
+// boards/esp32c3_rfbot315/board_config.h
 // ============================================================================
-//  Board: ESP32-C3 RFBot
+//  Board: ESP32-C3 RFBot (315 MHz)
 //  Chip:  ESP32-C3
-//  Notes: RF bot with a built-in LED, OTA capabilities and RF receiver/transmitter and two servos
+//  Notes: RF bot (315 MHz variant) with built-in LED, OTA, RF receiver/transmitter and two servos
 // ============================================================================
 #pragma once
 
@@ -18,9 +18,9 @@
 #endif
 
 // This hostname sets the base mDNS name.
-// E.g. "rfbot" -> "rfbot1.local"
-#define MDNS_HOSTNAME       "rfbot" _STR(DEVICE_NUMBER)
-#define MDNS_INSTANCE       "RFBot v" _STR(DEVICE_NUMBER)
+// E.g. "rfbot315" -> "rfbot315_5.local"
+#define MDNS_HOSTNAME       "rfbot315_" _STR(DEVICE_NUMBER)
+#define MDNS_INSTANCE       "RFBot 315MHz v" _STR(DEVICE_NUMBER)
 
 #define WEB_SERVER_PORT     80
 #define DISABLE_OTA         0
@@ -37,7 +37,7 @@
 #define LED_GPIO                GPIO_NUM_8
 #define LED_ACTIVE_LOW          1       // HIGH = OFF
 
-// Heartbeat colours (legacy for code that uses these names, but simple LED is single color)
+// Heartbeat colours
 #define WS2812_COLOR_CONNECTED  0x000A00    // dim green
 #define WS2812_COLOR_DISCO      0x0A0000    // dim red
 #define WS2812_COLOR_ACTION     0x00000A    // dim blue
@@ -71,9 +71,9 @@
 #define BTN_1_GPIO              GPIO_NUM_0    // user button 1
 #define BTN_2_GPIO              GPIO_NUM_1    // user button 2
 
-// ── 433 MHz RF Module ───────────────────────────────────────────────────────
-#define RF_FREQ_MHZ             433
-// TX and RX GPIOs for the 433 MHz transmitter / receiver
+// ── 315 MHz RF Module ───────────────────────────────────────────────────────
+#define RF_FREQ_MHZ             315
+// TX and RX GPIOs for the 315 MHz transmitter / receiver
 #define RF_TX_GPIO              GPIO_NUM_3
 #define RF_RX_GPIO              GPIO_NUM_10
 
@@ -83,4 +83,3 @@
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 #define MAX_SCHEDULED_ACTIONS  8
-

@@ -12,12 +12,16 @@ idf.py set-target esp32c3 build
 
 ## 2. Selecting a Specific Board
 
-The build system relies on the `BOARD` variable to choose the correct hardware configuration from the `boards/` directory. If you don't provide one, it defaults to `esp32c3_rfbot`.
+The build system relies on the `BOARD` variable to choose the correct hardware configuration from the `boards/` directory:
+- `esp32c3_rfbot` — 433 MHz learner/sender (TX: GPIO 3, RX: GPIO 10)
+- `esp32c3_rfbot315` — 315 MHz learner/sender (TX: GPIO 3, RX: GPIO 10)
 
-To change to a different board, use the `-D BOARD=` argument and make sure to do a `fullclean` so old configuration files are cleared out:
+If you don't provide a board, it defaults to `esp32c3_rfbot`.
+
+To change to a different board (e.g. 315 MHz), use the `-DBOARD=` argument and make sure to do a `fullclean` so old configuration files are cleared out:
 
 ```powershell
-idf.py -D BOARD=esp32c3_rfbot set-target esp32c3 fullclean build
+idf.py -DBOARD=esp32c3_rfbot315 set-target esp32c3 fullclean build
 ```
 
 > **Note:** The `BOARD` variable is cached! After running this command once, subsequent builds for the same board only require:

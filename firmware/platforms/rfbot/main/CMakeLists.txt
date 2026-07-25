@@ -30,8 +30,8 @@ if(BOARD IN_LIST DISPLAY_BOARDS)
 endif()
 
 
-# Boards that include a 433 MHz RF module
-set(HAS_RF_BOARDS "esp32c3_rfbot")
+# Boards that include an RF module (433 MHz or 315 MHz)
+set(HAS_RF_BOARDS "esp32c3_rfbot" "esp32c3_rfbot315")
 
 message(STATUS "DEBUG: BOARD variable = '${BOARD}'")
 message(STATUS "DEBUG: HAS_RF_BOARDS = '${HAS_RF_BOARDS}'")

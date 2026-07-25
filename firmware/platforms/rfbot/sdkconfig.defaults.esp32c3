@@ -3,6 +3,7 @@
 
 # C3 uses UART0 for console (no native USB)
 CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 CONFIG_ESP_CONSOLE_UART_NUM=0
 
 # C3 dog board has 4MB flash
