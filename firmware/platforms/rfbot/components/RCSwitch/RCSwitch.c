@@ -360,22 +360,22 @@ void sendCode(RCSWITCH_t * RCSwitch, unsigned long code, unsigned int length) {
 /**
  * Transmit a single high-low pulse.
  */
-void transmit(RCSWITCH_t * RCSwitch, HighLow pulses) {
-	uint8_t firstLogicLevel = (RCSwitch->protocol.invertedSignal) ? LOW : HIGH;
+/* IRAM_ATTR: keeps function in IRAM so a flash cache miss can't add jitter
+ * mid-transmission.
+ * portDISABLE_INTERRUPTS: prevents WiFi ISRs from preempting esp_rom_delay_us()
+ * and stretching pulse timings on the single-core ESP32-C3.
+ * Interrupts are only masked for the duration of one HighLow pair (~185–5700 µs),
+ * which is within the WiFi stack's tolerance. */
+void IRAM_ATTR transmit(RCSWITCH_t * RCSwitch, HighLow pulses) {
+	uint8_t firstLogicLevel  = (RCSwitch->protocol.invertedSignal) ? LOW : HIGH;
 	uint8_t secondLogicLevel = (RCSwitch->protocol.invertedSignal) ? HIGH : LOW;
-	
-#if 0
-	digitalWrite(this->nTransmitterPin, firstLogicLevel);
-	delayMicroseconds( this->protocol.pulseLength * pulses.high);
-	digitalWrite(this->nTransmitterPin, secondLogicLevel);
-	delayMicroseconds( this->protocol.pulseLength * pulses.low);
-#endif
-	gpio_set_level(RCSwitch->nTransmitterPin, firstLogicLevel );
-	//ets_delay_us(RCSwitch->protocol.pulseLength * pulses.high);
+
+	portDISABLE_INTERRUPTS();
+	gpio_set_level(RCSwitch->nTransmitterPin, firstLogicLevel);
 	esp_rom_delay_us(RCSwitch->protocol.pulseLength * pulses.high);
 	gpio_set_level(RCSwitch->nTransmitterPin, secondLogicLevel);
-	//ets_delay_us(RCSwitch->protocol.pulseLength * pulses.low);
 	esp_rom_delay_us(RCSwitch->protocol.pulseLength * pulses.low);
+	portENABLE_INTERRUPTS();
 }
 
 /**

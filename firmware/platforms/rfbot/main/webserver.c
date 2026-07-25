@@ -1204,7 +1204,10 @@ static esp_err_t rf_send_handler(httpd_req_t *req) {
     char code_str[16] = {0};
     int  bits  = 24;
     int  proto = 1;
-    int  pulse = 350;
+#ifndef RF_PULSE_WIDTH
+#define RF_PULSE_WIDTH 185
+#endif
+    int  pulse = RF_PULSE_WIDTH;
 
     if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
         char p[32];

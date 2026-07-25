@@ -76,6 +76,7 @@
 // TX and RX GPIOs for the 315 MHz transmitter / receiver
 #define RF_TX_GPIO              GPIO_NUM_3
 #define RF_RX_GPIO              GPIO_NUM_10
+#define RF_PULSE_WIDTH          185
 
 // Hard-coded RF action codes (used for physical remote dispatch)
 #define RF_CODE_TOGGLE_LED      0x123456
