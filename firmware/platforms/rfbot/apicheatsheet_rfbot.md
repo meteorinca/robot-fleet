@@ -105,3 +105,29 @@ You can queue an action to happen at an exact Unix timestamp across all bots sim
 ---
 
 *Tip: You can test any of these by just typing them into your browser's address bar! Example: `http://rfbot5.local/schedule?action=toggle&delay=3`*
+
+---
+
+## 🔌 Hardware Wiring Guide (ESP32-C3 RFBot)
+
+| Component | Component Pin | ESP32-C3 SuperMini Pin | Notes |
+| :--- | :--- | :--- | :--- |
+| **Built-in LED** | Anode/Cathode | `GPIO 8` | On-board LED (Active LOW) |
+| **RF 433 MHz Transmitter** | DATA | `GPIO 4` | RF TX Signal (RMT PWM) |
+| | VCC | `5V` / `3.3V` | Power supply |
+| | GND | `GND` | Common Ground |
+| **RF 433 MHz Receiver** | DATA | `GPIO 2` | RF RX Signal (GPIO interrupt) |
+| | VCC | `5V` / `3.3V` | Power supply |
+| | GND | `GND` | Common Ground |
+| **Servo 1** | Signal (Yellow/Orange) | `GPIO 5` | PWM Channel 0 |
+| | VCC (Red) | `5V` | External Power / 5V |
+| | GND (Brown/Black) | `GND` | Common Ground |
+| **Servo 2** | Signal (Yellow/Orange) | `GPIO 6` | PWM Channel 1 |
+| | VCC (Red) | `5V` | External Power / 5V |
+| | GND (Brown/Black) | `GND` | Common Ground |
+| **User Button 1** | Pin 1 | `GPIO 0` | User Input Button 1 |
+| **User Button 2** | Pin 1 | `GPIO 1` | User Input Button 2 |
+| **Boot Button** | Pin 1 | `GPIO 9` | On-board BOOT button |
+
+*> Note: For the 315 MHz RFBot variant (`esp32c3_rfbot315`), RF TX is connected to `GPIO 3` and RF RX is connected to `GPIO 10`.*
+

@@ -108,3 +108,30 @@ The built-in web UI (`http://carbot1.local/`) includes:
 ---
 
 *Tip: Use keyboard WASD or arrow keys in the web UI for direct driving!*
+
+---
+
+## 🔌 Hardware Wiring Guide (ESP32-C3 CarBot)
+
+| Component | Component Pin | ESP32-C3 SuperMini Pin | Notes |
+| :--- | :--- | :--- | :--- |
+| **Built-in LED** | — | `GPIO 8` | On-board LED (Active LOW) |
+| **Passive Buzzer** | Signal (+) | `GPIO 3` | Audio tones & demos |
+| | GND (-) | `GND` | Common Ground |
+| **L298N Steering (Motor A)** | IN1 | `GPIO 5` | Steering Left PWM |
+| | IN2 | `GPIO 20` | Steering Right |
+| | ENA | `5V` (Jumper ON) | Always enabled |
+| **L298N Drive (Motor B)** | IN3 | `GPIO 1` | Rear Drive Forward PWM |
+| | IN4 | `GPIO 0` | Rear Drive Reverse |
+| | ENB | `5V` (Jumper ON) | Always enabled |
+| **OLED Display (SSD1306)** | SDA | `GPIO 7` | I2C Data |
+| | SCL | `GPIO 6` | I2C Clock |
+| | VCC | `3.3V` | 3.3V Power |
+| | GND | `GND` | Common Ground |
+| **HC-SR04 Ultrasonic** | TRIG | `GPIO 10` | Trigger pin |
+| | ECHO | `GPIO 4` | Echo pin |
+| | VCC | `5V` | 5V Power |
+| | GND | `GND` | Common Ground |
+| **Red LED** | Anode (+) | `GPIO 21` | Optional external red LED |
+| **Boot Button** | — | `GPIO 9` | On-board BOOT button |
+

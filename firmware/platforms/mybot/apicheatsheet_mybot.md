@@ -85,3 +85,30 @@ Requires `BUZZER_PIN` to be defined in `board_config.h`.
 ---
 
 *Tip: You can test any of these by just typing them into your browser's address bar! Example: `http://mybot5.local/anim_mario`*
+
+---
+
+## 🔌 Hardware Wiring Guide (ESP32-C3 MyBot)
+
+| Component | Component Pin | ESP32-C3 SuperMini Pin | Notes |
+| :--- | :--- | :--- | :--- |
+| **Built-in LED** | — | `GPIO 8` | On-board LED (Active LOW) |
+| **Passive Buzzer** | Signal (+) | `GPIO 3` | Tone & melody generation |
+| | GND (-) | `GND` | Common Ground |
+| **SG90 Servo 1** | Signal (Yellow/Orange) | `GPIO 5` | PWM Servo Control |
+| | VCC (Red) | `5V` / `3.3V` | Power supply |
+| | GND (Brown/Black) | `GND` | Common Ground |
+| **OLED Display (SSD1306)** | SDA | `GPIO 7` | I2C Data |
+| | SCL | `GPIO 6` | I2C Clock |
+| | VCC | `3.3V` | 3.3V Power |
+| | GND | `GND` | Common Ground |
+| **HC-SR04 Ultrasonic** | TRIG | `GPIO 10` | Trigger pin |
+| | ECHO | `GPIO 4` | Echo pin |
+| | VCC | `5V` | 5V Power |
+| | GND | `GND` | Common Ground |
+| **Green External LED** | Anode (+) | `GPIO 20` | Via 220Ω resistor to GND |
+| **Red External LED** | Anode (+) | `GPIO 21` | Via 220Ω resistor to GND |
+| **Button 1** | Terminal | `GPIO 0` | Mario / Input Button |
+| **Button 2** | Terminal | `GPIO 1` | Animation Cycle / Menu Button |
+| **Boot Button** | — | `GPIO 9` | On-board BOOT button |
+

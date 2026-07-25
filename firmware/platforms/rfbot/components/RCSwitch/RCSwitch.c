@@ -472,36 +472,44 @@ static inline unsigned int diff(unsigned int A, unsigned int B) {
 	return (A > B) ? (A - B) : (B - A);
 }
 
-bool receiveProtocol(RCSWITCH_t * RCSwitch, const int p, unsigned int changeCount) {
+bool receiveProtocol(RCSWITCH_t * RCSwitch, const int p, unsigned int changeCount, unsigned int syncDuration) {
 	const Protocol pro = proto[p-1];
-	const unsigned int syncLengthInPulses =  ((pro.syncFactor.low) > (pro.syncFactor.high)) ? (pro.syncFactor.low) : (pro.syncFactor.high);
-	const unsigned int delay = RCSwitch->timings[0] / syncLengthInPulses;
+	const unsigned int syncLengthInPulses = ((pro.syncFactor.low) > (pro.syncFactor.high)) ? (pro.syncFactor.low) : (pro.syncFactor.high);
+	if (syncDuration == 0) return false;
+	const unsigned int delay = syncDuration / syncLengthInPulses;
+	if (delay < 50 || delay > 2000) return false;
+
 	const unsigned int delayTolerance = delay * RCSwitch->nReceiveTolerance / 100;
 
-	// Test both normal (offset=1) and inverted (offset=2) signal parsing
-	// This automatically handles hardware receivers that invert the signal
-	for (unsigned int offset = 1; offset <= 2; offset++) {
+	// Test offsets 0, 1, 2 to cover:
+	// offset=0: sync is in syncDuration (outside timings array), data starts at timings[0]
+	// offset=1: sync is in timings[0], data starts at timings[1]
+	// offset=2: inverted or shifted signal offset
+	for (unsigned int offset = 0; offset <= 2; offset++) {
+		if (changeCount <= offset + 6) continue;
 		unsigned long code = 0;
 		bool failed = false;
+		unsigned int bitLen = 0;
+
 		for (unsigned int i = offset; i < changeCount - 1; i += 2) {
 			code <<= 1;
-			if (diff(RCSwitch->timings[i], delay * pro.zero.high) < delayTolerance &&
-				diff(RCSwitch->timings[i + 1], delay * pro.zero.low) < delayTolerance) {
+			bitLen++;
+			if (diff(RCSwitch->timings[i], delay * pro.zero.high) <= delayTolerance &&
+				diff(RCSwitch->timings[i + 1], delay * pro.zero.low) <= delayTolerance) {
 				// zero
-			} else if (diff(RCSwitch->timings[i], delay * pro.one.high) < delayTolerance &&
-						diff(RCSwitch->timings[i + 1], delay * pro.one.low) < delayTolerance) {
+			} else if (diff(RCSwitch->timings[i], delay * pro.one.high) <= delayTolerance &&
+						diff(RCSwitch->timings[i + 1], delay * pro.one.low) <= delayTolerance) {
 				// one
 				code |= 1;
 			} else {
-				// Failed
 				failed = true;
 				break;
 			}
 		}
 		
-		if (!failed && changeCount > 7) { // ignore very short transmissions
+		if (!failed && bitLen >= 4) { // valid packet decoded!
 			RCSwitch->nReceivedValue = code;
-			RCSwitch->nReceivedBitlength = (changeCount - offset) / 2;
+			RCSwitch->nReceivedBitlength = bitLen;
 			RCSwitch->nReceivedDelay = delay;
 			RCSwitch->nReceivedProtocol = p;
 			return true;
@@ -520,44 +528,30 @@ void IRAM_ATTR handleInterrupt(void* arg)
 
 	static unsigned int changeCount = 0;
 	static int64_t lastTime = 0;
-	static unsigned int repeatCount = 0;
 
 	const int64_t time = esp_timer_get_time();
 	const unsigned int duration = (unsigned int)(time - lastTime);
 
 	if (duration > RCSwitch->nSeparationLimit) {
-		// A long stretch without signal level change occurred. This could
-		// be the gap between two transmission.
-		/* Use a tolerance of 20% of the measured gap (instead of a hard
-		 * 200µs) so short-pulse protocols don't fail the repeat check. */
-		unsigned int gapTolerance = RCSwitch->timings[0] / 5;   // 20 %
-		if (gapTolerance < 200) gapTolerance = 200;             // floor
-		if (diff(duration, RCSwitch->timings[0]) < gapTolerance) {
-			// This long signal is close in length to the long signal which
-			// started the previously recorded timings; this suggests that
-			// it may indeed by a a gap between two transmissions (we assume
-			// here that a sender will send the signal multiple times,
-			// with roughly the same gap between them).
-			repeatCount++;
-			/* Decode on the very first clean packet (repeatCount==1) rather
-			 * than waiting for a second copy.  Cheap 433 MHz modules often
-			 * receive the first burst cleanly but may distort the second. */
-			if (repeatCount == 1) {
-				for(uint8_t i = 1; i <= numProto; i++) {
-					if (receiveProtocol(RCSwitch, i, changeCount)) {
-						// receive succeeded for protocol i
-						break;
-					}
+		// A long sync pulse or inter-frame gap occurred.
+		// If we accumulated data pulse transitions (changeCount > 7),
+		// attempt to decode immediately using duration (sync at end) or timings[0] (sync at start).
+		if (changeCount > 7) {
+			for (uint8_t i = 1; i <= numProto; i++) {
+				if (receiveProtocol(RCSwitch, i, changeCount, duration)) {
+					break;
 				}
-				repeatCount = 0;
+				if (receiveProtocol(RCSwitch, i, changeCount, RCSwitch->timings[0])) {
+					break;
+				}
 			}
 		}
 		changeCount = 0;
 	}
+
 	// detect overflow
 	if (changeCount >= RCSWITCH_MAX_CHANGES) {
 		changeCount = 0;
-		repeatCount = 0;
 	}
 
 	RCSwitch->timings[changeCount++] = duration;
