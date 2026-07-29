@@ -22,6 +22,7 @@ void dog_audio_play_named(const char *name);
 
 // Synthesize pleasant speaker tone/beep (frequency in Hz, duration in ms)
 void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms);
+void speaker_play_drum_beat(void);
 
 #ifdef __cplusplus
 }

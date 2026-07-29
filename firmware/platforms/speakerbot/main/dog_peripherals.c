@@ -33,7 +33,8 @@ static QueueHandle_t audio_payload_queue = NULL;
 
 static void dog_audio_task(void *arg) {
     size_t w_bytes = 0;
-    int16_t silence[512] = {0}; // 1024 bytes of silence
+    static const int16_t silence[512] = {0}; // 1024 bytes of silence
+
     
     uint8_t leftover_byte = 0;
     bool has_leftover = false;
@@ -211,8 +212,27 @@ void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
     dog_audio_play_async((uint8_t *)buf, total_samples * sizeof(int16_t));
 }
 
+void speaker_play_drum_beat(void) {
+    uint32_t sample_rate = 16000;
+    uint32_t duration_ms = 90;
+    size_t total_samples = (sample_rate * duration_ms) / 1000;
+    int16_t *buf = malloc(total_samples * sizeof(int16_t));
+    if (!buf) return;
+
+    float phase = 0.0f;
+    for (size_t i = 0; i < total_samples; i++) {
+        float progress = (float)i / (float)total_samples;
+        float freq = 160.0f * (1.0f - progress * 0.7f);
+        float amp = 14000.0f * (1.0f - progress);
+        phase += 2.0f * M_PI * freq / (float)sample_rate;
+        buf[i] = (int16_t)(sinf(phase) * amp);
+    }
+
+    dog_audio_play_async((uint8_t *)buf, total_samples * sizeof(int16_t));
+}
+
 void dog_peripherals_init(void) {
-    ESP_LOGI(TAG, "Initializing SpeakerBot I2S PDM Audio Driver");
+    ESP_LOGI(TAG, "Initializing SpeakerBot MAX98357A I2S Audio Driver");
 #ifdef AUDIO_AMP_GPIO
     gpio_config_t amp_conf = {
         .pin_bit_mask = (1ULL << AUDIO_AMP_GPIO),
@@ -225,19 +245,26 @@ void dog_peripherals_init(void) {
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_chan, NULL));
 
-    i2s_pdm_tx_config_t pdm_cfg = {
-        .clk_cfg = I2S_PDM_TX_CLK_DEFAULT_CONFIG(16000),
-        .slot_cfg = I2S_PDM_TX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+    i2s_std_config_t std_cfg = {
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(16000),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg = {
-            .clk = AUDIO_CLK_GPIO,
+            .mclk = I2S_GPIO_UNUSED,
+            .bclk = AUDIO_BCLK_GPIO,
+            .ws   = AUDIO_LRCK_GPIO,
             .dout = AUDIO_DATA_GPIO,
+            .din  = I2S_GPIO_UNUSED,
             .invert_flags = {
-                .clk_inv = false,
+                .mclk_inv = false,
+                .bclk_inv = false,
+                .ws_inv   = false,
             },
         },
     };
-    ESP_ERROR_CHECK(i2s_channel_init_pdm_tx_mode(tx_chan, &pdm_cfg));
+    ESP_ERROR_CHECK(i2s_channel_init_std_mode(tx_chan, &std_cfg));
+
     ESP_ERROR_CHECK(i2s_channel_enable(tx_chan));
+
 
     audio_rb = xRingbufferCreate(16384, RINGBUF_TYPE_BYTEBUF);
     audio_payload_queue = xQueueCreate(16, sizeof(audio_payload_t));

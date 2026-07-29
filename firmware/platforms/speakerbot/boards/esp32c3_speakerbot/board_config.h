@@ -2,7 +2,7 @@
 // ============================================================================
 //  Board: ESP32-C3 SpeakerBot
 //  Chip:  ESP32-C3
-//  Notes: MyBot with all features (OLED, Servo, Ultrasonic, Buzzer, LEDs,
+//  Notes: SpeakerBot with all features (OLED, Servo, Ultrasonic, Buzzer, LEDs,
 //         WiFi hotspot, OTA) PLUS I2S PDM speaker & streaming audio support.
 // ============================================================================
 #pragma once
@@ -38,10 +38,6 @@
 // How long a manual command suppresses the heartbeat (microseconds)
 #define LED_MANUAL_OVERRIDE_US  4000000     // 4 s
 
-// ── Buzzer (Passive) ──────────────────────────────────────────────────────────
-// Connected to GPIO 3
-#define BUZZER_PIN              GPIO_NUM_3
-
 // ── Servos (1 sg90 servo) ────────────────────────────────────────────────────
 #define SERVO_COUNT             1
 #define SERVO1_GPIO             GPIO_NUM_5
@@ -66,19 +62,19 @@
 #define ECHO_PIN            GPIO_NUM_4
 #endif
 
-
-// ── LEDs and Buttons from controller breadboard ──────────────────────────────
+// ── LEDs and Buttons ────────────────────────────────────────────────────────
 #define LED_GRN_PIN         GPIO_NUM_20
 #define LED_RED_PIN         GPIO_NUM_21
-#define BTN_1_GPIO          GPIO_NUM_0
-#define BTN_2_GPIO          GPIO_NUM_1
-#define BTN_BOOT_GPIO       GPIO_NUM_9    // boot button
+#define BTN_BOOT_GPIO       GPIO_NUM_9    // ESP32-C3 Boot Button (7-sec WiFi reset)
 
-// ── Audio (I2S PDM Speaker) ─────────────────────────────────────────────────
-// PDM microphone/speaker on I2S bus
-#define AUDIO_DATA_GPIO     GPIO_NUM_1    // I2S PDM TX Data — NOTE: shared breadboard btn, wire to standalone speaker module
-#define AUDIO_CLK_GPIO      GPIO_NUM_2    // I2S PDM TX Clock
-#define AUDIO_AMP_GPIO      GPIO_NUM_18   // Amplifier enable (HIGH = on)
+
+// ── Audio (MAX98357A I2S Amplifier for ESP32-C3 SuperMini) ───────────────────
+#define AUDIO_DATA_GPIO     GPIO_NUM_1    // I2S DIN  (Serial Data)
+#define AUDIO_BCLK_GPIO     GPIO_NUM_2    // I2S BCLK (Bit Clock)
+#define AUDIO_LRCK_GPIO     GPIO_NUM_3    // I2S LRC  (Word Select / LR Clock)
+#define AUDIO_AMP_GPIO      GPIO_NUM_0    // MAX98357A SD_MODE (HIGH = ON, LOW = OFF) — or tie SD to 3.3V/5V
+
+
 
 // ── WiFi provisioning ────────────────────────────────────────────────────────
 #define AP_FALLBACK_TIMEOUT_MS  10000   // ms before SoftAP fallback (per SSID)

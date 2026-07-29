@@ -433,7 +433,7 @@ static void oled_eyes_task(void *arg) {
 
             if (wstate == WIFI_STATE_AP_MODE) {
                 char hs_text[128];
-                snprintf(hs_text, sizeof(hs_text), "Hotspottin\nFind me in WiFi:\nmybot-%d\n192.168.4.1", DEVICE_NUMBER);
+                snprintf(hs_text, sizeof(hs_text), "Hotspottin\nFind me in WiFi:\nspeakerbot-%d\n192.168.4.1", DEVICE_NUMBER);
                 draw_text_autoscale(hs_text, frame_count);
             } else {
                 char conn_text[128];
@@ -1436,7 +1436,6 @@ static void oled_eyes_task(void *arg) {
                 // Explode when reaching upper area
                 if (rocket_y[i] < 8 + (esp_random() % 20)) {
                     rocket_active[i] = false;
-                    buzzer_play_tone(600 + (esp_random() % 800), 50);
                     // Spawn sparks
                     int base = i * 12;
                     for (int p = 0; p < 12; p++) {

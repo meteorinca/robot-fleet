@@ -144,8 +144,8 @@ static void led_heartbeat_task(void *pvParameters) {
 
         if (connected) {
             float t = esp_timer_get_time() / 1000000.0f;
-            float breathe = (sinf(t * 3.14159f * 2.666f) + 1.0f) / 2.0f;
-            breathe = powf(breathe, 8.0f);
+            float breathe = (sinf(t * 3.14159f * 0.666f) + 1.0f) / 2.0f; // 3.0 sec slow breathing cycle
+            breathe = breathe * breathe; // smooth power-2 curve for eye perception
 
             uint32_t duty = (uint32_t)(breathe * max_duty);
             if (LED_ACTIVE_LOW) duty = max_duty - duty;

@@ -138,7 +138,7 @@ static esp_err_t cors_options_handler(httpd_req_t *req) {
 static esp_err_t root_get_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, (const char *)index_html_start, index_html_end - index_html_start);
-    oled_set_mode(OLED_MODE_FIREWORKS);
+    speaker_play_drum_beat(); // Smooth single drum kick when someone connects
     return ESP_OK;
 }
 
@@ -670,10 +670,14 @@ void webserver_start(void) {
     sse_init();
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 42;
-    config.server_port      = WEB_SERVER_PORT;
-    config.ctrl_port        = 32768;
-    config.lru_purge_enable = true;
+    config.max_uri_handlers  = 60;
+    config.max_open_sockets  = 7;
+    config.backlog_conn      = 5;
+    config.recv_wait_timeout = 2;
+    config.send_wait_timeout = 2;
+    config.server_port       = WEB_SERVER_PORT;
+    config.ctrl_port         = 32768;
+    config.lru_purge_enable  = true;
 
     ESP_LOGI(TAG, "Starting SpeakerBot HTTP server on port %d", config.server_port);
     if (httpd_start(&s_server, &config) != ESP_OK) {

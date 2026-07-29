@@ -4,26 +4,32 @@ SpeakerBot is an upgraded version of MyBot equipped with an **I2S PDM Speaker**,
 
 ---
 
-## 🔌 Hardware Wiring & Pinout Guide (ESP32-C3)
+## 🔌 Hardware Wiring & Pinout Guide (ESP32-C3 SuperMini)
 
-| Component | Pin / GPIO | Notes |
+| Component | SuperMini GPIO | Connect To / Notes |
 | :--- | :--- | :--- |
+| **MAX98357A DIN** | **GPIO 1** | I2S Serial Data Out (Buttons 1 & 2 REMOVED) |
+| **MAX98357A BCLK** | **GPIO 2** | I2S Bit Clock |
+| **MAX98357A LRC (WS)**| **GPIO 3** | I2S Word Select / Left-Right Clock |
+| **MAX98357A SD_MODE**| **GPIO 0** | Amp Enable (HIGH=ON) — or tie to 3.3V/5V on breadboard |
 | **Built-in LED** | GPIO 8 | Active LOW status & heartbeat indicator |
+| **BOOT Button** | GPIO 9 | Hold 7 sec + triple click to reset WiFi |
 | **Servo 1 (SG90)** | GPIO 5 | LEDC PWM Channel 0 (50Hz) |
 | **OLED SDA** | GPIO 7 | I2C SSD1306 (128x64 display) |
 | **OLED SCL** | GPIO 6 | I2C SSD1306 |
 | **Green LED** | GPIO 20 | Breadboard status LED (Active HIGH) |
 | **Red LED** | GPIO 21 | Breadboard status LED (Active HIGH) |
-| **Button 1 (BTN 1)** | GPIO 0 | Short press cycles eye emotions |
-| **Button 2 (BTN 2)** | GPIO 1 | Short press cycles fun OLED animations |
-| **BOOT Button** | GPIO 9 | Hold 7 sec + triple click to reset WiFi |
-| **Speaker PDM Data** | **GPIO 1** | I2S PDM TX Data pin to speaker module |
-| **Speaker PDM Clock**| **GPIO 2** | I2S PDM TX Clock pin to speaker module |
-| **Audio Amp Enable** | **GPIO 18**| Amplifier enable pin (HIGH = ON, LOW = OFF) |
 
-> **Note**: GPIO 1 is shared on breadboard headers between BTN_2 and AUDIO_DATA. When using the standalone speaker module, wire AUDIO_DATA to its own header pin on the speaker board.
+> **Wiring Notes for MAX98357A**:
+> - **LRC (WS)** -> Plug into **GPIO 3**
+> - **DIN** -> Plug into **GPIO 1** (Buttons removed, no pin sharing!)
+> - **BCLK** -> Plug into **GPIO 2**
+> - **SD** -> Plug into **GPIO 0** (or tie directly to **3.3V / 5V** on power rail)
+> - **GAIN** -> Connect to **GND** (12dB gain) or leave unconnected (9dB gain)
 
 ---
+
+
 
 ## 🛠️ Build & Flash Guide
 
@@ -58,6 +64,8 @@ Passing `-DDEVICE_NUMBER=8` configures mDNS hostname `speakerbot8.local` and Sof
 
 - **Stream Raw PCM Audio to Speaker**: `POST /audio`
   - *Body*: 16kHz 16-bit signed mono PCM binary chunks. Played in real-time through the I2S PDM speaker.
+- **Web UI Audio File & URL Streaming**:
+  - Open `http://speakerbot<N>.local` and use **"🎵 Stream Audio File / URL"** to upload any `.mp3`, `.wav`, `.m4a`, or audio URL to stream live through the speaker.
 - **Broadcast TTS Text to SSE Web Browsers**: `GET /tts?say=Hello+Human` or `GET /sendtts:Hello+Human`
   - *Broadcasts text to connected browser clients for Web Speech API synthesis.*
 - **Play Sound Clips**:
@@ -125,7 +133,6 @@ Trigger interactive games on the OLED screen (controllable via BTN_1 / BTN_2 or 
 
 Schedule an action to trigger across single or multiple SpeakerBot units at an exact wall-clock time or relative delay:
 - **Relative Delay**: `GET /schedule?action=hi&delay=5` (Runs `hi` in 5 seconds)
-- **TTS Text Schedule**: `GET /schedule?action=tts:Hello&delay=10` (Says "Hello" in 10 seconds)
 - **NTP Epoch Sync**: `GET /schedule?action=bark&at=1714000000` (Triggers `bark` at exact Unix epoch)
 
 ---

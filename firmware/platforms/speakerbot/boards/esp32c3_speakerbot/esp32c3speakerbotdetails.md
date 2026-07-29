@@ -14,30 +14,31 @@ SpeakerBot is MyBot upgraded with an I2S PDM speaker. It runs on a breadboard wi
 - 🌐 Full WiFi provisioning via captive portal
 - 🔄 OTA firmware updates via web UI or Python
 
-## SpeakerBot Hardware
+## SpeakerBot Hardware (ESP32-C3 SuperMini Pinout)
 
-| Peripheral         | GPIO         | Notes                              |
-|--------------------|--------------|------------------------------------|
-| Built-in LED       | GPIO 8       | Active LOW                         |
-| Buzzer (passive)   | GPIO 3       | LEDC PWM, Mario / coin demos       |
-| Servo (SG90)       | GPIO 5       | LEDC Channel 0                     |
-| OLED SDA           | GPIO 7       | I2C, SSD1306 128×64                |
-| OLED SCL           | GPIO 6       | I2C                                |
-| Ultrasonic TRIG    | GPIO 10      | HC-SR04                            |
-| Ultrasonic ECHO    | GPIO 4       | HC-SR04                            |
-| Green LED          | GPIO 20      | Breadboard status LED              |
-| Red LED            | GPIO 21      | Breadboard status LED              |
-| Button 1           | GPIO 0       | Eye emotion cycling                |
-| Button 2           | GPIO 1       | Animation cycling                  |
-| Boot Button        | GPIO 9       | 7-second hold to reset WiFi        |
-| **Speaker PDM TX** | **GPIO 1**   | **I2S PDM Data — connect to speaker module** |
-| **Speaker PDM CLK**| **GPIO 2**   | **I2S PDM Clock**                  |
-| **Amp Enable**     | **GPIO 18**  | **Amplifier enable (HIGH = on)**   |
+| Peripheral              | SuperMini GPIO | Connect To / Notes                 |
+|-------------------------|----------------|------------------------------------|
+| **MAX98357A DIN**       | **GPIO 1**     | **I2S DIN (Serial Data)**          |
+| **MAX98357A BCLK**      | **GPIO 2**     | **I2S BCLK (Bit Clock)**           |
+| **MAX98357A LRC (WS)**  | **GPIO 3**     | **I2S LRC / WS (Left-Right Clock)**|
+| **MAX98357A SD_MODE**   | **GPIO 0**     | **SD pin (or tie to 3.3V/5V on breadboard)** |
+| Built-in LED            | GPIO 8         | On-board status LED (Active LOW)   |
+| Boot / Reset Button     | GPIO 9         | On-board BOOT button (Hold 7s for WiFi reset) |
+| Servo (SG90)            | GPIO 5         | LEDC PWM Channel 0                 |
+| OLED SDA                | GPIO 7         | SSD1306 OLED SDA                   |
+| OLED SCL                | GPIO 6         | SSD1306 OLED SCL                   |
+| Ultrasonic TRIG (Opt)   | GPIO 10        | HC-SR04 TRIG (via `-DENABLE_ULTRASONIC=1`) |
+| Ultrasonic ECHO (Opt)   | GPIO 4         | HC-SR04 ECHO                       |
+| Green LED (Opt)         | GPIO 20        | Breadboard status LED              |
+| Red LED (Opt)           | GPIO 21        | Breadboard status LED              |
 
-> **Note**: GPIO 1 is shared between Button 2 and AUDIO_DATA_GPIO on the breadboard.
-> When using the standalone speaker module, wire AUDIO_DATA to its own pin on the module
-> and keep BTN_2 connected to a separate GPIO if needed. In the default config, BTN_2
-> is wired to the breadboard header but the speaker module receives the I2S PDM signal.
+> **Resolution of Pin Conflicts**:
+> 1. **Buttons 1 & 2 have been REMOVED completely.** GPIO 1 is now 100% dedicated to **MAX98357A DIN**.
+> 2. **LRC / WS Pin**: Connect **MAX98357A LRC (or WS)** pin to **GPIO 3**.
+> 3. **SD Pin**: Connect **MAX98357A SD** pin to **GPIO 0** (or simply tie it to 3.3V/5V power rail on your breadboard to keep the amp enabled).
+> 4. **No GPIO 18 needed**: ESP32-C3 SuperMini does not break out GPIO 18; GPIO 0 is used for software amp shutdown control.
+
+
 
 ## 🛠️ Build & Flash Guide
 

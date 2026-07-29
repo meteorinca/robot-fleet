@@ -2,6 +2,7 @@
 #include "webserver.h"
 #include "config.h"
 #include "oled.h"
+#include "dog_peripherals.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -289,7 +290,7 @@ static void start_captive_dns(void) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  SoftAP setup
-//  AP SSID: "MyBot-XX"  (XX = device number from board_config.h)
+//  AP SSID: "SpeakerBot-XX"  (XX = device number from board_config.h)
 //  AP IP:   192.168.4.1  (ESP32 default)
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -322,9 +323,9 @@ static void start_softap(void) {
         },
     };
     
-    // Build SSID "MyBot-<device_num>"
+    // Build SSID "SpeakerBot-<device_num>"
     snprintf((char *)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid),
-             "MyBot-%d", DEVICE_NUMBER);
+             "SpeakerBot-%d", DEVICE_NUMBER);
 
     // Switch to APSTA so we still try STA in background
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -428,6 +429,7 @@ static void on_wifi_event(void *arg, esp_event_base_t base,
         wifi_event_ap_staconnected_t *ev = event_data;
         ESP_LOGI(TAG, "AP client connected: " MACSTR, MAC2STR(ev->mac));
         oled_notify_ap_client_connected();
+        speaker_play_drum_beat();
     } else if (id == WIFI_EVENT_AP_STADISCONNECTED) {
         wifi_event_ap_stadisconnected_t *ev = event_data;
         ESP_LOGI(TAG, "AP client disconnected: " MACSTR, MAC2STR(ev->mac));

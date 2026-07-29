@@ -57,15 +57,17 @@
       margin-bottom: 8px;
     }
     .time-big {
-      font-size: 26px;
-      font-weight: 800;
+      font-size: 36px;
+      font-weight: 700;
       font-family: monospace;
-      color: #ffffff;
-      margin: 4px 0;
+      color: #00e5a0;
+      text-align: center;
+      margin: 6px 0;
     }
     .epoch {
-      font-size: 11px;
-      color: #666;
+      font-size: 12px;
+      color: #444;
+      text-align: center;
     }
     .grid {
       display: grid;
@@ -135,6 +137,8 @@
       <button class="btn-primary" onclick="sendTTS()">Speak Now</button>
       <div class="err-msg" id="tts-err"></div>
     </div>
+
+
 
     <!-- Sound Clips -->
     <div class="card">
@@ -311,6 +315,8 @@
         });
     }
 
+
+
     function sendOLED() {
       var t = document.getElementById("oled-text").value.trim();
       if (!t) return;
@@ -350,7 +356,8 @@
 
     setInterval(function() {
       var d = new Date(Date.now() + timeOffset);
-      var f = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + ":" + ("0" + d.getSeconds()).slice(-2);
+      var f = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + ' ' +
+        ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
       document.getElementById("clock").textContent = f;
       document.getElementById("epoch").textContent = Math.floor(d.getTime() / 1000);
     }, 100);

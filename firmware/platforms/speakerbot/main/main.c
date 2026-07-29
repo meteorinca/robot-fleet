@@ -23,36 +23,15 @@ bool g_btn2_state = false;
 bool g_led_direct_mode = true;
 
 static void button_task(void *arg) {
-    bool last_btn1 = false;
-    bool last_btn2 = false;
-    uint32_t btn2_press_start = 0;
     uint32_t last_interaction_time = esp_log_timestamp();
     int post_game_state = 0;
     uint32_t post_game_start = 0;
     oled_mode_t last_oled_mode = OLED_MODE_NORMAL;
 
     while (1) {
-        bool btn1 = (gpio_get_level(BTN_1_GPIO) == 0);
-        bool btn2 = (gpio_get_level(BTN_2_GPIO) == 0);
-        
-        g_btn1_state = btn1;
-        g_btn2_state = btn2;
-
-        if (g_led_direct_mode) {
-            if (btn1 != last_btn1) led_grn_set(btn1);
-            if (btn2 != last_btn2) led_red_set(btn2);
-        }
-        
-        oled_set_paddle_input(btn1, btn2);
-        
         uint32_t now = esp_log_timestamp();
-        if ((btn1 && !last_btn1) || (btn2 && !last_btn2)) {
-            speaker_play_tone(800, 20);
-            last_interaction_time = now;
-            post_game_state = 0;
-        }
-
         oled_mode_t current_mode = oled_get_mode();
+
         if (current_mode == OLED_MODE_NORMAL && last_oled_mode != OLED_MODE_NORMAL) {
             post_game_state = 1;
             post_game_start = now;
@@ -81,59 +60,6 @@ static void button_task(void *arg) {
                 oled_set_emotion(EYE_EMOTION_NORMAL);
             }
         }
-
-        if (btn2) {
-            if (!last_btn2) {
-                btn2_press_start = now;
-            } else if (now - btn2_press_start > 3000 && btn2_press_start > 0) {
-                oled_set_mode(OLED_MODE_MENU);
-                btn2_press_start = 0;
-            }
-        } else {
-            btn2_press_start = 0;
-        }
-        
-        if (btn1 && btn2) {
-            if (!(last_btn1 && last_btn2)) {
-                oled_set_mode(OLED_MODE_MENU);
-            }
-        }
-        
-        if (oled_get_mode() == OLED_MODE_NORMAL) {
-            if (btn1 && !last_btn1 && !btn2) {
-                // BTN_1 → Cycle eye emotions
-                static int eye_idx = 0;
-                static const eye_emotion_t eye_modes[] = {
-                    EYE_EMOTION_NORMAL,
-                    EYE_EMOTION_MAD,
-                    EYE_EMOTION_SAD,
-                    EYE_EMOTION_SLEEPY,
-                    EYE_EMOTION_SURPRISED
-                };
-                eye_idx = (eye_idx + 1) % 5;
-                oled_set_emotion(eye_modes[eye_idx]);
-                speaker_play_tone(1000, 30);
-                ESP_LOGI("BTN", "BTN1: Eye mode idx=%d", eye_idx);
-            }
-            if (btn2 && !last_btn2 && !btn1) {
-                // BTN_2 → Cycle through fun animations
-                static int fun_idx = 0;
-                static const oled_mode_t fun_modes[] = {
-                    OLED_MODE_FIREWORKS,
-                    OLED_MODE_MATRIX_RAIN,
-                    OLED_MODE_SPACE_INVADER,
-                    OLED_MODE_HEARTBEAT,
-                    OLED_MODE_NORMAL,
-                };
-                fun_idx = (fun_idx + 1) % 5;
-                oled_set_mode(fun_modes[fun_idx]);
-                speaker_play_tone(1200, 20);
-                ESP_LOGI("BTN", "BTN2: Fun mode idx=%d (mode=%d)", fun_idx, fun_modes[fun_idx]);
-            }
-        }
-        
-        last_btn1 = btn1;
-        last_btn2 = btn2;
 
         // ── Boot button: cycle eyes on short tap, WiFi reset on 7-second hold ────
         if (gpio_get_level(BTN_BOOT_GPIO) == 0) {
@@ -237,17 +163,17 @@ void app_main(void) {
     oled_init();
     ultrasonic_init();
 
-
     // Start boot sequence
     xTaskCreate(boot_msg_task, "boot_msg", 3072, NULL, 5, NULL);
 
     // Buttons
     gpio_config_t btn_conf = {
-        .pin_bit_mask = (1ULL << BTN_BOOT_GPIO) | (1ULL << BTN_1_GPIO) | (1ULL << BTN_2_GPIO),
+        .pin_bit_mask = (1ULL << BTN_BOOT_GPIO),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
     };
     gpio_config(&btn_conf);
+
 
     // WiFi
     EventGroupHandle_t wifi_events = wifi_init();
