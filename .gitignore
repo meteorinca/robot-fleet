@@ -1,1 +1,58 @@
-firmware/platforms/robot-fleet.code-workspace
+# ESP-IDF & Firmware build artifacts
+build/
+managed_components/
+sdkconfig.old
+dependencies.lock
+secrets.h
+**/secrets.h
+*.elf
+*.bin
+*.map
+*.hex
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# Node.js / JavaScript
+node_modules/
+npm-debug.log*
+
+# IDEs & Editors
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Secrets & Environment variables
+.env
+.env.*
+secrets.json
+secrets.yaml

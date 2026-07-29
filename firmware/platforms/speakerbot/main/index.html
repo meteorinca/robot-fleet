@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpeakerBot Control Panel</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #090914;
+      color: #e0e0f0;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      text-align: center;
+      background: linear-gradient(135deg, #00e5a0, #7c6af7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+    .card {
+      background: #121226;
+      border: 1px solid #1e1e3a;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .card h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #7c6af7;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #1e1e3a;
+      color: #00e5a0;
+      margin-bottom: 8px;
+    }
+    .time-big {
+      font-size: 26px;
+      font-weight: 800;
+      font-family: monospace;
+      color: #ffffff;
+      margin: 4px 0;
+    }
+    .epoch {
+      font-size: 11px;
+      color: #666;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      padding: 10px;
+      border: 1px solid #2a2a50;
+      border-radius: 10px;
+      background: #1a1a35;
+      color: #e0e0f0;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+    .btn:hover { background: #25254d; border-color: #7c6af7; }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #7c6af7, #5b4de8);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-primary:active { opacity: 0.9; }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #2a2a50;
+      background: #0a0a1e;
+      color: #e0e0f0;
+      outline: none;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .err-msg {
+      font-size: 12px;
+      color: #00e5a0;
+      margin-top: 6px;
+      min-height: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔊 SpeakerBot v1.0</h1>
+
+    <div class="card" style="text-align: center;">
+      <span class="status-badge" id="conn-badge">● Online</span>
+      <div class="time-big" id="clock">--:--:--</div>
+      <div class="epoch">Epoch: <span id="epoch">-</span> | Synced: <span id="synced">no</span></div>
+    </div>
+
+    <!-- Text to Speech -->
+    <div class="card">
+      <h2>🗣️ Text to Speech (Speaker)</h2>
+      <input type="text" id="say" placeholder="Type text to speak through speaker..." />
+      <button class="btn-primary" onclick="sendTTS()">Speak Now</button>
+      <div class="err-msg" id="tts-err"></div>
+    </div>
+
+    <!-- Sound Clips -->
+    <div class="card">
+      <h2>🎵 Sound Clips</h2>
+      <div class="grid">
+        <button class="btn" onclick="playAudio('bark')">🐾 Bark</button>
+        <button class="btn" onclick="playAudio('paulbot')">🤖 Paulbot</button>
+        <button class="btn" onclick="playAudio('huh')">❓ Huh?</button>
+        <button class="btn" onclick="playAudio('yes')">👍 Yes</button>
+        <button class="btn" onclick="playAudio('jump')">🦘 Jump</button>
+        <button class="btn" onclick="playAudio('ding')">🔔 Ding</button>
+        <button class="btn" onclick="playAudio('random')" style="grid-column: span 3;">🎲 Random Sound</button>
+      </div>
+    </div>
+
+    <!-- OLED Screen -->
+    <div class="card">
+      <h2>👁️ OLED Display & Animations</h2>
+      <input type="text" id="oled-text" placeholder="Message to show on screen..." />
+      <button class="btn-primary" onclick="sendOLED()" style="margin-bottom: 12px;">Send Text</button>
+      <div class="grid">
+        <button class="btn" onclick="setAnim(0)">👁 Eyes</button>
+        <button class="btn" onclick="setAnim(16)">🎆 Fireworks</button>
+        <button class="btn" onclick="setAnim(17)">🟢 Matrix</button>
+        <button class="btn" onclick="setAnim(18)">👾 Invader</button>
+        <button class="btn" onclick="setAnim(19)">❤️ Heartbeat</button>
+        <button class="btn" onclick="setAnim(15)">🍄 Mario</button>
+        <button class="btn" onclick="fetch('/big_yawn')">🥱 Yawn</button>
+        <button class="btn" onclick="fetch('/anim_3d')">🧊 3D</button>
+        <button class="btn" onclick="fetch('/show_ip')">📡 IP</button>
+      </div>
+    </div>
+
+    <!-- Retro Games -->
+    <div class="card">
+      <h2>🎮 OLED Retro Games</h2>
+      <div class="grid">
+        <button class="btn" onclick="fetch('/game_on_h')">🏓 Pong H</button>
+        <button class="btn" onclick="fetch('/game_on_v')">🎾 Pong V</button>
+        <button class="btn" onclick="fetch('/game_flappy')">🐤 Flappy</button>
+        <button class="btn" onclick="fetch('/game_dino')">🦖 Dino</button>
+        <button class="btn" onclick="fetch('/game_snake')">🐍 Snake</button>
+        <button class="btn" onclick="fetch('/game_pacman')">🟡 Pacman</button>
+        <button class="btn" onclick="fetch('/game_frogger')">🐸 Frogger</button>
+        <button class="btn" onclick="fetch('/game_racing')">🏎️ Racing</button>
+        <button class="btn" onclick="fetch('/game_math')">🧮 Math</button>
+        <button class="btn" onclick="fetch('/game_off')" style="grid-column: span 3; background:#2a1a1a; border-color:#5a2a2a;">⏹️ Exit Game</button>
+      </div>
+    </div>
+
+    <!-- Servo Control -->
+    <div class="card">
+      <h2>🐾 Servo & Quick Actions</h2>
+      <div class="grid">
+        <button class="btn" onclick="fetch('/hi')">Say Hi</button>
+        <button class="btn" onclick="fetch('/s1_0')">Servo 0°</button>
+        <button class="btn" onclick="fetch('/s1_90')">Servo 90°</button>
+        <button class="btn" onclick="fetch('/s1_180')">Servo 180°</button>
+        <button class="btn" onclick="fetch('/l1on')">LED ON</button>
+        <button class="btn" onclick="fetch('/l1off')">LED OFF</button>
+      </div>
+    </div>
+
+    <!-- Scheduler -->
+    <div class="card">
+      <h2>🕒 Schedule Action</h2>
+      <div style="display: flex; gap: 8px;">
+        <input type="number" id="sched-delay" placeholder="Delay (sec)" value="5" style="flex:1;" />
+        <select id="sched-action" style="flex:2;">
+          <option value="hi">Say Hi</option>
+          <option value="bark">Bark</option>
+          <option value="paulbot">Paulbot Sound</option>
+          <option value="ding">Ding Sound</option>
+          <option value="anim_fireworks">Fireworks</option>
+          <option value="s1_90">Servo Neutral</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="scheduleAction()">Schedule</button>
+      <div class="err-msg" id="sched-err"></div>
+    </div>
+
+    <!-- WiFi Setup -->
+    <div class="card">
+      <h2>📶 WiFi Provisioning</h2>
+      <div id="wifi-status" style="margin-bottom: 8px;"></div>
+      <div id="saved-nets" style="margin-bottom: 8px;"></div>
+      <button class="btn" onclick="scanWifi()" style="width: 100%; margin-bottom: 8px;">Scan Visible Networks</button>
+      <div id="scan-results" style="margin-bottom: 8px;"></div>
+      <input type="text" id="wifi-ssid" placeholder="WiFi SSID" />
+      <input type="text" id="wifi-pass" placeholder="Password" />
+      <button class="btn-primary" onclick="saveWifi()">Save & Reboot</button>
+      <div class="err-msg" id="wifi-err"></div>
+    </div>
+
+    <!-- OTA Update -->
+    <div class="card">
+      <h2>🔄 OTA Firmware Update</h2>
+      <input type="file" id="ota-file" accept=".bin" style="color: #a0a0d0; margin-bottom: 8px;" />
+      <div style="background: #0a0a1e; border-radius: 6px; height: 8px; margin-bottom: 8px; overflow: hidden;">
+        <div id="ota-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00e5a0, #7c6af7); transition: width 0.3s;"></div>
+      </div>
+      <button class="btn-primary" id="ota-btn" onclick="doOTA()">Flash Firmware</button>
+      <div class="err-msg" id="ota-msg"></div>
+    </div>
+  </div>
+
+  <script>
+    function playAudio(name) {
+      fetch("/" + name).catch(function(e) { console.error(e); });
+    }
+
+    function sendTTS() {
+      var t = document.getElementById("say").value.trim();
+      if (!t) return;
+      var err = document.getElementById("tts-err");
+      err.textContent = "Processing speech...";
+
+      var targetUrl = "https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=" + encodeURIComponent(t);
+      var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl);
+
+      fetch(proxyUrl)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.contents) throw new Error("TTS fetch failed");
+          var b64 = data.contents.split(',')[1];
+          var binStr = window.atob(b64);
+          var len = binStr.length;
+          var bytes = new Uint8Array(len);
+          for (var i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+          return bytes.buffer;
+        })
+        .then(function(ab) {
+          var ctx = window._sharedCtx || (window._sharedCtx = new (window.AudioContext || window.webkitAudioContext)());
+          return ctx.decodeAudioData(ab)
+            .then(function(dec) {
+              var samples = Math.ceil(dec.duration * 16000);
+              var off = new OfflineAudioContext(1, samples, 16000);
+              var src = off.createBufferSource();
+              src.buffer = dec;
+              src.connect(off.destination);
+              src.start();
+              return off.startRendering();
+            })
+            .then(function(ren) {
+              var dat = ren.getChannelData(0);
+              var pcm = new Int16Array(dat.length);
+              for (var i = 0; i < dat.length; i++) {
+                var s = Math.max(-1, Math.min(1, dat[i]));
+                pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+              }
+              var chunkSamples = 16000;
+              var idx = 0;
+              function sendNext() {
+                if (idx * chunkSamples >= pcm.length) {
+                  err.textContent = "Finished playing!";
+                  setTimeout(function(){ err.textContent = ""; }, 2000);
+                  return;
+                }
+                var sl = pcm.slice(idx * chunkSamples, (idx + 1) * chunkSamples);
+                idx++;
+                err.textContent = "Streaming to SpeakerBot...";
+                fetch("/audio", { method: "POST", body: sl.buffer })
+                  .then(sendNext)
+                  .catch(function(e) { err.textContent = "Streaming error: " + e; });
+              }
+              sendNext();
+            });
+        })
+        .catch(function(e) {
+          // Fallback to server SSE broadcast if Google TTS proxy fails
+          fetch("/tts?say=" + encodeURIComponent(t))
+            .then(function() { err.textContent = "Sent via SSE broadcast"; })
+            .catch(function(ex) { err.textContent = "Error: " + ex; });
+        });
+    }
+
+    function sendOLED() {
+      var t = document.getElementById("oled-text").value.trim();
+      if (!t) return;
+      fetch("/oled_text?msg=" + encodeURIComponent(t));
+      document.getElementById("oled-text").value = "";
+    }
+
+    function setAnim(mode) {
+      fetch("/anim?mode=" + mode);
+    }
+
+    function scheduleAction() {
+      var d = document.getElementById("sched-delay").value;
+      var a = document.getElementById("sched-action").value;
+      fetch("/schedule?action=" + a + "&delay=" + d)
+        .then(function(r) { return r.json(); })
+        .then(function(j) { document.getElementById("sched-err").textContent = "Scheduled +" + d + "s"; })
+        .catch(function(e) { document.getElementById("sched-err").textContent = e; });
+    }
+
+    var timeOffset = 0;
+    function syncT() {
+      fetch("/time")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.synced) {
+            timeOffset = d.epoch * 1000 - Date.now();
+            document.getElementById("synced").textContent = "yes";
+          } else {
+            fetch("/sync_time?epoch=" + Math.floor(Date.now() / 1000));
+            document.getElementById("synced").textContent = "local";
+          }
+        }).catch(function(){});
+    }
+    syncT();
+    setInterval(syncT, 10000);
+
+    setInterval(function() {
+      var d = new Date(Date.now() + timeOffset);
+      var f = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + ":" + ("0" + d.getSeconds()).slice(-2);
+      document.getElementById("clock").textContent = f;
+      document.getElementById("epoch").textContent = Math.floor(d.getTime() / 1000);
+    }, 100);
+
+    function scanWifi() {
+      var sr = document.getElementById("scan-results");
+      sr.innerHTML = "<div style='color:#666;'>Scanning...</div>";
+      fetch("/wifi_scan")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var h = "";
+          if (d.networks && d.networks.length) {
+            d.networks.forEach(function(n) {
+              h += "<div style='padding:6px 10px;margin:3px 0;background:#0a0a1e;border-radius:6px;cursor:pointer;' onclick=\"document.getElementById('wifi-ssid').value='" + n.ssid + "';\">" + n.ssid + " (" + n.rssi + "dBm)</div>";
+            });
+          } else { h = "<div style='color:#666;'>No networks found</div>"; }
+          sr.innerHTML = h;
+        }).catch(function(e) { sr.innerHTML = "<div class='err-msg'>Scan error: " + e + "</div>"; });
+    }
+
+    function saveWifi() {
+      var s = document.getElementById("wifi-ssid").value.trim();
+      var p = document.getElementById("wifi-pass").value;
+      var e = document.getElementById("wifi-err");
+      if (!s) { e.textContent = "Enter SSID"; return; }
+      e.textContent = "Saving & rebooting...";
+      fetch("/wifi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ssid: s, pass: p })
+      }).then(function(r) { return r.json(); })
+        .then(function(d) { if (d.ok) e.textContent = "Saved! Rebooting..."; else e.textContent = d.error; })
+        .catch(function(x) { e.textContent = "Error: " + x; });
+    }
+
+    function doOTA() {
+      var f = document.getElementById("ota-file").files[0];
+      var msg = document.getElementById("ota-msg");
+      var bar = document.getElementById("ota-bar");
+      var btn = document.getElementById("ota-btn");
+      if (!f) { msg.textContent = "Select .bin file"; return; }
+      btn.disabled = true;
+      msg.textContent = "Uploading " + f.name + "...";
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", "/ota", true);
+      xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) bar.style.width = Math.round((e.loaded / e.total) * 100) + "%";
+      };
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          msg.textContent = "OTA OK! Rebooting...";
+          setTimeout(function() { location.reload(); }, 10000);
+        } else { msg.textContent = "OTA failed: " + xhr.status; btn.disabled = false; }
+      };
+      xhr.onerror = function() { msg.textContent = "Upload error"; btn.disabled = false; };
+      xhr.send(f);
+    }
+  </script>
+</body>
+</html>
