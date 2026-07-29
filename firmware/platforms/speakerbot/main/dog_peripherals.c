@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 static const char *TAG = "SPEAKER_PERIPH";
+static volatile bool s_audio_stop_flag = false;
 
 // ── Audio PDM & Amp Handles ───────────────────────────────────────────────────
 static i2s_chan_handle_t tx_chan = NULL;
@@ -98,16 +99,26 @@ static void dog_audio_task(void *arg) {
     }
 }
 
+bool dog_audio_is_stopped(void) {
+    return s_audio_stop_flag;
+}
+
+void dog_audio_reset_stop_flag(void) {
+    s_audio_stop_flag = false;
+}
+
 void dog_audio_play_chunk(const uint8_t *data, size_t size) {
-    if (!audio_rb) return;
+    if (!audio_rb || s_audio_stop_flag) return;
     size_t sent = 0;
     while (sent < size) {
+        if (s_audio_stop_flag) return;
         size_t to_send = size - sent;
         if (to_send > 1024) to_send = 1024;
-        if (xRingbufferSend(audio_rb, data + sent, to_send, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        if (xRingbufferSend(audio_rb, data + sent, to_send, pdMS_TO_TICKS(100)) == pdTRUE) {
             sent += to_send;
         } else {
-            ESP_LOGW(TAG, "Audio RB full, retrying...");
+            if (s_audio_stop_flag) return;
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 }
@@ -116,33 +127,35 @@ static void dog_audio_feeder_task(void *arg) {
     audio_payload_t payload;
     while (1) {
         if (xQueueReceive(audio_payload_queue, &payload, portMAX_DELAY) == pdTRUE) {
-            dog_audio_play_chunk(payload.data, payload.size);
+            if (!s_audio_stop_flag) {
+                dog_audio_play_chunk(payload.data, payload.size);
+            }
             free(payload.data);
         }
     }
 }
 
 void dog_audio_play_async(uint8_t *data, size_t size) {
-    if (!audio_payload_queue || !data || size == 0) {
+    if (!audio_payload_queue || !data || size == 0 || s_audio_stop_flag) {
         free(data);
         return;
     }
     audio_payload_t payload = { .data = data, .size = size };
-    if (xQueueSend(audio_payload_queue, &payload, portMAX_DELAY) != pdTRUE) {
+    if (xQueueSend(audio_payload_queue, &payload, pdMS_TO_TICKS(100)) != pdTRUE) {
         ESP_LOGW(TAG, "Audio payload queue full");
         free(data);
     }
 }
 
 void dog_audio_play_8bit(const uint8_t *data, size_t len) {
-    if (!audio_rb || !data || len == 0) return;
+    if (!audio_rb || !data || len == 0 || s_audio_stop_flag) return;
     
     const size_t chunk_samples = 1024;
     uint8_t *upsampled = malloc(chunk_samples * 2);
     if (!upsampled) return;
 
     size_t processed = 0;
-    while (processed < len) {
+    while (processed < len && !s_audio_stop_flag) {
         size_t to_process = len - processed;
         if (to_process > chunk_samples) to_process = chunk_samples;
 
@@ -185,6 +198,7 @@ void dog_audio_play_random(void) {
 }
 
 void dog_audio_play_named(const char *name) {
+    if (s_audio_stop_flag) return;
     if (strcmp(name, "huh") == 0) dog_audio_play_8bit(sound_freesound_community_huh_102688, sound_freesound_community_huh_102688_len);
     else if (strcmp(name, "yes") == 0) dog_audio_play_8bit(sound_sergequadrado_child_says_yes_113117, sound_sergequadrado_child_says_yes_113117_len);
     else if (strcmp(name, "jump") == 0) dog_audio_play_8bit(sound_freesound_community_cartoon_jump_6462, sound_freesound_community_cartoon_jump_6462_len);
@@ -193,6 +207,41 @@ void dog_audio_play_named(const char *name) {
     else if (strcmp(name, "paulbot") == 0) dog_audio_play_paulbot();
     else if (strcmp(name, "random") == 0) dog_audio_play_random();
     else ESP_LOGW(TAG, "Unknown sound name: %s", name);
+}
+
+void dog_audio_stop(void) {
+    s_audio_stop_flag = true;
+    if (audio_payload_queue) {
+        audio_payload_t payload;
+        while (xQueueReceive(audio_payload_queue, &payload, 0) == pdTRUE) {
+            if (payload.data) free(payload.data);
+        }
+    }
+    if (audio_rb) {
+        size_t item_size = 0;
+        while (1) {
+            uint8_t *item = (uint8_t *)xRingbufferReceive(audio_rb, &item_size, 0);
+            if (!item) break;
+            vRingbufferReturnItem(audio_rb, (void *)item);
+        }
+    }
+    ESP_LOGI(TAG, "Audio buffer flushed / playback stopped.");
+}
+
+void dog_audio_play_named_ex(const char *name, int repeat, bool interrupt) {
+    if (!name) return;
+    if (interrupt) {
+        dog_audio_stop();
+    }
+    s_audio_stop_flag = false; // Reset stop flag for explicit new clip request!
+
+    if (repeat <= 0) repeat = 1;
+    if (repeat > 20) repeat = 20;
+
+    for (int i = 0; i < repeat; i++) {
+        if (s_audio_stop_flag) break;
+        dog_audio_play_named(name);
+    }
 }
 
 void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {

@@ -140,6 +140,25 @@
 
 
 
+    <!-- Stream MP3 / Audio File -->
+    <div class="card">
+      <h2>🎵 Stream Audio File (MP3 / WAV / M4A)</h2>
+      <input type="file" id="mp3-file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac" style="color: #a0a0d0; margin-bottom: 8px;" />
+      <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#aaa; cursor:pointer;">
+          <input type="checkbox" id="mp3-interrupt" checked /> Interrupt playing audio
+        </label>
+      </div>
+      <div style="background: #0a0a1e; border-radius: 6px; height: 8px; margin-bottom: 8px; overflow: hidden;">
+        <div id="mp3-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00e5a0, #7c6af7); transition: width 0.2s;"></div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-primary" id="mp3-play-btn" onclick="streamMP3()" style="flex:2; margin-top:0;">▶️ Play File</button>
+        <button class="btn" onclick="stopMP3Stream()" style="flex:1; background:#2a1a1a; border-color:#5a2a2a;">⏹️ Stop</button>
+      </div>
+      <div class="err-msg" id="mp3-msg"></div>
+    </div>
+
     <!-- Sound Clips -->
     <div class="card">
       <h2>🎵 Sound Clips</h2>
@@ -248,6 +267,128 @@
   <script>
     function playAudio(name) {
       fetch("/" + name).catch(function(e) { console.error(e); });
+    }
+
+    var g_mp3Cancel = false;
+
+    function stopMP3Stream() {
+      g_mp3Cancel = true;
+      fetch("/stop").catch(function(){});
+      var msg = document.getElementById("mp3-msg");
+      if (msg) msg.textContent = "Stopped playback.";
+      var btn = document.getElementById("mp3-play-btn");
+      if (btn) btn.disabled = false;
+    }
+
+    function streamMP3() {
+      var fileInput = document.getElementById("mp3-file");
+      var file = fileInput ? fileInput.files[0] : null;
+      var msg = document.getElementById("mp3-msg");
+      var bar = document.getElementById("mp3-bar");
+      var btn = document.getElementById("mp3-play-btn");
+      var interrupt = document.getElementById("mp3-interrupt") ? document.getElementById("mp3-interrupt").checked : true;
+
+      if (!file) {
+        if (msg) msg.textContent = "Please select an MP3 or audio file first.";
+        return;
+      }
+
+      g_mp3Cancel = false;
+      if (btn) btn.disabled = true;
+      if (bar) bar.style.width = "0%";
+      if (msg) msg.textContent = "Reading " + file.name + "...";
+
+      var reader = new FileReader();
+      reader.onload = function(evt) {
+        if (g_mp3Cancel) return;
+        var fileBuffer = evt.target.result;
+        if (msg) msg.textContent = "Decoding audio file...";
+
+        var audioCtx = window._sharedCtx || (window._sharedCtx = new (window.AudioContext || window.webkitAudioContext)());
+        audioCtx.decodeAudioData(fileBuffer)
+          .then(function(decodedBuffer) {
+            fileBuffer = null; // Instantly release raw file ArrayBuffer from memory
+            if (g_mp3Cancel) return;
+
+            if (msg) msg.textContent = "Resampling to 16kHz PCM...";
+            var targetSampleRate = 16000;
+            var targetLength = Math.ceil(decodedBuffer.duration * targetSampleRate);
+            var offlineCtx = new OfflineAudioContext(1, targetLength, targetSampleRate);
+
+            var source = offlineCtx.createBufferSource();
+            source.buffer = decodedBuffer;
+            source.connect(offlineCtx.destination);
+            source.start(0);
+
+            return offlineCtx.startRendering();
+          })
+          .then(function(renderedBuffer) {
+            if (!renderedBuffer || g_mp3Cancel) return;
+
+            var floatSamples = renderedBuffer.getChannelData(0);
+            var pcm16 = new Int16Array(floatSamples.length);
+            for (var i = 0; i < floatSamples.length; i++) {
+              var s = Math.max(-1, Math.min(1, floatSamples[i]));
+              pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+            }
+            floatSamples = null; // Instantly release float rendered channel data
+
+            var chunkSize = 16000; // 16,000 samples = 1 sec = 32 KB per request
+            var totalChunks = Math.ceil(pcm16.length / chunkSize);
+            var currentChunk = 0;
+
+            function postNextChunk() {
+              if (g_mp3Cancel || currentChunk >= totalChunks) {
+                if (bar) bar.style.width = "100%";
+                if (msg) msg.textContent = g_mp3Cancel ? "Stream cancelled." : "Finished streaming audio!";
+                if (btn) btn.disabled = false;
+                pcm16 = null; // Release full PCM array when complete/stopped
+                return;
+              }
+
+              var startIdx = currentChunk * chunkSize;
+              var endIdx = Math.min(startIdx + chunkSize, pcm16.length);
+
+              // Slice out lightweight 32KB buffer for current chunk
+              var chunkBuffer = pcm16.subarray(startIdx, endIdx).buffer.slice(0);
+
+              var percent = Math.round((currentChunk / totalChunks) * 100);
+              if (bar) bar.style.width = percent + "%";
+              if (msg) msg.textContent = "Streaming chunk " + (currentChunk + 1) + " / " + totalChunks + " (" + percent + "%)...";
+
+              var endpoint = "/audio" + ((currentChunk === 0 && interrupt) ? "?interrupt=1" : "");
+
+              fetch(endpoint, {
+                method: "POST",
+                body: chunkBuffer
+              })
+              .then(function(res) {
+                chunkBuffer = null; // Delete chunk buffer on the fly as each upload finishes!
+                currentChunk++;
+                postNextChunk();
+              })
+              .catch(function(err) {
+                chunkBuffer = null;
+                if (msg) msg.textContent = "Streaming error on chunk " + (currentChunk + 1) + ": " + err;
+                if (btn) btn.disabled = false;
+                pcm16 = null;
+              });
+            }
+
+            postNextChunk();
+          })
+          .catch(function(err) {
+            if (msg) msg.textContent = "Decode error: " + err;
+            if (btn) btn.disabled = false;
+          });
+      };
+
+      reader.onerror = function(e) {
+        if (msg) msg.textContent = "File read error: " + e;
+        if (btn) btn.disabled = false;
+      };
+
+      reader.readAsArrayBuffer(file);
     }
 
     function sendTTS() {

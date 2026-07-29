@@ -11,9 +11,12 @@
 
 #include <sys/param.h>
 #include <string.h>
+#include <strings.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <errno.h>
 
 #include "esp_system.h"
@@ -167,6 +170,17 @@ static esp_err_t dog_handler(httpd_req_t *req) {
 static esp_err_t audio_post_handler(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
+    char qs[128] = {0};
+    char interrupt_str[16] = {0};
+    if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
+        if (httpd_query_key_value(qs, "interrupt", interrupt_str, sizeof(interrupt_str)) == ESP_OK) {
+            if (strcmp(interrupt_str, "1") == 0 || strcasecmp(interrupt_str, "true") == 0) {
+                dog_audio_stop();
+            }
+        }
+    }
+    dog_audio_reset_stop_flag();
+
     char buf[1024];
     int remaining = req->content_len;
     if (remaining <= 0) {
@@ -175,6 +189,10 @@ static esp_err_t audio_post_handler(httpd_req_t *req) {
     }
 
     while (remaining > 0) {
+        if (dog_audio_is_stopped()) {
+            ESP_LOGW("WEB", "Audio streaming aborted by stop request");
+            break;
+        }
         int to_read = remaining < sizeof(buf) ? remaining : sizeof(buf);
         int received = httpd_req_recv(req, buf, to_read);
         if (received <= 0) {
@@ -187,6 +205,157 @@ static esp_err_t audio_post_handler(httpd_req_t *req) {
     }
 
     httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t stop_audio_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+    dog_audio_stop();
+    httpd_resp_send(req, "{\"stopped\":true}", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+typedef struct {
+    char url[256];
+} http_stream_args_t;
+
+static void http_audio_stream_task(void *pvParameters) {
+    http_stream_args_t *args = (http_stream_args_t *)pvParameters;
+    if (!args) {
+        vTaskDelete(NULL);
+        return;
+    }
+
+    ESP_LOGI("WEB_STREAM", "Streaming audio from URL: %s", args->url);
+
+    char host[128] = {0};
+    int port = 80;
+    char path[256] = {0};
+
+    const char *p = args->url;
+    if (strncmp(p, "http://", 7) == 0) p += 7;
+
+    const char *slash = strchr(p, '/');
+    if (slash) {
+        strncpy(path, slash, sizeof(path) - 1);
+        size_t host_len = slash - p;
+        if (host_len >= sizeof(host)) host_len = sizeof(host) - 1;
+        strncpy(host, p, host_len);
+    } else {
+        strncpy(host, p, sizeof(host) - 1);
+        strcpy(path, "/");
+    }
+
+    char *colon = strchr(host, ':');
+    if (colon) {
+        *colon = '\0';
+        port = atoi(colon + 1);
+    }
+
+    struct addrinfo hints = {
+        .ai_family = AF_INET,
+        .ai_socktype = SOCK_STREAM,
+    };
+    struct addrinfo *res = NULL;
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", port);
+
+    int err = getaddrinfo(host, port_str, &hints, &res);
+    if (err != 0 || !res) {
+        ESP_LOGE("WEB_STREAM", "DNS lookup failed for %s", host);
+        free(args);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    int s = socket(res->ai_family, res->ai_socktype, 0);
+    if (s < 0) {
+        ESP_LOGE("WEB_STREAM", "Failed to allocate socket");
+        freeaddrinfo(res);
+        free(args);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    if (connect(s, res->ai_addr, res->ai_addrlen) != 0) {
+        ESP_LOGE("WEB_STREAM", "Socket connect failed errno=%d", errno);
+        close(s);
+        freeaddrinfo(res);
+        free(args);
+        vTaskDelete(NULL);
+        return;
+    }
+    freeaddrinfo(res);
+
+    char req_hdr[512];
+    int req_len = snprintf(req_hdr, sizeof(req_hdr),
+                           "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n",
+                           path, host);
+    write(s, req_hdr, req_len);
+
+    char buf[1024];
+    int header_done = 0;
+    int buf_pos = 0;
+    while (!header_done) {
+        int r = read(s, buf + buf_pos, 1);
+        if (r <= 0) break;
+        buf_pos++;
+        if (buf_pos >= 4 && memcmp(buf + buf_pos - 4, "\r\n\r\n", 4) == 0) {
+            header_done = 1;
+        }
+        if (buf_pos >= sizeof(buf) - 1) break;
+    }
+
+    int r;
+    while ((r = read(s, buf, sizeof(buf))) > 0) {
+        if (dog_audio_is_stopped()) break;
+        dog_audio_play_chunk((const uint8_t *)buf, r);
+    }
+
+    close(s);
+    free(args);
+    ESP_LOGI("WEB_STREAM", "Socket audio stream finished.");
+    vTaskDelete(NULL);
+}
+
+static esp_err_t play_url_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+
+    char qs[300] = {0};
+    char url[256] = {0};
+    char interrupt_str[16] = {0};
+
+    if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
+        httpd_query_key_value(qs, "url", url, sizeof(url));
+        httpd_query_key_value(qs, "interrupt", interrupt_str, sizeof(interrupt_str));
+    }
+
+    if (!url[0]) {
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_send(req, "{\"error\":\"Missing ?url=\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    if (strcmp(interrupt_str, "1") == 0 || strcasecmp(interrupt_str, "true") == 0) {
+        dog_audio_stop();
+    }
+
+    http_stream_args_t *args = malloc(sizeof(http_stream_args_t));
+    if (!args) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OOM");
+        return ESP_FAIL;
+    }
+    strncpy(args->url, url, sizeof(args->url) - 1);
+
+    if (xTaskCreate(http_audio_stream_task, "http_audio_stream", 4096, args, 5, NULL) != pdPASS) {
+        free(args);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Task create fail");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, "{\"ok\":true,\"streaming\":true}", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -216,10 +385,33 @@ static esp_err_t tts_api_handler(httpd_req_t *req) {
 
 static esp_err_t sound_clip_handler(httpd_req_t *req) {
     const char *uri = req->uri;
-    if (uri[0] == '/') uri++;
-    dog_audio_play_named(uri);
+    char name[32] = {0};
+    int repeat = 1;
+    bool interrupt = false;
+
+    char qs[128] = {0};
+    if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
+        char p[16];
+        if (httpd_query_key_value(qs, "name", name, sizeof(name)) != ESP_OK) {
+            if (uri[0] == '/') sscanf(uri, "/%31[^?]", name);
+        }
+        if (httpd_query_key_value(qs, "repeat", p, sizeof(p)) == ESP_OK) repeat = atoi(p);
+        if (httpd_query_key_value(qs, "interrupt", p, sizeof(p)) == ESP_OK) {
+            if (strcmp(p, "1") == 0 || strcasecmp(p, "true") == 0) interrupt = true;
+        }
+    } else {
+        if (uri[0] == '/') strncpy(name, uri + 1, sizeof(name) - 1);
+    }
+
+    if (!name[0]) strncpy(name, "bark", sizeof(name) - 1);
+
+    dog_audio_play_named_ex(name, repeat, interrupt);
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    httpd_resp_set_type(req, "application/json");
+    char resp[128];
+    int len = snprintf(resp, sizeof(resp), "{\"ok\":true,\"sound\":\"%s\",\"repeat\":%d,\"interrupt\":%s}",
+                       name, repeat, interrupt ? "true" : "false");
+    httpd_resp_send(req, resp, len);
     return ESP_OK;
 }
 
@@ -692,6 +884,14 @@ void webserver_start(void) {
         { .uri = "/dog",                .method = HTTP_OPTIONS, .handler = cors_options_handler },
         { .uri = "/audio",              .method = HTTP_POST, .handler = audio_post_handler },
         { .uri = "/audio",              .method = HTTP_OPTIONS, .handler = cors_options_handler },
+        { .uri = "/stop",               .method = HTTP_GET,  .handler = stop_audio_handler },
+        { .uri = "/stop",               .method = HTTP_POST, .handler = stop_audio_handler },
+        { .uri = "/stop",               .method = HTTP_OPTIONS, .handler = cors_options_handler },
+        { .uri = "/sound",              .method = HTTP_GET,  .handler = sound_clip_handler },
+        { .uri = "/sound",              .method = HTTP_OPTIONS, .handler = cors_options_handler },
+        { .uri = "/play_url",           .method = HTTP_GET,  .handler = play_url_handler },
+        { .uri = "/play_url",           .method = HTTP_POST, .handler = play_url_handler },
+        { .uri = "/play_url",           .method = HTTP_OPTIONS, .handler = cors_options_handler },
         { .uri = "/tts",                .method = HTTP_GET,  .handler = tts_api_handler },
         { .uri = "/sendtts:*",          .method = HTTP_GET,  .handler = tts_api_handler },
         

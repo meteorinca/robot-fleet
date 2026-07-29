@@ -62,20 +62,26 @@ Passing `-DDEVICE_NUMBER=8` configures mDNS hostname `speakerbot8.local` and Sof
 
 ## 🔊 Voice, TTS & Speaker Audio API
 
-- **Stream Raw PCM Audio to Speaker**: `POST /audio`
+- **Stream Raw PCM Audio to Speaker**: `POST /audio` or `POST /audio?interrupt=1`
   - *Body*: 16kHz 16-bit signed mono PCM binary chunks. Played in real-time through the I2S PDM speaker.
-- **Web UI Audio File & URL Streaming**:
-  - Open `http://speakerbot<N>.local` and use **"🎵 Stream Audio File / URL"** to upload any `.mp3`, `.wav`, `.m4a`, or audio URL to stream live through the speaker.
-- **Broadcast TTS Text to SSE Web Browsers**: `GET /tts?say=Hello+Human` or `GET /sendtts:Hello+Human`
-  - *Broadcasts text to connected browser clients for Web Speech API synthesis.*
-- **Play Sound Clips**:
-  - `GET /paulbot` — Play "Hi, My name is Paulbot" SAM TTS boot sound
-  - `GET /bark` — Play dog bark audio clip
-  - `GET /huh` — Play "Huh?" sound clip
-  - `GET /yes` — Play "Yes" sound clip
-  - `GET /jump` — Play cartoon jump sound
-  - `GET /ding` — Play bell chime sound
-  - `GET /random` — Play random sound clip
+  - *Parameter*: `?interrupt=1` — Immediately stops any playing sound before streaming new audio (ideal for emergency alerts).
+- **HTTP Audio URL Streamer**: `GET /play_url?url=http://...` or `POST /play_url`
+  - *Parameters*: `?url=http://192.168.1.50:8080/sound.pcm` (HTTP URL to fetch raw PCM audio stream), `&interrupt=1` (Optional preemption).
+- **Emergency Audio Stop / Silence**: `GET /stop` or `POST /stop`
+  - *Instantly flushes audio ringbuffer and stops active speaker output.*
+- **Play Sound Clips with Repeat & Preemption**: `GET /sound?name=bark&repeat=3&interrupt=1` or `GET /bark?repeat=3&interrupt=1`
+  - *Parameters*:
+    - `name`: `bark`, `paulbot`, `huh`, `yes`, `jump`, `ding`, `random`
+    - `repeat`: Repeat playback `N` times (e.g. `repeat=3` for alarm beeps)
+    - `interrupt`: `1` or `true` to immediately interrupt active playback for safety/emergency alerts
+- **Jupyter Notebook & Python Integration**:
+  - Use [`notebooks/speakerbot_audio_player.ipynb`](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/speakerbot/notebooks/speakerbot_audio_player.ipynb) or [`speakerbot_player.py`](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/speakerbot/notebooks/speakerbot_player.py) to stream any MP3 or WAV file directly from Python to SpeakerBot:
+    ```python
+    from speakerbot_player import SpeakerBot
+    bot = SpeakerBot("http://speakerbot8.local")
+    bot.play_file("my_alarm.mp3", interrupt=True)
+    bot.stop()
+    ```
 
 ---
 
