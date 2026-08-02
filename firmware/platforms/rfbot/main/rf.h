@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
+
 
 // ── Core init / TX ───────────────────────────────────────────────────────────
 void rf_module_init(void);
@@ -38,4 +40,12 @@ bool rf_listen_active(void);
 // Each element: {"code":"1A2B","bits":24,"proto":1,"pulse":350}
 struct cJSON *rf_listen_get_packets(void);
 
+// ── Relay mode (Photodetector RF -> SpeakerBot Bark) ────────────────────────
+// When enabled, receiving RF code 123456 (or 0x123456) sends HTTP GET /bark
+// to the configured target SpeakerBot host. Disabled by default.
+void rf_relay_set_config(bool enabled, const char *host);
+void rf_relay_get_config(bool *out_enabled, char *out_host, size_t max_len);
+bool rf_relay_is_enabled(void);
+
 #endif
+

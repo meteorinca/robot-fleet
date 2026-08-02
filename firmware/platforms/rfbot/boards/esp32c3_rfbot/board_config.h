@@ -75,7 +75,7 @@
 #define RF_FREQ_MHZ             433
 // TX and RX GPIOs for the 433 MHz transmitter / receiver
 #define RF_TX_GPIO              GPIO_NUM_4
-#define RF_RX_GPIO              GPIO_NUM_2
+#define RF_RX_GPIO              GPIO_NUM_10
 #define RF_PULSE_WIDTH          185
 
 // Hard-coded RF action codes (used for physical remote dispatch)

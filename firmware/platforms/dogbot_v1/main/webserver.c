@@ -330,14 +330,33 @@ static esp_err_t status_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static void send_cmd_html_response(httpd_req_t *req) {
+    static const char html[] =
+        "<!DOCTYPE html><html><head>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        "body{font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:50px 20px;background:#0a0a0a;color:#fff;margin:0;}"
+        "h1{color:#ffd700;font-size:24px;margin-bottom:12px;}"
+        "p{color:#aaa;font-size:16px;margin-bottom:28px;}"
+        ".btn{display:inline-block;padding:16px 32px;background:#ffd700;color:#000;text-decoration:none;border-radius:12px;font-weight:bold;font-size:18px;box-shadow:0 4px 14px rgba(255,215,0,0.3);}"
+        ".btn:active{transform:scale(0.97);}"
+        "</style></head><body>"
+        "<h1>PaulBot Received Your Command!</h1>"
+        "<p>Your robot is executing the command now.</p>"
+        "<a href='javascript:history.back()' class='btn'>Back</a>"
+        "</body></html>";
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, html, sizeof(html) - 1);
+}
+
 // Quick-action: now async — returns immediately, servo worker does the move
 static esp_err_t quick_action_handler(httpd_req_t *req) {
     const char *uri = req->uri;
     // Strip leading '/' and dispatch
     if (uri[0] == '/') uri++;
     execute_named_action(uri);
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    send_cmd_html_response(req);
     return ESP_OK;
 }
 
@@ -379,8 +398,7 @@ static esp_err_t tts_api_handler(httpd_req_t *req) {
         ESP_LOGI("WEB", "TTS API: \"%s\"", text);
         sse_broadcast_tts(text);
     }
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, text[0] ? "OK" : "Missing ?say=", HTTPD_RESP_USE_STRLEN);
+    send_cmd_html_response(req);
     return ESP_OK;
 }
 
@@ -392,8 +410,7 @@ static esp_err_t eye_mood_handler(httpd_req_t *req) {
             dog_set_eye_mood(atoi(param));
         }
     }
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    send_cmd_html_response(req);
     return ESP_OK;
 }
 
@@ -420,8 +437,7 @@ static esp_err_t oled_text_handler(httpd_req_t *req) {
     if (msg[0]) {
         dog_set_oled_text(msg, 4000); // show for 4 seconds
     }
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    send_cmd_html_response(req);
     return ESP_OK;
 }
 

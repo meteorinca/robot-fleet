@@ -291,7 +291,24 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "  <button onclick='rfClearLog()' style='flex:1;padding:7px;border-radius:8px;border:1px solid #2a2a50;background:#0a0a1e;color:#888;font-size:11px;cursor:pointer;'>Clear Log</button>"
         "  <div id='rf-poll-status' style='flex:2;font-size:11px;color:#444;display:flex;align-items:center;padding:0 8px;'></div>"
         "</div>"
+        "</div>"
+
+        /* ── Photodetector RF Relay Card ───────────────────────────────── */
+        "<div class='card' id='rf-relay-card'>"
+        "<h2>\xf0\x9f\x93\xa1 Photodetector RF Relay</h2>"
+        "<div style='margin-bottom:10px;font-size:12px;color:#888;'>Relay RF code 123456 to SpeakerBot /bark API. Disabled by default.</div>"
+        "<div style='display:flex;align-items:center;gap:10px;margin-bottom:10px;'>"
+        "  <input type='checkbox' id='rf-relay-enable' style='width:18px;height:18px;accent-color:#00e5a0;cursor:pointer;'>"
+        "  <label for='rf-relay-enable' style='font-size:13px;font-weight:600;color:#e0e0f0;cursor:pointer;'>Enable RF Relay Mode</label>"
+        "</div>"
+        "<div style='margin-bottom:10px;'>"
+        "  <label style='display:block;font-size:11px;color:#a0a0d0;margin-bottom:4px;'>Target SpeakerBot Host / IP</label>"
+        "  <input type='text' id='rf-relay-host' placeholder='speakerbot5.local' value='speakerbot5.local' style='margin-bottom:0;'>"
+        "</div>"
+        "<button class='btn-primary' onclick='saveRfRelay()' style='background:linear-gradient(135deg,#1b8f5e,#0d6644);'>Save Relay Settings</button>"
+        "<div class='err-msg' id='rf-relay-err' style='margin-top:6px;'></div>"
         "</div>";
+
         /* ── RF Outlets card injected here dynamically ─────────────────── */
 
     /* ── Part 2: OTA card + WiFi setup card + all JavaScript ───────────── */
@@ -549,6 +566,26 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "      setTimeout(function(){st.textContent='';},3000);"
         "    }).catch(function(e){st.style.color='#f7736a';st.textContent=e;});"
         "}"
+        "function loadRfRelay(){"
+        "  fetch('/rf/relay').then(function(r){return r.json();}).then(function(d){"
+        "    if(document.getElementById('rf-relay-enable')) document.getElementById('rf-relay-enable').checked=!!d.enabled;"
+        "    if(d.host && document.getElementById('rf-relay-host')) document.getElementById('rf-relay-host').value=d.host;"
+        "  }).catch(function(){});"
+        "}"
+        "function saveRfRelay(){"
+        "  var en=document.getElementById('rf-relay-enable').checked?1:0;"
+        "  var h=document.getElementById('rf-relay-host').value.trim();"
+        "  var err=document.getElementById('rf-relay-err');"
+        "  if(!h){err.textContent='Enter target host';return;}"
+        "  err.style.color='#a0a0d0';err.textContent='Saving...';"
+        "  fetch('/rf/relay?enabled='+en+'&host='+encodeURIComponent(h))"
+        "    .then(function(r){return r.json();})"
+        "    .then(function(d){"
+        "      err.style.color='#00e5a0';"
+        "      err.textContent=d.enabled?'Relay ENABLED -> '+d.host:'Relay DISABLED';"
+        "    }).catch(function(e){err.style.color='#f7736a';err.textContent=e;});"
+        "}"
+        "loadRfRelay();"
         "</script></body></html>";
 
     httpd_resp_set_type(req, "text/html");
@@ -1265,7 +1302,48 @@ static esp_err_t rf_status_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+// GET /rf/relay?enabled=<0|1>&host=<target> — get or set RF relay config
+static esp_err_t rf_relay_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+
+    char qs[128] = {0};
+    if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
+        char enabled_str[16] = {0};
+        char host_str[64]   = {0};
+        bool update = false;
+        bool enabled = rf_relay_is_enabled();
+        char cur_host[64] = {0};
+        rf_relay_get_config(NULL, cur_host, sizeof(cur_host));
+
+        if (httpd_query_key_value(qs, "enabled", enabled_str, sizeof(enabled_str)) == ESP_OK) {
+            enabled = (atoi(enabled_str) != 0 || strcasecmp(enabled_str, "true") == 0);
+            update = true;
+        }
+        if (httpd_query_key_value(qs, "host", host_str, sizeof(host_str)) == ESP_OK) {
+            strncpy(cur_host, host_str, sizeof(cur_host) - 1);
+            update = true;
+        }
+
+        if (update) {
+            rf_relay_set_config(enabled, cur_host);
+        }
+    }
+
+    bool cur_enabled = false;
+    char cur_host[64] = {0};
+    rf_relay_get_config(&cur_enabled, cur_host, sizeof(cur_host));
+
+    char resp[160];
+    int len = snprintf(resp, sizeof(resp),
+        "{\"enabled\":%s,\"host\":\"%s\"}",
+        cur_enabled ? "true" : "false", cur_host);
+    httpd_resp_send(req, resp, len);
+    return ESP_OK;
+}
+
 #endif /* RF_RX_GPIO */
+
 
 // ══════════════════════════════════════════════════════════════
 //  Server startup
@@ -1346,6 +1424,7 @@ void webserver_start(void) {
         { "/rf/poll",        HTTP_GET,  rf_poll_handler,        NULL },
         { "/rf/send",        HTTP_GET,  rf_send_handler,        NULL },
         { "/rf/status",      HTTP_GET,  rf_status_handler,      NULL },
+        { "/rf/relay",       HTTP_GET,  rf_relay_handler,       NULL },
 #endif
         // WiFi provisioning endpoints
         { "/wifi",      HTTP_GET,    wifi_get_handler,     NULL },

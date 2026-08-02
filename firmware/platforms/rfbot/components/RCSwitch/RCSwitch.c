@@ -69,18 +69,13 @@ void initSwitch(RCSWITCH_t * RCSwitch) {
 	RCSwitch->nReceivedDelay = 0;
 	RCSwitch->nReceivedProtocol = 0;
 	RCSwitch->nReceiveTolerance = 80;
-	/* nSeparationLimit: the minimum gap (µs) that marks the boundary between
-	 * two consecutive packet transmissions.  Protocol 1 at 185µs has a sync
-	 * LOW of 31×185 = 5735µs, so 4300 is fine.  But protocol 1 at 350µs has
-	 * a sync LOW of 31×350 = 10850µs.  The original 4300 is safe for both;
-	 * keep it.  The real fix is the repeat-gap tolerance below. */
-	RCSwitch->nSeparationLimit = 2000;
+	RCSwitch->nSeparationLimit = 1500;
 
 	RCSwitch->nTransmitterPin = -1;
 	setRepeatTransmit(RCSwitch, 10);
 	setProtocol(RCSwitch, 1);
 	RCSwitch->nReceiverInterrupt = -1;
-	setReceiveTolerance(RCSwitch, 60);
+	setReceiveTolerance(RCSwitch, 80);
 	RCSwitch->nReceivedValue = 0;
 }
 
@@ -406,8 +401,8 @@ esp_err_t enableReceiveInternal(RCSWITCH_t * RCSwitch) {
 		.intr_type    = GPIO_INTR_ANYEDGE,
 		.mode         = GPIO_MODE_INPUT,
 		.pin_bit_mask = gpio_pin_sel,
-		.pull_up_en   = GPIO_PULLUP_DISABLE,   // ← was ENABLE, broke RX
-		.pull_down_en = GPIO_PULLDOWN_DISABLE
+		.pull_up_en   = GPIO_PULLUP_DISABLE,
+		.pull_down_en = GPIO_PULLDOWN_ENABLE
 	};
 	gpio_config(&io_conf);
 
@@ -481,39 +476,52 @@ bool receiveProtocol(RCSWITCH_t * RCSwitch, const int p, unsigned int changeCoun
 
 	const unsigned int delayTolerance = delay * RCSwitch->nReceiveTolerance / 100;
 
-	// Test offsets 0, 1, 2 to cover:
-	// offset=0: sync is in syncDuration (outside timings array), data starts at timings[0]
-	// offset=1: sync is in timings[0], data starts at timings[1]
-	// offset=2: inverted or shifted signal offset
-	for (unsigned int offset = 0; offset <= 2; offset++) {
-		if (changeCount <= offset + 6) continue;
-		unsigned long code = 0;
-		bool failed = false;
-		unsigned int bitLen = 0;
+	unsigned long bestCode = 0;
+	unsigned int bestBitLen = 0;
 
-		for (unsigned int i = offset; i < changeCount - 1; i += 2) {
-			code <<= 1;
-			bitLen++;
-			if (diff(RCSwitch->timings[i], delay * pro.zero.high) <= delayTolerance &&
-				diff(RCSwitch->timings[i + 1], delay * pro.zero.low) <= delayTolerance) {
-				// zero
-			} else if (diff(RCSwitch->timings[i], delay * pro.one.high) <= delayTolerance &&
-						diff(RCSwitch->timings[i + 1], delay * pro.one.low) <= delayTolerance) {
-				// one
-				code |= 1;
-			} else {
-				failed = true;
-				break;
+	// Scan all possible offsets in timings[] where a valid packet might start
+	for (unsigned int offset = 0; offset + 6 < changeCount; offset++) {
+		// Try both non-inverted (inv=0) and inverted (inv=1) pulse logic
+		for (int inv = 0; inv <= 1; inv++) {
+			bool isInverted = (inv == 1) ^ pro.invertedSignal;
+			unsigned int zeroHigh = isInverted ? pro.zero.low  : pro.zero.high;
+			unsigned int zeroLow  = isInverted ? pro.zero.high : pro.zero.low;
+			unsigned int oneHigh  = isInverted ? pro.one.low   : pro.one.high;
+			unsigned int oneLow   = isInverted ? pro.one.high  : pro.one.low;
+
+			unsigned long code = 0;
+			bool failed = false;
+			unsigned int bitLen = 0;
+
+			for (unsigned int i = offset; i < changeCount - 1; i += 2) {
+				code <<= 1;
+				bitLen++;
+				if (diff(RCSwitch->timings[i], delay * zeroHigh) <= delayTolerance &&
+					diff(RCSwitch->timings[i + 1], delay * zeroLow) <= delayTolerance) {
+					// zero
+				} else if (diff(RCSwitch->timings[i], delay * oneHigh) <= delayTolerance &&
+							diff(RCSwitch->timings[i + 1], delay * oneLow) <= delayTolerance) {
+					// one
+					code |= 1;
+				} else {
+					failed = true;
+					break;
+				}
+			}
+			
+			if (!failed && bitLen >= 8 && bitLen > bestBitLen) {
+				bestCode = code;
+				bestBitLen = bitLen;
 			}
 		}
-		
-		if (!failed && bitLen >= 4) { // valid packet decoded!
-			RCSwitch->nReceivedValue = code;
-			RCSwitch->nReceivedBitlength = bitLen;
-			RCSwitch->nReceivedDelay = delay;
-			RCSwitch->nReceivedProtocol = p;
-			return true;
-		}
+	}
+
+	if (bestBitLen >= 8) { // valid packet decoded!
+		RCSwitch->nReceivedValue = bestCode;
+		RCSwitch->nReceivedBitlength = bestBitLen;
+		RCSwitch->nReceivedDelay = delay;
+		RCSwitch->nReceivedProtocol = p;
+		return true;
 	}
 	return false;
 }
@@ -532,6 +540,11 @@ void IRAM_ATTR handleInterrupt(void* arg)
 	const int64_t time = esp_timer_get_time();
 	const unsigned int duration = (unsigned int)(time - lastTime);
 
+	// Filter out high-frequency noise spikes (< 35 µs)
+	if (duration < 35 && lastTime != 0) {
+		return;
+	}
+
 	if (duration > RCSwitch->nSeparationLimit) {
 		// A long sync pulse or inter-frame gap occurred.
 		// If we accumulated data pulse transitions (changeCount > 7),
@@ -549,9 +562,18 @@ void IRAM_ATTR handleInterrupt(void* arg)
 		changeCount = 0;
 	}
 
-	// detect overflow
+	// Prevent buffer overflow while preserving recent pulses when noise fills buffer
 	if (changeCount >= RCSWITCH_MAX_CHANGES) {
-		changeCount = 0;
+		for (uint8_t i = 1; i <= numProto; i++) {
+			if (receiveProtocol(RCSwitch, i, changeCount, RCSwitch->timings[0])) {
+				break;
+			}
+		}
+		const int keep = 40;
+		for (int k = 0; k < keep; k++) {
+			RCSwitch->timings[k] = RCSwitch->timings[RCSWITCH_MAX_CHANGES - keep + k];
+		}
+		changeCount = keep;
 	}
 
 	RCSwitch->timings[changeCount++] = duration;

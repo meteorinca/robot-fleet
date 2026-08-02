@@ -7,8 +7,12 @@
 #include "cJSON.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_http_client.h"
+#include "esp_timer.h"
 
 #include <string.h>
+#include <stdio.h>
+
 
 static const char *TAG = "RF";
 
@@ -45,6 +49,70 @@ static volatile int       s_listen_head  = 0;   // write index (next slot to fil
 static volatile int       s_listen_count = 0;   // total packets waiting to be read
 static portMUX_TYPE       s_listen_mux   = portMUX_INITIALIZER_UNLOCKED;
 
+// ── Relay mode state (Photodetector RF -> SpeakerBot Bark) ──────────────────
+static volatile bool      s_relay_enabled = false;
+static char               s_relay_target_host[64] = "speakerbot5.local";
+static int64_t            s_last_relay_bark_time = 0;
+static portMUX_TYPE       s_relay_mux   = portMUX_INITIALIZER_UNLOCKED;
+
+void rf_relay_set_config(bool enabled, const char *host) {
+    portENTER_CRITICAL(&s_relay_mux);
+    s_relay_enabled = enabled;
+    if (host && host[0]) {
+        strncpy(s_relay_target_host, host, sizeof(s_relay_target_host) - 1);
+        s_relay_target_host[sizeof(s_relay_target_host) - 1] = '\0';
+    }
+    portEXIT_CRITICAL(&s_relay_mux);
+    ESP_LOGI(TAG, "RF Relay config set: enabled=%s, target_host=%s",
+             enabled ? "true" : "false", s_relay_target_host);
+}
+
+void rf_relay_get_config(bool *out_enabled, char *out_host, size_t max_len) {
+    portENTER_CRITICAL(&s_relay_mux);
+    if (out_enabled) *out_enabled = s_relay_enabled;
+    if (out_host && max_len > 0) {
+        strncpy(out_host, s_relay_target_host, max_len - 1);
+        out_host[max_len - 1] = '\0';
+    }
+    portEXIT_CRITICAL(&s_relay_mux);
+}
+
+bool rf_relay_is_enabled(void) {
+    return s_relay_enabled;
+}
+
+static void trigger_speakerbot_bark_task(void *pvParameters) {
+    char url[128];
+    char host[64];
+
+    portENTER_CRITICAL(&s_relay_mux);
+    snprintf(host, sizeof(host), "%s", s_relay_target_host);
+    portEXIT_CRITICAL(&s_relay_mux);
+
+    if (strncmp(host, "http://", 7) == 0) {
+        snprintf(url, sizeof(url), "%s/bark", host);
+    } else {
+        snprintf(url, sizeof(url), "http://%s/bark", host);
+    }
+
+    ESP_LOGI(TAG, "Relaying bark request to %s...", url);
+    esp_http_client_config_t config = {
+        .url = url,
+        .timeout_ms = 1500,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client) {
+        esp_err_t err = esp_http_client_perform(client);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "Successfully triggered bark on %s (HTTP %d)", url, esp_http_client_get_status_code(client));
+        } else {
+            ESP_LOGW(TAG, "Failed connecting to %s: %s", url, esp_err_to_name(err));
+        }
+        esp_http_client_cleanup(client);
+    }
+    vTaskDelete(NULL);
+}
+
 void rf_module_init(void) {
     // TX
     initSwitch(&s_rc_tx);
@@ -53,6 +121,7 @@ void rf_module_init(void) {
     // RX — will be started in rf_start_receiver()
     initSwitch(&s_rc_rx);
 }
+
 
 void rf_send_code(uint32_t code, unsigned int bit_length) {
     sendCode(&s_rc_tx, code, bit_length);
@@ -224,8 +293,20 @@ static void rf_receiver_task(void *pvParameters) {
                 portEXIT_CRITICAL(&s_learn_mux);
             }
 
-            // ── Normal action dispatch (only when not in learn/listen mode) ──
+            // ── Normal action dispatch & relay (only when not in learn/listen mode) ──
             if (!s_learn_mode && !s_listen_mode) {
+                if (s_relay_enabled && (code == 123456 || code == 0x123456)) {
+                    int64_t now = esp_timer_get_time() / 1000;
+                    if (now - s_last_relay_bark_time >= 1500) {
+                        s_last_relay_bark_time = now;
+                        ESP_LOGI(TAG, "RF Relay: photodetector code %lu detected! Relaying bark to %s...",
+                                 (unsigned long)code, s_relay_target_host);
+                        xTaskCreate(trigger_speakerbot_bark_task, "spk_bark", 4096, NULL, 5, NULL);
+                    } else {
+                        ESP_LOGD(TAG, "RF Relay: bark request rate-limited");
+                    }
+                }
+
                 switch (code) {
                     case RF_CODE_TOGGLE_LED:
                         led_action_toggle();
@@ -236,10 +317,13 @@ static void rf_receiver_task(void *pvParameters) {
                         send_confirmation(code);
                         break;
                     default:
-                        ESP_LOGW(TAG, "Unknown code, ignoring");
+                        if (!s_relay_enabled || (code != 123456 && code != 0x123456)) {
+                            ESP_LOGW(TAG, "Unknown code, ignoring");
+                        }
                         break;
                 }
             }
+
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }

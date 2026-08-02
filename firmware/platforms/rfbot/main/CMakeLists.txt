@@ -63,6 +63,7 @@ idf_component_register(
                     esp_timer
                     nvs_flash
                     esp_http_server
+                    esp_http_client
                     mdns
                     esp_app_format
                     app_update
