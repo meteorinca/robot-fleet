@@ -205,6 +205,100 @@ static void send_cmd_html_response(httpd_req_t *req) {
     httpd_resp_send(req, html, sizeof(html) - 1);
 }
 
+// ── MScript Mission Execution ────────────────────────────────────────────────
+#define MAX_MISSION_LEN 512
+
+static TaskHandle_t s_mission_task_handle = NULL;
+
+static void mission_runner_task(void *arg) {
+    char *script = (char *)arg;
+    ESP_LOGI("MISSION", "Starting MScript: %s", script);
+
+    char *saveptr = NULL;
+    char *token = strtok_r(script, "|", &saveptr);
+    while (token != NULL) {
+        while (*token == ' ') token++;
+        char *end = token + strlen(token) - 1;
+        while (end > token && (*end == ' ' || *end == '\r' || *end == '\n')) {
+            *end = '\0';
+            end--;
+        }
+
+        if (token[0] != '\0') {
+            if (strncmp(token, "delay:", 6) == 0 || strncmp(token, "wait:", 5) == 0) {
+                const char *val_str = (token[0] == 'd') ? token + 6 : token + 5;
+                int ms = atoi(val_str);
+                if (ms > 0) {
+                    if (ms > 10000) ms = 10000;
+                    vTaskDelay(pdMS_TO_TICKS(ms));
+                }
+            } else if (strncmp(token, "servo:", 6) == 0) {
+                int num = 1, angle = 90;
+                if (sscanf(token + 6, "%d:%d", &num, &angle) == 2) {
+                    if (num >= 1 && num <= servo_count()) {
+                        servo_action_set(num, angle);
+                    }
+                }
+            } else if (strncmp(token, "oled:", 5) == 0 || strncmp(token, "msg:", 4) == 0) {
+                const char *msg = (token[0] == 'o') ? token + 5 : token + 4;
+                oled_set_text(msg, 4000);
+            } else {
+                execute_named_action(token);
+            }
+        }
+        token = strtok_r(NULL, "|", &saveptr);
+    }
+
+    ESP_LOGI("MISSION", "MScript finished");
+    free(script);
+    s_mission_task_handle = NULL;
+    vTaskDelete(NULL);
+}
+
+static esp_err_t mission_api_handler(httpd_req_t *req) {
+    char buf[MAX_MISSION_LEN];
+    char mscript[MAX_MISSION_LEN] = {0};
+
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+        if (httpd_query_key_value(buf, "m", mscript, sizeof(mscript)) != ESP_OK) {
+            httpd_query_key_value(buf, "mission", mscript, sizeof(mscript));
+        }
+    }
+
+    char decoded[MAX_MISSION_LEN] = {0};
+    int d = 0;
+    for (int i = 0; mscript[i] && d < (MAX_MISSION_LEN - 1); i++) {
+        if (mscript[i] == '+') {
+            decoded[d++] = ' ';
+        } else if (mscript[i] == '%' && mscript[i+1] && mscript[i+2]) {
+            char hex[3] = { mscript[i+1], mscript[i+2], 0 };
+            decoded[d++] = (char)strtol(hex, NULL, 16);
+            i += 2;
+        } else {
+            decoded[d++] = mscript[i];
+        }
+    }
+
+    if (decoded[0] != '\0') {
+        if (s_mission_task_handle != NULL) {
+            vTaskDelete(s_mission_task_handle);
+            s_mission_task_handle = NULL;
+        }
+
+        char *script_copy = strdup(decoded);
+        if (script_copy != NULL) {
+            BaseType_t ret = xTaskCreate(mission_runner_task, "mscript_run", 3072, script_copy, 3, &s_mission_task_handle);
+            if (ret != pdPASS) {
+                free(script_copy);
+                s_mission_task_handle = NULL;
+            }
+        }
+    }
+
+    send_cmd_html_response(req);
+    return ESP_OK;
+}
+
 // Quick-action: now async — returns immediately
 static esp_err_t quick_action_handler(httpd_req_t *req) {
     const char *uri = req->uri;
@@ -889,6 +983,8 @@ void webserver_start(void) {
         { "/time",      HTTP_GET,  time_handler,           NULL },
         { "/status",    HTTP_GET,  status_handler,         NULL },
         { "/schedule",  HTTP_GET,  schedule_handler,       NULL },
+        { "/api/mission", HTTP_GET, mission_api_handler,    NULL },
+        { "/mission",     HTTP_GET, mission_api_handler,    NULL },
         { "/us_data",   HTTP_GET,  us_data_handler,        NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },
         { "/led_direct",HTTP_GET,  led_direct_handler,     NULL },

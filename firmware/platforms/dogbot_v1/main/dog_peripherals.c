@@ -54,12 +54,12 @@ static void dog_draw_line(uint16_t* buf, int x0, int y0, int x1, int y1, uint16_
 }
 
 void dog_set_display_mode(int mode) {
-    dog_display_mode = (mode >= 0 && mode <= 3) ? mode : 0;
+    dog_display_mode = (mode >= 0 && mode <= 6) ? mode : 0;
     dog_anim_timer   = -1; // permanent until changed
 }
 
 void dog_set_display_mode_timed(int mode, int duration_ms) {
-    dog_display_mode = (mode >= 0 && mode <= 3) ? mode : 0;
+    dog_display_mode = (mode >= 0 && mode <= 6) ? mode : 0;
     dog_anim_timer   = duration_ms / 60; // ~60ms per frame
 }
 
@@ -489,6 +489,188 @@ static void dog_eyes_task(void *arg) {
                     prev_x = px; prev_y = py;
                 }
             }
+            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; } }
+            vTaskDelay(1);
+
+        } else if (dog_display_mode == 4) {
+            // ════ MODE 4: MARIO DANCE (Super Mushroom & Stars) ════
+            memset(buffer, 0, 160 * 80 * sizeof(uint16_t));
+
+            int center_x = 80 + (int)(sinf(frame_count * 0.18f) * 35.0f);
+            int center_y = 42 - (int)(fabsf(sinf(frame_count * 0.35f)) * 14.0f);
+
+            uint16_t cap_red    = rgb565(240, 30, 40);
+            uint16_t spot_white = rgb565(255, 255, 255);
+            uint16_t face_beige = rgb565(255, 220, 180);
+            uint16_t eye_black  = rgb565(10, 10, 10);
+            uint16_t gold_star  = rgb565(255, 215, 0);
+
+            for (int dy = -18; dy <= 2; dy++) {
+                for (int dx = -22; dx <= 22; dx++) {
+                    if ((dx*dx * 18*18 + dy*dy * 22*22) <= (22*22 * 18*18)) {
+                        int px = center_x + dx, py = center_y + dy;
+                        if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                            if (dx*dx + (dy+8)*(dy+8) <= 36) {
+                                buffer[py * 160 + px] = spot_white;
+                            } else if ((dx+14)*(dx+14) + (dy+4)*(dy+4) <= 20) {
+                                buffer[py * 160 + px] = spot_white;
+                            } else if ((dx-14)*(dx-14) + (dy+4)*(dy+4) <= 20) {
+                                buffer[py * 160 + px] = spot_white;
+                            } else {
+                                buffer[py * 160 + px] = cap_red;
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (int dy = 2; dy <= 16; dy++) {
+                for (int dx = -14; dx <= 14; dx++) {
+                    int px = center_x + dx, py = center_y + dy;
+                    if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                        if ((dx == -6 || dx == -5 || dx == 5 || dx == 6) && (dy >= 6 && dy <= 12)) {
+                            buffer[py * 160 + px] = eye_black;
+                        } else {
+                            buffer[py * 160 + px] = face_beige;
+                        }
+                    }
+                }
+            }
+
+            for (int s = 0; s < 3; s++) {
+                int star_x = (30 + s * 50 + (frame_count * 2)) % 160;
+                int star_y = 15 + (int)(sinf((frame_count + s * 20) * 0.1f) * 8.0f);
+                for (int ty = -3; ty <= 3; ty++) {
+                    for (int tx = -3; tx <= 3; tx++) {
+                        if (abs(tx) + abs(ty) <= 3) {
+                            int px = star_x + tx, py = star_y + ty;
+                            if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                                buffer[py * 160 + px] = gold_star;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; } }
+            vTaskDelay(1);
+
+        } else if (dog_display_mode == 5) {
+            // ════ MODE 5: SPACE INVADERS (Retro Pixel Sprite + Lasers) ════
+            memset(buffer, 0, 160 * 80 * sizeof(uint16_t));
+
+            static const uint8_t invader_frame1[8] = {
+                0b00011000, 0b00111100, 0b01111110, 0b11011011,
+                0b11111111, 0b00100100, 0b01011010, 0b10100101
+            };
+            static const uint8_t invader_frame2[8] = {
+                0b00011000, 0b00111100, 0b01111110, 0b11011011,
+                0b11111111, 0b01000010, 0b10100101, 0b01000010
+            };
+
+            bool frame_toggle = (frame_count / 8) % 2 == 0;
+            const uint8_t *sprite = frame_toggle ? invader_frame1 : invader_frame2;
+
+            int inv_x = 10 + ((frame_count * 2) % 120);
+            int inv_y = 20 + (int)(sinf(frame_count * 0.1f) * 6.0f);
+
+            uint16_t inv_color  = rgb565(0, 255, 230);
+            uint16_t laser_green= rgb565(50, 255, 80);
+            uint16_t cannon_col = rgb565(255, 200, 0);
+
+            int scale = 4;
+            for (int r = 0; r < 8; r++) {
+                uint8_t row_bits = sprite[r];
+                for (int c = 0; c < 8; c++) {
+                    if (row_bits & (1 << (7 - c))) {
+                        for (int sy = 0; sy < scale; sy++) {
+                            for (int sx = 0; sx < scale; sx++) {
+                                int px = inv_x + c * scale + sx;
+                                int py = inv_y + r * scale + sy;
+                                if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                                    buffer[py * 160 + px] = inv_color;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (int cy = 70; cy < 76; cy++) {
+                for (int cx = 74; cx <= 86; cx++) {
+                    buffer[cy * 160 + cx] = cannon_col;
+                }
+            }
+
+            int laser_y = (70 - ((frame_count * 4) % 60));
+            for (int ly = laser_y; ly < laser_y + 8 && ly >= 0 && ly < 80; ly++) {
+                buffer[ly * 160 + 80] = laser_green;
+                buffer[ly * 160 + 81] = laser_green;
+            }
+
+            if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; } }
+            vTaskDelay(1);
+
+        } else if (dog_display_mode == 6) {
+            // ════ MODE 6: BIG YAWN (Droopy eyes & stretching yawn mouth) ════
+            memset(buffer, 0, 160 * 80 * sizeof(uint16_t));
+
+            uint16_t eye_white  = rgb565(240, 240, 240);
+            uint16_t pupil_col  = rgb565(30, 80, 160);
+            uint16_t mouth_pink = rgb565(255, 100, 130);
+            uint16_t z_blue     = rgb565(120, 200, 255);
+
+            float stretch = (sinf(frame_count * 0.12f) + 1.0f) * 0.5f;
+            int mouth_rx = 8 + (int)(stretch * 12.0f);
+            int mouth_ry = 6 + (int)(stretch * 18.0f);
+
+            const int eye_x[2] = { 40, 120 };
+            for (int e = 0; e < 2; e++) {
+                int cx = eye_x[e], cy = 28;
+                for (int dy = -16; dy <= 16; dy++) {
+                    for (int dx = -20; dx <= 20; dx++) {
+                        if (dx*dx * 16*16 + dy*dy * 20*20 <= 20*20 * 16*16) {
+                            int lid_y = -4 + (int)(stretch * 8.0f);
+                            if (dy < lid_y) continue;
+
+                            int px = cx + dx, py = cy + dy;
+                            if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                                if (dx*dx + (dy-4)*(dy-4) <= 25) {
+                                    buffer[py * 160 + px] = pupil_col;
+                                } else {
+                                    buffer[py * 160 + px] = eye_white;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            int mouth_cx = 80, mouth_cy = 58;
+            for (int dy = -mouth_ry; dy <= mouth_ry; dy++) {
+                for (int dx = -mouth_rx; dx <= mouth_rx; dx++) {
+                    if (dx*dx * mouth_ry*mouth_ry + dy*dy * mouth_rx*mouth_rx <= mouth_rx*mouth_rx * mouth_ry*mouth_ry) {
+                        int px = mouth_cx + dx, py = mouth_cy + dy;
+                        if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                            buffer[py * 160 + px] = mouth_pink;
+                        }
+                    }
+                }
+            }
+
+            for (int z = 0; z < 3; z++) {
+                int z_x = 125 + z * 10;
+                int z_y = 50 - ((frame_count * 2 + z * 20) % 55);
+                if (z_y >= 5 && z_y < 75) {
+                    for (int dz = -2; dz <= 2; dz++) {
+                        int px = z_x + dz, py = z_y - dz;
+                        if (px >= 0 && px < 160 && py >= 0 && py < 80) {
+                            buffer[py * 160 + px] = z_blue;
+                        }
+                    }
+                }
+            }
+
             if (dog_anim_timer > 0) { dog_anim_timer--; if (dog_anim_timer == 0) { dog_display_mode = 0; } }
             vTaskDelay(1);
 
