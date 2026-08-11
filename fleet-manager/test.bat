@@ -1,0 +1,2 @@
+set PORT=COM14
+echo PORT IS %PORT%

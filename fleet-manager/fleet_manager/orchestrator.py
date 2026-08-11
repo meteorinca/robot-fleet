@@ -223,29 +223,19 @@ def ota_update(
     firmware_bytes = firmware_path.read_bytes()
     total = len(firmware_bytes)
 
-    boundary = "----FleetManagerOTABoundary"
-    header = (
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="firmware"; '
-        f'filename="{firmware_path.name}"\r\n'
-        f"Content-Type: application/octet-stream\r\n\r\n"
-    ).encode()
-    footer = f"\r\n--{boundary}--\r\n".encode()
-
-    body = header + firmware_bytes + footer
-
-    url = f"http://{bot.ip}:{port}/api/ota"
+    # Firmware webserver.c expects raw binary body on POST /ota
+    url = f"http://{bot.ip}:{port}/ota"
     req = Request(
         url,
-        data=body,
+        data=firmware_bytes,
         headers={
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "Content-Length": str(len(body)),
+            "Content-Type": "application/octet-stream",
+            "Content-Length": str(total),
         },
     )
 
     try:
-        with urlopen(req, timeout=timeout):
+        with urlopen(req, timeout=timeout) as resp:
             pass
         if on_progress:
             on_progress(total, total)

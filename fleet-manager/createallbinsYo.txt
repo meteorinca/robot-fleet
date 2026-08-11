@@ -1,0 +1,47 @@
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+
+REM Output folders will be created under: fleet-manager\device_bins\
+set "SCRIPT_DIR=%~dp0"
+set "OUTPUT_ROOT=%SCRIPT_DIR%device_bins"
+set "FIRMWARE_DIR=%SCRIPT_DIR%..\firmware\platforms\dogbot_v1"
+
+if not exist "%FIRMWARE_DIR%\CMakeLists.txt" (
+    echo ERROR: Could not find firmware directory at: %FIRMWARE_DIR%
+    exit /b 1
+)
+
+pushd "%FIRMWARE_DIR%"
+
+REM Build device numbers 12 through 22
+for /L %%N in (12,1,22) do (
+    echo.
+    echo ==========================================
+    echo Building for DEVICE_NUMBER=%%N
+    echo ==========================================
+
+    REM Build for this device number
+    call idf.py -DBOARD=esp32c3_dog -DDEVICE_NUMBER=%%N set-target esp32c3 build
+
+    REM Stop if the build failed
+    if errorlevel 1 (
+        echo ERROR: Build failed for device %%N.
+        popd
+        exit /b 1
+    )
+
+    REM Make a separate directory for this device's BIN files
+    set "DEST=%OUTPUT_ROOT%\device_%%N"
+    if not exist "!DEST!" mkdir "!DEST!"
+
+    REM Copy generated .bin files into that directory
+    copy /Y "build\*.bin" "!DEST!\" >nul
+
+    echo BIN files saved to:
+    echo !DEST!
+)
+
+popd
+echo.
+echo All builds completed successfully.
+endlocal
