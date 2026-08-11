@@ -13,8 +13,10 @@ idf.py set-target esp32c3 build
 ## 2. Selecting a Specific Board
 
 The build system relies on the `BOARD` variable to choose the correct hardware configuration from the `boards/` directory:
-- `esp32c3_rfbot` — 433 MHz learner/sender (TX: GPIO 3, RX: GPIO 10)
+- `esp32c3_rfbot` — 433 MHz learner/sender (TX: GPIO 4, RX: GPIO 10)
 - `esp32c3_rfbot315` — 315 MHz learner/sender (TX: GPIO 3, RX: GPIO 10)
+
+> **Hardware Wiring Note for SRX882 Receiver:** Ensure the `CS` (Chip Select) pin on SRX882 / SRX882 V2.0 is tied to `3.3V` / `5V` (HIGH). If left floating or grounded, the receiver enters sleep mode and will not capture signals.
 
 If you don't provide a board, it defaults to `esp32c3_rfbot`.
 

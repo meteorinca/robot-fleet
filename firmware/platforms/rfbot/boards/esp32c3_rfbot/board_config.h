@@ -74,6 +74,7 @@
 // ── 433 MHz RF Module ───────────────────────────────────────────────────────
 #define RF_FREQ_MHZ             433
 // TX and RX GPIOs for the 433 MHz transmitter / receiver
+// Note for SRX882 V2.0 RX: Connect CS pin to VCC/3.3V to prevent sleep mode
 #define RF_TX_GPIO              GPIO_NUM_4
 #define RF_RX_GPIO              GPIO_NUM_10
 #define RF_PULSE_WIDTH          185

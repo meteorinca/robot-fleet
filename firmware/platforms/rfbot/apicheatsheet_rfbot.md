@@ -113,12 +113,14 @@ You can queue an action to happen at an exact Unix timestamp across all bots sim
 | Component | Component Pin | ESP32-C3 SuperMini Pin | Notes |
 | :--- | :--- | :--- | :--- |
 | **Built-in LED** | Anode/Cathode | `GPIO 8` | On-board LED (Active LOW) |
-| **RF 433 MHz Transmitter** | DATA | `GPIO 4` | RF TX Signal (RMT PWM) |
+| **RF Transmitter** | DATA | `GPIO 4` (433MHz) / `GPIO 3` (315MHz) | RF TX Signal (RMT PWM) |
 | | VCC | `5V` / `3.3V` | Power supply |
 | | GND | `GND` | Common Ground |
-| **RF 433 MHz Receiver** | DATA | `GPIO 2` | RF RX Signal (GPIO interrupt) |
-| | VCC | `5V` / `3.3V` | Power supply |
+| **RF Receiver (SRX882 V2.0)** | DATA | `GPIO 10` | RF RX Signal (GPIO interrupt) |
+| | **CS (Enable)** | **`3.3V` / `5V`** | **CRITICAL: CS must be tied to VCC/HIGH. If left floating or GND, SRX882 sleeps and receives no signals.** |
+| | VCC | `3.3V` / `5V` | Power supply |
 | | GND | `GND` | Common Ground |
+| | ANT | 17cm wire (433MHz) / 23.8cm (315MHz) | Antenna pad |
 | **Servo 1** | Signal (Yellow/Orange) | `GPIO 5` | PWM Channel 0 |
 | | VCC (Red) | `5V` | External Power / 5V |
 | | GND (Brown/Black) | `GND` | Common Ground |
@@ -129,5 +131,10 @@ You can queue an action to happen at an exact Unix timestamp across all bots sim
 | **User Button 2** | Pin 1 | `GPIO 1` | User Input Button 2 |
 | **Boot Button** | Pin 1 | `GPIO 9` | On-board BOOT button |
 
-*> Note: For the 315 MHz RFBot variant (`esp32c3_rfbot315`), RF TX is connected to `GPIO 3` and RF RX is connected to `GPIO 10`.*
+### ⚠️ Important Hardware Notes for SRX882 / SRX882 V2.0 Receivers:
+1. **CS Pin (Chip Select / Sleep Mode):** Standard cheap RF modules (e.g. XY-MK-5V) have 4 pins and no CS pin. SRX882 has 5 pins (`ANT`, `GND`, `DATA`, `CS`, `VCC`). **If `CS` is left floating or connected to GND, the SRX882 remains in sleep mode (~0.1 µA) and will output NO results.** Always wire `CS` directly to `3.3V` or `5V`.
+2. **Pin Layout Order:** Do not plug SRX882 directly into standard 4-pin receiver sockets. Verify pin ordering on the back silkscreen.
+3. **Frequency Variants:** Superheterodyne SRX882 modules have narrow bandpass filters. Ensure your transmitter frequency (433.92 MHz vs 315 MHz) matches your hardware variant (`SRX882-433` or `SRX882-315`).
+4. **Antenna:** Solder a straight copper wire to `ANT` (~17.0 cm for 433 MHz, ~23.8 cm for 315 MHz) for full sensitivity.
+
 
