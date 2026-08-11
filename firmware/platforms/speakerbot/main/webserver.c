@@ -117,6 +117,7 @@ void execute_named_action(const char *action) {
     else if (strcmp(action, "yes")    == 0) dog_audio_play_named("yes");
     else if (strcmp(action, "jump")   == 0) dog_audio_play_named("jump");
     else if (strcmp(action, "ding")   == 0) dog_audio_play_named("ding");
+    else if (strcmp(action, "choola") == 0) dog_audio_play_named("choola");
     else if (strcmp(action, "random") == 0) dog_audio_play_random();
     else if (strncmp(action, "tts:", 4) == 0) sse_broadcast_tts(action + 4);
     else if (strcmp(action, "anim_eyes")      == 0) oled_set_mode(OLED_MODE_NORMAL);
@@ -902,6 +903,7 @@ void webserver_start(void) {
         { .uri = "/yes",                .method = HTTP_GET,  .handler = sound_clip_handler },
         { .uri = "/jump",               .method = HTTP_GET,  .handler = sound_clip_handler },
         { .uri = "/ding",               .method = HTTP_GET,  .handler = sound_clip_handler },
+        { .uri = "/choola",             .method = HTTP_GET,  .handler = sound_clip_handler },
         { .uri = "/random",             .method = HTTP_GET,  .handler = sound_clip_handler },
 
         { .uri = "/eye_mood",           .method = HTTP_GET,  .handler = eye_mood_handler },

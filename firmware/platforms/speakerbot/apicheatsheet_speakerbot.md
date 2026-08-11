@@ -71,7 +71,7 @@ Passing `-DDEVICE_NUMBER=8` configures mDNS hostname `speakerbot8.local` and Sof
   - *Instantly flushes audio ringbuffer and stops active speaker output.*
 - **Play Sound Clips with Repeat & Preemption**: `GET /sound?name=bark&repeat=3&interrupt=1` or `GET /bark?repeat=3&interrupt=1`
   - *Parameters*:
-    - `name`: `bark`, `paulbot`, `huh`, `yes`, `jump`, `ding`, `random`
+    - `name`: `bark`, `paulbot`, `huh`, `yes`, `jump`, `ding`, `choola`, `random`
     - `repeat`: Repeat playback `N` times (e.g. `repeat=3` for alarm beeps)
     - `interrupt`: `1` or `true` to immediately interrupt active playback for safety/emergency alerts
 - **Jupyter Notebook & Python Integration**:

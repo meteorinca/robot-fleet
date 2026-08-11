@@ -12,6 +12,7 @@
 // rf.h and cJSON are only needed when board has an RF module
 #ifdef RF_RX_GPIO
 #include "rf.h"
+#include "rf_relay_config.h"
 #include "cJSON.h"
 // ── RF Outlet Button Config (edit rf_outlets_config.h to add/remove outlets) ─
 typedef struct { const char *label; uint32_t on_code; uint32_t off_code; } rf_outlet_t;
@@ -296,17 +297,21 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         /* ── Photodetector RF Relay Card ───────────────────────────────── */
         "<div class='card' id='rf-relay-card'>"
         "<h2>\xf0\x9f\x93\xa1 Photodetector RF Relay</h2>"
-        "<div style='margin-bottom:10px;font-size:12px;color:#888;'>Relay RF code 123456 to SpeakerBot /bark API. Disabled by default.</div>"
+        "<div style='margin-bottom:10px;font-size:12px;color:#888;'>Relay RF code to SpeakerBot API (e.g. " RF_RELAY_TARGET "). Disabled by default.</div>"
         "<div style='display:flex;align-items:center;gap:10px;margin-bottom:10px;'>"
         "  <input type='checkbox' id='rf-relay-enable' style='width:18px;height:18px;accent-color:#00e5a0;cursor:pointer;'>"
         "  <label for='rf-relay-enable' style='font-size:13px;font-weight:600;color:#e0e0f0;cursor:pointer;'>Enable RF Relay Mode</label>"
         "</div>"
         "<div style='margin-bottom:10px;'>"
-        "  <label style='display:block;font-size:11px;color:#a0a0d0;margin-bottom:4px;'>Target SpeakerBot Host / IP</label>"
-        "  <input type='text' id='rf-relay-host' placeholder='speakerbot5.local' value='speakerbot5.local' style='margin-bottom:0;'>"
+        "  <label style='display:block;font-size:11px;color:#a0a0d0;margin-bottom:4px;'>Target SpeakerBot Host / Endpoint</label>"
+        "  <input type='text' id='rf-relay-host' placeholder='" RF_RELAY_TARGET "' value='" RF_RELAY_TARGET "' style='margin-bottom:0;'>"
         "</div>"
-        "<button class='btn-primary' onclick='saveRfRelay()' style='background:linear-gradient(135deg,#1b8f5e,#0d6644);'>Save Relay Settings</button>"
-        "<div class='err-msg' id='rf-relay-err' style='margin-top:6px;'></div>"
+        "<div style='display:flex;gap:8px;'>"
+        "  <button class='btn-primary' onclick='saveRfRelay()' style='flex:2;background:linear-gradient(135deg,#1b8f5e,#0d6644);'>Save Relay Settings</button>"
+        "  <button class='btn-primary' onclick='testRfRelay()' style='flex:1;background:linear-gradient(135deg,#7c6af7,#5b2de8);'>\xe2\x9a\xa1\xc2\xa0Test Bark</button>"
+        "</div>"
+        "<div id='rf-relay-status' style='font-size:11px;font-weight:600;color:#00e5a0;margin-top:6px;min-height:16px;'></div>"
+        "<div class='err-msg' id='rf-relay-err' style='margin-top:4px;'></div>"
         "</div>";
 
         /* ── RF Outlets card injected here dynamically ─────────────────── */
@@ -520,11 +525,12 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "        var line=document.createElement('div');"
         "        line.style.borderBottom='1px solid #111128';"
         "        line.style.paddingBottom='2px';"
+        "        var tag=p.relayed?' <span style=\"color:#00e5a0;font-weight:700;background:rgba(0,229,160,0.15);padding:1px 5px;border-radius:4px;\">\xe2\x9a\xa1\xc2\xa0RELAYED</span>':'';"
         "        line.innerHTML='<span style=color:#444>['+ts+']</span> '"
         "          +'<span style=color:#00e5a0;font-weight:700>0x'+p.code+'</span>'"
         "          +' <span style=color:#7c6af7>'+p.bits+'b</span>'"
         "          +' proto:<span style=color:#a0a0d0>'+p.proto+'</span>'"
-        "          +' pulse:<span style=color:#888>'+p.pulse+'\xc2\xb5s</span>';"
+        "          +' pulse:<span style=color:#888>'+p.pulse+'\xc2\xb5s</span>'+tag;"
         "        log.appendChild(line);"
         "        log.scrollTop=log.scrollHeight;"
         "      });"
@@ -569,7 +575,9 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "function loadRfRelay(){"
         "  fetch('/rf/relay').then(function(r){return r.json();}).then(function(d){"
         "    if(document.getElementById('rf-relay-enable')) document.getElementById('rf-relay-enable').checked=!!d.enabled;"
-        "    if(d.host && document.getElementById('rf-relay-host')) document.getElementById('rf-relay-host').value=d.host;"
+        "    if(d.host && document.getElementById('rf-relay-host') && document.activeElement !== document.getElementById('rf-relay-host')) document.getElementById('rf-relay-host').value=d.host;"
+        "    var statusDiv=document.getElementById('rf-relay-status');"
+        "    if(statusDiv && d.last_event) statusDiv.textContent=d.last_event;"
         "  }).catch(function(){});"
         "}"
         "function saveRfRelay(){"
@@ -583,9 +591,22 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "    .then(function(d){"
         "      err.style.color='#00e5a0';"
         "      err.textContent=d.enabled?'Relay ENABLED -> '+d.host:'Relay DISABLED';"
+        "      loadRfRelay();"
+        "    }).catch(function(e){err.style.color='#f7736a';err.textContent=e;});"
+        "}"
+        "function testRfRelay(){"
+        "  var err=document.getElementById('rf-relay-err');"
+        "  err.style.color='#a0a0d0';err.textContent='Triggering test...';"
+        "  fetch('/rf/relay/test')"
+        "    .then(function(r){return r.json();})"
+        "    .then(function(d){"
+        "      err.style.color='#00e5a0';"
+        "      err.textContent='\xe2\x9a\xa1\xc2\xa0Test bark triggered!';"
+        "      setTimeout(function(){err.textContent='';loadRfRelay();},1500);"
         "    }).catch(function(e){err.style.color='#f7736a';err.textContent=e;});"
         "}"
         "loadRfRelay();"
+        "setInterval(loadRfRelay,3000);"
         "</script></body></html>";
 
     httpd_resp_set_type(req, "text/html");
@@ -1302,6 +1323,35 @@ static esp_err_t rf_status_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static void url_decode_in_place(char *str) {
+    if (!str) return;
+    char *src = str;
+    char *dst = str;
+    while (*src) {
+        if (*src == '%' && src[1] && src[2]) {
+            int h1 = src[1];
+            int h2 = src[2];
+            int v1 = (h1 >= '0' && h1 <= '9') ? (h1 - '0') :
+                     (h1 >= 'a' && h1 <= 'f') ? (h1 - 'a' + 10) :
+                     (h1 >= 'A' && h1 <= 'F') ? (h1 - 'A' + 10) : -1;
+            int v2 = (h2 >= '0' && h2 <= '9') ? (h2 - '0') :
+                     (h2 >= 'a' && h2 <= 'f') ? (h2 - 'a' + 10) :
+                     (h2 >= 'A' && h2 <= 'F') ? (h2 - 'A' + 10) : -1;
+            if (v1 >= 0 && v2 >= 0) {
+                *dst++ = (char)((v1 << 4) | v2);
+                src += 3;
+                continue;
+            }
+        } else if (*src == '+') {
+            *dst++ = ' ';
+            src++;
+            continue;
+        }
+        *dst++ = *src++;
+    }
+    *dst = '\0';
+}
+
 // GET /rf/relay?enabled=<0|1>&host=<target> — get or set RF relay config
 static esp_err_t rf_relay_handler(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -1314,13 +1364,14 @@ static esp_err_t rf_relay_handler(httpd_req_t *req) {
         bool update = false;
         bool enabled = rf_relay_is_enabled();
         char cur_host[64] = {0};
-        rf_relay_get_config(NULL, cur_host, sizeof(cur_host));
+        rf_relay_get_config(NULL, cur_host, sizeof(cur_host), NULL, 0);
 
         if (httpd_query_key_value(qs, "enabled", enabled_str, sizeof(enabled_str)) == ESP_OK) {
             enabled = (atoi(enabled_str) != 0 || strcasecmp(enabled_str, "true") == 0);
             update = true;
         }
         if (httpd_query_key_value(qs, "host", host_str, sizeof(host_str)) == ESP_OK) {
+            url_decode_in_place(host_str);
             strncpy(cur_host, host_str, sizeof(cur_host) - 1);
             update = true;
         }
@@ -1332,13 +1383,23 @@ static esp_err_t rf_relay_handler(httpd_req_t *req) {
 
     bool cur_enabled = false;
     char cur_host[64] = {0};
-    rf_relay_get_config(&cur_enabled, cur_host, sizeof(cur_host));
+    char last_event[128] = {0};
+    rf_relay_get_config(&cur_enabled, cur_host, sizeof(cur_host), last_event, sizeof(last_event));
 
-    char resp[160];
+    char resp[256];
     int len = snprintf(resp, sizeof(resp),
-        "{\"enabled\":%s,\"host\":\"%s\"}",
-        cur_enabled ? "true" : "false", cur_host);
+        "{\"enabled\":%s,\"host\":\"%s\",\"last_event\":\"%s\"}",
+        cur_enabled ? "true" : "false", cur_host, last_event);
     httpd_resp_send(req, resp, len);
+    return ESP_OK;
+}
+
+// GET /rf/relay/test — manually trigger the relay bark request for testing
+static esp_err_t rf_relay_test_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_type(req, "application/json");
+    rf_relay_trigger();
+    httpd_resp_send(req, "{\"ok\":true,\"testing\":true}", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -1425,6 +1486,7 @@ void webserver_start(void) {
         { "/rf/send",        HTTP_GET,  rf_send_handler,        NULL },
         { "/rf/status",      HTTP_GET,  rf_status_handler,      NULL },
         { "/rf/relay",       HTTP_GET,  rf_relay_handler,       NULL },
+        { "/rf/relay/test",  HTTP_GET,  rf_relay_test_handler,  NULL },
 #endif
         // WiFi provisioning endpoints
         { "/wifi",      HTTP_GET,    wifi_get_handler,     NULL },

@@ -44,8 +44,9 @@ struct cJSON *rf_listen_get_packets(void);
 // When enabled, receiving RF code 123456 (or 0x123456) sends HTTP GET /bark
 // to the configured target SpeakerBot host. Disabled by default.
 void rf_relay_set_config(bool enabled, const char *host);
-void rf_relay_get_config(bool *out_enabled, char *out_host, size_t max_len);
+void rf_relay_get_config(bool *out_enabled, char *out_host, size_t max_host, char *out_last_event, size_t max_event);
 bool rf_relay_is_enabled(void);
+void rf_relay_trigger(void);
 
 #endif
 
