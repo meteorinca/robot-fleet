@@ -1,21 +1,26 @@
 // rf_relay_config.h
 // ============================================================================
-//  Photodetector RF Relay Configuration
+//  Photodetector / 433 MHz RF Relay Configuration
 //
-//  Configure the default RF code to trigger on and the default target API endpoint.
-//  Note: The target host/URL can also be changed dynamically via the Web UI or HTTP API
-//  (e.g., speakerbot5.local, speakerbot12.local/bark, 192.168.1.50/bark).
+//  Format:  RF_RELAY(decimal_code, "target_host/path")
 //
-//  RF_RELAY_CODE   : The 24-bit decimal code sent by photodetector TX (default: 123456, displays as 0x1E240 in hex)
-//  RF_RELAY_TARGET : Default target SpeakerBot host/URL (e.g., "speakerbot1.local/bark", "speakerbot5.local/bark")
+//  When RFBot receives the specified 24-bit decimal RF code, it automatically
+//  sends an HTTP GET request to the target endpoint.
 //
+//  To add an RX relay rule: copy any line below and set code + target.
+//  To remove a rule: comment out or delete its line.
+//  You can add as many RF_RELAY(...) rules as you want below!
 //  No other file needs editing.
 // ============================================================================
 
-#ifndef RF_RELAY_CODE
-#define RF_RELAY_CODE   123456
+#ifndef RF_RELAY_ENABLED_DEFAULT
+#define RF_RELAY_ENABLED_DEFAULT true
 #endif
 
-#ifndef RF_RELAY_TARGET
-#define RF_RELAY_TARGET "speakerbot5.local/bark"
+// ── RX Relay Rules (Add as many RF_RELAY lines as you want!) ─────────────────
+#ifndef RF_RELAY
+#define RF_RELAY(code, target)
 #endif
+
+RF_RELAY(123456, "speakerbot1.local/choola")
+RF_RELAY(122222, "speakerbot1.local/yes")

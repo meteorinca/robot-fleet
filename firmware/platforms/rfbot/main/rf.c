@@ -57,11 +57,25 @@ static volatile int       s_listen_count = 0;   // total packets waiting to be r
 static portMUX_TYPE       s_listen_mux   = portMUX_INITIALIZER_UNLOCKED;
 
 // ── Relay mode state (Photodetector RF -> SpeakerBot Bark) ──────────────────
-static volatile bool      s_relay_enabled = false;
-static char               s_relay_target_host[64] = RF_RELAY_TARGET;
-static char               s_relay_last_event[128] = "Idle";
+static volatile bool      s_relay_enabled = RF_RELAY_ENABLED_DEFAULT;
+static char               s_relay_target_host[64] = "speakerbot1.local/bark";
+static char               s_relay_last_event[256] = "Idle";
 static int64_t            s_last_relay_bark_time = 0;
 static portMUX_TYPE       s_relay_mux   = portMUX_INITIALIZER_UNLOCKED;
+
+// ── Relay Rule Table (generated from rf_relay_config.h) ─────────────────────
+typedef struct {
+    uint32_t    code;
+    const char *target;
+} rf_relay_rule_t;
+
+static const rf_relay_rule_t s_relay_rules[] = {
+#undef RF_RELAY
+#define RF_RELAY(code, target) { (uint32_t)(code), target },
+#include "rf_relay_config.h"
+#undef RF_RELAY
+};
+#define RF_RELAY_RULE_COUNT ((int)(sizeof(s_relay_rules) / sizeof(s_relay_rules[0])))
 
 void rf_relay_set_config(bool enabled, const char *host) {
     portENTER_CRITICAL(&s_relay_mux);
@@ -94,10 +108,17 @@ bool rf_relay_is_enabled(void) {
 }
 
 static void trigger_speakerbot_bark_task(void *pvParameters) {
-    char target[64] = {0};
-    portENTER_CRITICAL(&s_relay_mux);
-    snprintf(target, sizeof(target), "%s", s_relay_target_host);
-    portEXIT_CRITICAL(&s_relay_mux);
+    char target[128] = {0};
+    char *dyn_target = (char *)pvParameters;
+    if (dyn_target != NULL) {
+        snprintf(target, sizeof(target), "%.120s", dyn_target);
+        free(dyn_target);
+        dyn_target = NULL;
+    } else {
+        portENTER_CRITICAL(&s_relay_mux);
+        snprintf(target, sizeof(target), "%.120s", s_relay_target_host);
+        portEXIT_CRITICAL(&s_relay_mux);
+    }
 
     const char *h = target;
     if (strncmp(h, "http://", 7) == 0) h += 7;
@@ -156,7 +177,7 @@ static void trigger_speakerbot_bark_task(void *pvParameters) {
     if (lookup_err != 0 || res == NULL) {
         ESP_LOGE(TAG, "DNS/Socket lookup failed for '%s': err=%d", connect_host, lookup_err);
         portENTER_CRITICAL(&s_relay_mux);
-        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9d\x8c Lookup failed: %s", connect_host);
+        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9d\x8c Lookup failed: %.64s", connect_host);
         portEXIT_CRITICAL(&s_relay_mux);
         vTaskDelete(NULL);
         return;
@@ -177,7 +198,7 @@ static void trigger_speakerbot_bark_task(void *pvParameters) {
     if (connect(s, res->ai_addr, res->ai_addrlen) != 0) {
         ESP_LOGE(TAG, "Socket connect to %s:80 failed!", connect_host);
         portENTER_CRITICAL(&s_relay_mux);
-        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9d\x8c Connect failed: %s:80", connect_host);
+        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9d\x8c Connect failed: %.64s:80", connect_host);
         portEXIT_CRITICAL(&s_relay_mux);
         close(s);
         freeaddrinfo(res);
@@ -197,12 +218,12 @@ static void trigger_speakerbot_bark_task(void *pvParameters) {
     if (send(s, http_req, req_len, 0) < 0) {
         ESP_LOGE(TAG, "Socket send failed!");
         portENTER_CRITICAL(&s_relay_mux);
-        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9d\x8c Send failed to %s", connect_host);
+        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9d\x8c Send failed to %.64s", connect_host);
         portEXIT_CRITICAL(&s_relay_mux);
     } else {
         ESP_LOGI(TAG, "HTTP GET %s sent to %s successfully!", path, connect_host);
         portENTER_CRITICAL(&s_relay_mux);
-        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9c\x93 Sent GET %s -> %s", path, connect_host);
+        snprintf(s_relay_last_event, sizeof(s_relay_last_event), "\xe2\x9c\x93 Sent GET %.64s -> %.64s", path, connect_host);
         portEXIT_CRITICAL(&s_relay_mux);
     }
     close(s);
@@ -372,7 +393,24 @@ static void rf_receiver_task(void *pvParameters) {
             ESP_LOGI(TAG, "Received 0x%lX bits=%u proto=%u pulse=%u",
                      (unsigned long)code, bits, proto, pulse);
 
-            bool is_relayed = (s_relay_enabled && (code == RF_RELAY_CODE || code == 123456 || code == 0x123456));
+            bool is_relayed = false;
+            const char *matched_target = NULL;
+
+            if (s_relay_enabled) {
+                // 1. Check matching rules from rf_relay_config.h
+                for (int i = 0; i < RF_RELAY_RULE_COUNT; i++) {
+                    if (s_relay_rules[i].code == code) {
+                        matched_target = s_relay_rules[i].target;
+                        is_relayed = true;
+                        break;
+                    }
+                }
+                // 2. Fallback check for dynamic web UI target
+                if (!is_relayed && (code == 123456 || code == 0x123456)) {
+                    matched_target = NULL; // NULL means use s_relay_target_host
+                    is_relayed = true;
+                }
+            }
 
             // ── Listen mode — buffer every packet for the WebUI ──────────────
             if (s_listen_mode) {
@@ -400,16 +438,18 @@ static void rf_receiver_task(void *pvParameters) {
                 portEXIT_CRITICAL(&s_learn_mux);
             }
 
-            // ── Photodetector RF Relay (runs whenever relay mode is enabled) ──
-            if (s_relay_enabled && (code == RF_RELAY_CODE || code == 123456 || code == 0x123456)) {
+            // ── Photodetector / RX RF Relay (runs whenever relay mode is enabled) ──
+            if (is_relayed) {
                 int64_t now = esp_timer_get_time() / 1000;
                 if (now - s_last_relay_bark_time >= 1500) {
                     s_last_relay_bark_time = now;
-                    ESP_LOGI(TAG, "RF Relay: photodetector code %lu detected! Relaying request to %s...",
-                             (unsigned long)code, s_relay_target_host);
-                    xTaskCreate(trigger_speakerbot_bark_task, "spk_bark", 8192, NULL, 5, NULL);
+                    char *param_target = matched_target ? strdup(matched_target) : NULL;
+                    ESP_LOGI(TAG, "RF Relay: code %lu (0x%lX) detected! Target: %s",
+                             (unsigned long)code, (unsigned long)code,
+                             matched_target ? matched_target : s_relay_target_host);
+                    xTaskCreate(trigger_speakerbot_bark_task, "rf_relay", 8192, (void *)param_target, 5, NULL);
                 } else {
-                    ESP_LOGD(TAG, "RF Relay: bark request rate-limited");
+                    ESP_LOGD(TAG, "RF Relay: request rate-limited");
                 }
             }
 
@@ -425,7 +465,7 @@ static void rf_receiver_task(void *pvParameters) {
                         send_confirmation(code);
                         break;
                     default:
-                        if (!s_relay_enabled || (code != RF_RELAY_CODE && code != 123456 && code != 0x123456)) {
+                        if (!is_relayed) {
                             ESP_LOGW(TAG, "Unknown code, ignoring");
                         }
                         break;

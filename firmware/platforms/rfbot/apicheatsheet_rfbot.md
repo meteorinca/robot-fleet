@@ -35,12 +35,13 @@ This document lists the available HTTP GET endpoints to control your RF Bot via 
   - **WebUI**: The **"📡 433 MHz RF Radio"** card has a **Start Listening** button that toggles listen mode and automatically polls `/rf/poll` every 800 ms, displaying all received signals in a live signal log.
 
 ### Photodetector RF Relay
-- **How it works**: When enabled, receiving RF code `123456` (which displays as `0x1E240` in hex in the signal log) automatically sends an HTTP GET request to the target SpeakerBot URL/endpoint configured (e.g. `speakerbot1.local/bark`, `speakerbot5.local/bark`, or `speakerbot12.local/audio`).
-- **Configuration header**: Edit [`rf_relay_config.h`](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/rfbot/main/rf_relay_config.h) to change defaults (`RF_RELAY_CODE` and `RF_RELAY_TARGET`).
-- **Get/Set Relay Config**: `GET /rf/relay` or `GET /rf/relay?enabled=1&host=speakerbot1.local%2Fbark`
-  - Returns JSON: `{"enabled": true, "host": "speakerbot1.local/bark", "last_event": "✓ Sent GET /bark -> 10.0.0.15"}`
-- **Test Relay Endpoint**: `GET /rf/relay/test` (Triggers `spk_bark` task manually)
-- **Live Signal Stream**: `GET /rf/poll` includes `"relayed": true` flag for photodetector RF packets.
+- **How it works**: **Enabled by default.** When active, receiving RF code `123456` (which displays as `0x1E240` in hex in the signal log) automatically sends an HTTP GET request to the target SpeakerBot URL/endpoint configured (e.g. `speakerbot1.local/bark`, `speakerbot5.local/bark`, or `speakerbot12.local/audio`).
+- **Automations Guide**: See [`instructions.md`](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/rfbot/instructions.md) for full guide on adding automations for different 433 MHz commands.
+- **Configuration header**: Edit [`rf_relay_config.h`](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/rfbot/main/rf_relay_config.h) to add as many `RF_RELAY(decimal_code, "target/path")` RX rules as you want.
+- **Get/Set Relay Config**: `GET /rf/relay` or `GET /rf/relay?enabled=1&host=speakerbot1.local%2Fchoola`
+  - Returns JSON: `{"enabled": true, "host": "speakerbot1.local/choola", "last_event": "✓ Sent GET /choola -> 10.0.0.15"}`
+- **Test Relay Endpoint**: `GET /rf/relay/test` (Triggers test relay task manually)
+- **Live Signal Stream**: `GET /rf/poll` includes `"relayed": true` flag for any matched relay RF packets.
 
 ### Status
 - **Get RF module state**: `GET /rf/status`

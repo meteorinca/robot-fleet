@@ -72,3 +72,10 @@ Once the firmware has been flashed via USB for the first time, you can push futu
 `build/rfbot.bin`
 
 Use your OTA scripts (or `curl` commands) to upload this `.bin` file to the robot's IP address.
+
+## 7. 433 MHz Automations & API Relays
+
+RF Relay Mode is **enabled by default**. To learn how to capture 433 MHz signals and trigger HTTP GET commands on other ESP32 devices when different codes are received, check out:
+- [`instructions.md`](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/rfbot/instructions.md)
+- [`apicheatsheet_rfbot.md`](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/rfbot/apicheatsheet_rfbot.md)
+
