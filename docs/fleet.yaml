@@ -24,7 +24,7 @@ active_fleet:
     platform: simplebot
     version: 0.1
     status: Dev
-    notes: "Basic wheeled chassis for pathfinding."
+    notes: "Kitchen light controller bot with dual servos."
   - name: RFBot 1
     hostname: rfbot1.local
     platform: rfbot
