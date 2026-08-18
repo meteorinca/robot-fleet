@@ -7,7 +7,7 @@
     "platform": "rfbot",
     "ip": "rfbot1.local",
     "port": 80,
-    "last_seen": "2026-08-16T01:31:01.7230762-04:00",
+    "last_seen": "2026-08-17T12:40:00.2368126-04:00",
     "status": "offline",
     "role": "receiver",
     "homekit_enabled": true,
@@ -23,7 +23,7 @@
     "platform": "speakerbot",
     "ip": "speakerbot1.local",
     "port": 80,
-    "last_seen": "2026-08-16T01:31:01.7230762-04:00",
+    "last_seen": "2026-08-17T12:40:00.2368126-04:00",
     "status": "offline",
     "role": "audio_chime",
     "homekit_enabled": true,
@@ -46,7 +46,7 @@
     "platform": "rfbot",
     "ip": "rfbot6.local",
     "port": 80,
-    "last_seen": "2026-08-16T01:31:01.7230762-04:00",
+    "last_seen": "2026-08-17T12:40:00.2368126-04:00",
     "status": "offline",
     "role": "transceiver",
     "homekit_enabled": false,
@@ -55,7 +55,7 @@
     "actions": [
       {
         "name": "Send RF Code (123456)",
-        "endpoint": "/rf/send?code=123456&bits=24&proto=1&pulse=185",
+        "endpoint": "/rf/send?code=123456\u0026bits=24\u0026proto=1\u0026pulse=185",
         "method": "GET"
       }
     ]
@@ -68,7 +68,7 @@
     "platform": "simplebot",
     "ip": "simplebot1.local",
     "port": 80,
-    "last_seen": "2026-08-16T01:31:01.7230762-04:00",
+    "last_seen": "2026-08-17T12:40:00.2368126-04:00",
     "status": "offline",
     "role": "kitchen_bot",
     "homekit_enabled": true,
@@ -103,7 +103,7 @@
     "platform": "rfbot",
     "ip": "[::1]:60553",
     "port": 4330,
-    "last_seen": "2026-08-16T01:30:58.7224205-04:00",
+    "last_seen": "2026-08-17T12:39:57.2361558-04:00",
     "status": "offline",
     "homekit_enabled": false,
     "ping_enabled": false

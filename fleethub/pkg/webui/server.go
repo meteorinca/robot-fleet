@@ -56,6 +56,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/bots", s.handleBots)
 	mux.HandleFunc("/api/sensors", s.handleSensors)
 	mux.HandleFunc("/api/rules", s.handleRules)
+	mux.HandleFunc("/api/buttons", s.handleButtons)
+	mux.HandleFunc("/api/buttons/press", s.handleButtonPress)
+	mux.HandleFunc("/api/snooze", s.handleSnooze)
 	mux.HandleFunc("/api/pair", s.handlePair)
 	mux.HandleFunc("/api/devices/homekit", s.handleToggleHomeKit)
 	mux.HandleFunc("/api/devices/control", s.handleDeviceControl)
@@ -147,16 +150,18 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"app":         "FleetHub Mothership Daemon",
-		"version":     "1.0.0",
-		"mode":        s.cfg.Mode,
-		"http_port":   s.cfg.HTTPPort,
-		"udp_port":    s.cfg.UDPPort,
-		"homekit_pin": s.cfg.HomeKitPIN,
-		"bots_online": len(s.cfg.Bots),
-		"sensor_count": len(s.cfg.Sensors),
-		"rule_count":  len(s.cfg.Rules),
-		"uptime_sec":  time.Since(startTime).Seconds(),
+		"app":            "FleetHub Mothership Daemon",
+		"version":        "1.0.0",
+		"mode":           s.cfg.Mode,
+		"http_port":      s.cfg.HTTPPort,
+		"udp_port":       s.cfg.UDPPort,
+		"homekit_pin":    s.cfg.HomeKitPIN,
+		"bots_online":    len(s.cfg.Bots),
+		"sensor_count":   len(s.cfg.Sensors),
+		"rule_count":     len(s.cfg.Rules),
+		"button_count":   len(s.cfg.Buttons),
+		"active_snoozes": len(s.engine.GetActiveSnoozes()),
+		"uptime_sec":     time.Since(startTime).Seconds(),
 	})
 }
 
@@ -174,7 +179,160 @@ func (s *Server) handleSensors(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodPost {
+		var rule config.AutomationRule
+		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		s.cfg.UpsertRule(rule)
+		_ = s.cfg.Save()
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "saved", "rule": rule})
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			var payload struct {
+				ID string `json:"id"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			id = payload.ID
+		}
+		if id == "" {
+			http.Error(w, "Missing rule ID", http.StatusBadRequest)
+			return
+		}
+		deleted := s.cfg.DeleteRule(id)
+		_ = s.cfg.Save()
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "deleted", "id": id, "success": deleted})
+		return
+	}
+
 	_ = json.NewEncoder(w).Encode(s.cfg.Rules)
+}
+
+func (s *Server) handleButtons(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodPost {
+		var btn config.InputButton
+		if err := json.NewDecoder(r.Body).Decode(&btn); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		s.cfg.UpsertButton(btn)
+		_ = s.cfg.Save()
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "saved", "button": btn})
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			var payload struct {
+				ID string `json:"id"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			id = payload.ID
+		}
+		if id == "" {
+			http.Error(w, "Missing button ID", http.StatusBadRequest)
+			return
+		}
+		deleted := s.cfg.DeleteButton(id)
+		_ = s.cfg.Save()
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "deleted", "id": id, "success": deleted})
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(s.cfg.Buttons)
+}
+
+func (s *Server) handleButtonPress(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID   string `json:"id"`
+		Code uint32 `json:"code"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	var matchedBtn *config.InputButton
+	for _, b := range s.cfg.Buttons {
+		if (req.ID != "" && b.ID == req.ID) || (req.Code != 0 && b.TriggerCode == req.Code) {
+			matchedBtn = &b
+			break
+		}
+	}
+
+	if matchedBtn == nil {
+		// If custom button code press passed on the fly, construct temporary button
+		matchedBtn = &config.InputButton{
+			ID:                 req.ID,
+			Name:               "Virtual WebUI Button",
+			TriggerCode:        req.Code,
+			ActionType:         "snooze_all",
+			MinutesPerClick:    15,
+			MultiClickWindowMs: 2500,
+		}
+	}
+
+	s.engine.TriggerInputButton(*matchedBtn)
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "pressed",
+		"button": matchedBtn.Name,
+	})
+}
+
+func (s *Server) handleSnooze(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			RuleID      string `json:"rule_id"`
+			DurationMin int    `json:"duration_min"`
+			Action      string `json:"action"` // "set", "cancel", "extend"
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+
+		if req.Action == "cancel" {
+			s.engine.CancelSnooze(req.RuleID)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "canceled", "rule_id": req.RuleID})
+			return
+		}
+
+		duration := req.DurationMin
+		if duration <= 0 {
+			duration = 15
+		}
+		until := s.engine.SnoozeRule(req.RuleID, duration)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":        "snoozed",
+			"rule_id":       req.RuleID,
+			"duration_min": duration,
+			"snoozed_until": until.Format(time.RFC3339),
+		})
+		return
+	}
+
+	activeSnoozes := s.engine.GetActiveSnoozes()
+	_ = json.NewEncoder(w).Encode(activeSnoozes)
 }
 
 func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {

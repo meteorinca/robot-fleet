@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FleetHub Mothership — Robot Fleet & RF Mesh Gateway</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg-dark: #090d16;
@@ -16,11 +19,17 @@
       --accent-cyan: #06b6d4;
       --accent-indigo: #6366f1;
       --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
       --text-main: #f3f4f6;
       --text-muted: #9ca3af;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       background: var(--bg-dark);
       color: var(--text-main);
@@ -28,7 +37,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background-image: 
+      background-image:
         radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.15), transparent 40%),
         radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.12), transparent 40%);
     }
@@ -51,6 +60,7 @@
       align-items: center;
       gap: 0.75rem;
     }
+
     .brand-logo {
       width: 38px;
       height: 38px;
@@ -63,8 +73,17 @@
       font-size: 1.2rem;
       box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
     }
-    .brand-title h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
-    .brand-title p { font-size: 0.75rem; color: var(--text-muted); }
+
+    .brand-title h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-title p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
 
     .status-badge {
       display: flex;
@@ -78,6 +97,7 @@
       color: var(--accent-green);
       font-weight: 600;
     }
+
     .status-dot {
       width: 8px;
       height: 8px;
@@ -86,9 +106,19 @@
       box-shadow: 0 0 8px var(--accent-green);
       animation: pulse 2s infinite;
     }
+
     @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(1.2); }
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(1.2);
+      }
     }
 
     main {
@@ -108,7 +138,7 @@
       border-radius: 16px;
       padding: 1.5rem;
       margin-bottom: 1.5rem;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
 
     .card-header {
@@ -117,6 +147,7 @@
       justify-content: space-between;
       margin-bottom: 1.25rem;
     }
+
     .card-title {
       font-size: 1.05rem;
       font-weight: 600;
@@ -127,24 +158,32 @@
 
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
+
     .metric-box {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--panel-border);
       border-radius: 12px;
       padding: 1rem;
     }
+
     .metric-value {
-      font-size: 1.75rem;
+      font-size: 1.6rem;
       font-weight: 700;
       margin-top: 0.25rem;
       color: var(--accent-cyan);
       font-family: 'JetBrains Mono', monospace;
     }
-    .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .metric-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
 
     /* RF Oscilloscope Feed */
     .oscilloscope-feed {
@@ -160,6 +199,7 @@
       flex-direction: column-reverse;
       gap: 0.4rem;
     }
+
     .feed-item {
       display: flex;
       align-items: center;
@@ -170,10 +210,28 @@
       border-radius: 4px;
       animation: fadeIn 0.25s ease-out;
     }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-    .feed-code { color: var(--accent-cyan); font-weight: 700; }
-    .feed-time { color: var(--text-muted); font-size: 0.75rem; }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .feed-code {
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    .feed-time {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
 
     /* Bot Fleet List */
     .bot-grid {
@@ -181,6 +239,7 @@
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 1rem;
     }
+
     .bot-card {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--panel-border);
@@ -191,13 +250,24 @@
       justify-content: space-between;
       transition: all 0.2s;
     }
+
     .bot-card:hover {
       border-color: rgba(99, 102, 241, 0.4);
       transform: translateY(-2px);
     }
-    .bot-name { font-weight: 600; font-size: 0.95rem; }
-    .bot-type { font-size: 0.75rem; color: var(--accent-indigo); text-transform: uppercase; font-weight: 700; margin-top: 0.1rem; }
-    .bot-ip { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); }
+
+    .bot-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .bot-type {
+      font-size: 0.75rem;
+      color: var(--accent-indigo);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-top: 0.1rem;
+    }
 
     /* HomeKit Card */
     .homekit-box {
@@ -207,6 +277,7 @@
       padding: 1.5rem;
       text-align: center;
     }
+
     .qr-placeholder {
       width: 140px;
       height: 140px;
@@ -219,8 +290,9 @@
       color: #000;
       font-weight: 800;
       font-size: 0.9rem;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
     }
+
     .hk-pin {
       font-family: 'JetBrains Mono', monospace;
       font-size: 1.4rem;
@@ -241,14 +313,85 @@
       cursor: pointer;
       transition: opacity 0.2s;
     }
-    button:hover { opacity: 0.9; }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .btn-sm {
+      padding: 0.3rem 0.65rem;
+      font-size: 0.75rem;
+      border-radius: 6px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--panel-border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-amber {
+      background: linear-gradient(135deg, #d97706, #f59e0b);
+      color: #fff;
+    }
+
+    .btn-red {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--accent-red);
+      color: var(--accent-red);
+    }
+
+    .btn-red:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: var(--bg-dark);
+      border: 1px solid var(--panel-border);
+      padding: 1.5rem;
+      border-radius: 16px;
+      width: 420px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    input,
+    select {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      padding: 0.55rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      width: 100%;
+    }
 
     @media (max-width: 960px) {
-      main { grid-template-columns: 1fr; }
-      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
   </style>
 </head>
+
 <body>
 
   <header>
@@ -256,12 +399,12 @@
       <div class="brand-logo">F</div>
       <div class="brand-title">
         <h1>FleetHub Mothership</h1>
-        <p>Zero-Cloud HomeKit & Multi-Bot Mesh Gateway</p>
+        <p>Home Assistant Alternative & Multi-Bot Mesh Gateway</p>
       </div>
     </div>
     <div class="status-badge">
       <div class="status-dot"></div>
-      <span id="system-status">HUB ONLINE (Sub-1ms Engine)</span>
+      <span id="system-status">HUB ONLINE (De-Spam Engine Active)</span>
     </div>
   </header>
 
@@ -271,7 +414,7 @@
       <!-- Metrics -->
       <div class="metrics-grid">
         <div class="metric-box">
-          <div class="metric-label">Registered Bots</div>
+          <div class="metric-label">Fleet Bots</div>
           <div class="metric-value" id="m-bots">--</div>
         </div>
         <div class="metric-box">
@@ -283,8 +426,26 @@
           <div class="metric-value" id="m-rules">--</div>
         </div>
         <div class="metric-box">
-          <div class="metric-label">Mesh Latency</div>
-          <div class="metric-value" style="color: var(--accent-green);">0.4 ms</div>
+          <div class="metric-label">Input Buttons</div>
+          <div class="metric-value" id="m-buttons">--</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Active Snoozes</div>
+          <div class="metric-value" id="m-snoozes" style="color: var(--accent-amber);">0</div>
+        </div>
+      </div>
+
+      <!-- Active Snoozes Alert Card -->
+      <div class="card" id="snooze-card"
+        style="border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05); display: none;">
+        <div class="card-header" style="margin-bottom: 0.75rem;">
+          <div class="card-title" style="color: var(--accent-amber);">
+            <span>⏰ Active Snoozed Rules</span>
+          </div>
+          <button class="btn-sm btn-secondary" onclick="fetchSnoozes()">🔄 Refresh</button>
+        </div>
+        <div id="snooze-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <!-- Dynamically populated -->
         </div>
       </div>
 
@@ -294,10 +455,34 @@
           <div class="card-title">
             <span>📡 Real-Time RF Mesh Traffic Feed</span>
           </div>
-          <button onclick="testRFTrigger()">⚡ Simulate RF Signal</button>
+          <button class="btn-sm" onclick="testRFTrigger()">⚡ Simulate RF Signal (123456)</button>
         </div>
         <div class="oscilloscope-feed" id="rf-feed">
-          <div style="color: var(--text-muted); text-align: center; padding-top: 5rem;">Listening for 433 MHz signals from RFBot gateways...</div>
+          <div style="color: var(--text-muted); text-align: center; padding-top: 5rem;">Listening for 433 MHz signals
+            from RFBot gateways...</div>
+        </div>
+      </div>
+
+      <!-- Input Buttons Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔘 Input Buttons & Multi-Click Triggers</div>
+          <button class="btn-sm" onclick="showAddButtonModal()">➕ Add Input Button</button>
+        </div>
+        <div id="button-list"
+          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Automation Matrix & Rules -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚡ Automation Rules & Cooldown Engine</div>
+          <button class="btn-sm" onclick="showAddRuleModal()">➕ Add Rule</button>
+        </div>
+        <div id="rule-list">
+          <!-- Dynamically populated -->
         </div>
       </div>
 
@@ -306,46 +491,13 @@
         <div class="card-header">
           <div class="card-title">🤖 Multi-Bot Fleet Registry</div>
           <div style="display: flex; gap: 0.5rem;">
-            <button onclick="showAddDeviceModal()" style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: var(--accent-green);">➕ Add Device</button>
-            <button onclick="fetchStatus()">🔄 Refresh Fleet</button>
+            <button class="btn-sm" onclick="showAddDeviceModal()"
+              style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: var(--accent-green);">➕
+              Add Device</button>
+            <button class="btn-sm btn-secondary" onclick="fetchStatus()">🔄 Refresh Fleet</button>
           </div>
         </div>
         <div class="bot-grid" id="bot-list">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
-
-      <!-- Add Device Modal -->
-      <div id="add-device-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center;">
-        <div style="background: var(--bg-dark); border: 1px solid var(--panel-border); padding: 1.5rem; border-radius: 16px; width: 380px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
-          <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Add Known Robot Device</h3>
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <input type="text" id="dev-name" placeholder="Device Name (e.g. RFBot 2)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: #fff; padding: 0.5rem; border-radius: 6px;">
-            <input type="text" id="dev-hostname" placeholder="mDNS Hostname (e.g. rfbot2.local)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: #fff; padding: 0.5rem; border-radius: 6px;">
-            <input type="text" id="dev-fallback" placeholder="Fallback IP (e.g. 192.168.1.102)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: #fff; padding: 0.5rem; border-radius: 6px;">
-            <select id="dev-platform" style="background: #111726; border: 1px solid var(--panel-border); color: #fff; padding: 0.5rem; border-radius: 6px;">
-              <option value="rfbot">RFBot (TX/RX Gateway)</option>
-              <option value="speakerbot">SpeakerBot (Audio)</option>
-              <option value="simplebot">SimpleBot (Kitchen Light Controller)</option>
-              <option value="dogbot_v1">DogBot v1 (Quadruped)</option>
-            </select>
-            <label style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
-              <input type="checkbox" id="dev-homekit" checked> Enable Apple HomeKit Accessory
-            </label>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-              <button style="flex: 1;" onclick="saveNewDevice()">Save Device</button>
-              <button style="flex: 1; background: rgba(255,255,255,0.1);" onclick="closeAddDeviceModal()">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Automation Matrix & Rules -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">⚡ Sub-50ms Automation Rules</div>
-        </div>
-        <div id="rule-list">
           <!-- Dynamically populated -->
         </div>
       </div>
@@ -358,8 +510,9 @@
       <!-- HomeKit Pair Box -->
       <div class="homekit-box">
         <h3 style="font-size: 1.1rem; color: #fff;"> Apple HomeKit Bridge</h3>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">Scan in Apple Home app on iOS / macOS to pair FleetHub sensors.</p>
-        
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">Scan in Apple Home app on iOS /
+          macOS to pair FleetHub sensors.</p>
+
         <div class="qr-placeholder">
           [ HomeKit QR ]
         </div>
@@ -373,13 +526,82 @@
         <div class="card-header">
           <div class="card-title">🎯 Sensor Pair Wizard</div>
         </div>
-        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">Click below and trigger any 433 MHz sensor or photodetector to capture its code.</p>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">Click below and trigger any 433
+          MHz sensor or remote to capture code.</p>
         <button style="width: 100%;" onclick="startPairing()">Listen for Sensor</button>
-        <div id="pair-result" style="margin-top: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; text-align: center; color: var(--accent-cyan);"></div>
+        <div id="pair-result"
+          style="margin-top: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; text-align: center; color: var(--accent-cyan);">
+        </div>
       </div>
 
     </div>
   </main>
+
+  <!-- Add Device Modal -->
+  <div id="add-device-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Add Known Robot Device</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <input type="text" id="dev-name" placeholder="Device Name (e.g. RFBot 2)">
+        <input type="text" id="dev-hostname" placeholder="mDNS Hostname (e.g. rfbot2.local)">
+        <input type="text" id="dev-fallback" placeholder="Fallback IP (e.g. 192.168.1.102)">
+        <select id="dev-platform">
+          <option value="rfbot">RFBot (TX/RX Gateway)</option>
+          <option value="speakerbot">SpeakerBot (Audio)</option>
+          <option value="simplebot">SimpleBot (Kitchen Light Controller)</option>
+          <option value="dogbot_v1">DogBot v1 (Quadruped)</option>
+        </select>
+        <label style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="dev-homekit" checked style="width: auto;"> Enable Apple HomeKit Accessory
+        </label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button style="flex: 1;" onclick="saveNewDevice()">Save Device</button>
+          <button class="btn-secondary" style="flex: 1;" onclick="closeModal('add-device-modal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Input Button Modal -->
+  <div id="add-button-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Configure Input Button</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <input type="text" id="btn-name" placeholder="Button Name (e.g. Stove Snooze Remote)">
+        <input type="number" id="btn-code" placeholder="433 MHz Code (e.g. 5577987)">
+        <select id="btn-action">
+          <option value="snooze_rule">Snooze Specific Rule (15m / click)</option>
+          <option value="snooze_all">Snooze ALL Rules (15m / click)</option>
+          <option value="trigger_action">Trigger Automation Action</option>
+        </select>
+        <input type="text" id="btn-target-rule" placeholder="Target Rule ID (e.g. rule-1 or leave blank for all)">
+        <input type="number" id="btn-mins" placeholder="Minutes per Click (default 15)" value="15">
+        <input type="text" id="btn-feedback" placeholder="Feedback Target Host (e.g. speakerbot1.local)">
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button style="flex: 1;" onclick="saveInputButton()">Save Button</button>
+          <button class="btn-secondary" style="flex: 1;" onclick="closeModal('add-button-modal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Rule Modal -->
+  <div id="add-rule-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Configure Automation Rule</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <input type="text" id="rule-name" placeholder="Rule Name (e.g. Photodetector Stove Alert)">
+        <input type="number" id="rule-code" placeholder="Trigger Code (e.g. 123456)">
+        <input type="number" id="rule-cooldown" placeholder="Cooldown Period in Seconds (e.g. 30)" value="30">
+        <input type="text" id="rule-target" placeholder="Target Robot Host/URL (e.g. speakerbot1.local)">
+        <input type="text" id="rule-path" placeholder="Endpoint Path (e.g. /choola)" value="/choola">
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button style="flex: 1;" onclick="saveRule()">Save Rule</button>
+          <button class="btn-secondary" style="flex: 1;" onclick="closeModal('add-rule-modal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     let ws;
@@ -395,6 +617,7 @@
         const data = JSON.parse(event.data);
         if (data.type === 'rf_event') {
           appendRFFeed(data);
+          fetchSnoozes();
         }
       };
 
@@ -412,11 +635,15 @@
       const item = document.createElement('div');
       item.className = 'feed-item';
       item.innerHTML = `
-        <div>
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
           <span class="feed-code">${data.code_hex} (${data.code})</span>
-          <span style="font-size: 0.75rem; margin-left: 0.5rem; color: var(--accent-green);">proto:${data.protocol} bits:${data.bits}</span>
+          <span style="font-size: 0.75rem; color: var(--accent-green);">proto:${data.protocol} bits:${data.bits}</span>
         </div>
-        <div class="feed-time">${data.gateway || 'LAN'} • ${new Date().toLocaleTimeString()}</div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button class="btn-sm btn-secondary" onclick="quickCreateRule(${data.code})">⚡ Rule</button>
+          <button class="btn-sm btn-secondary" onclick="quickCreateButton(${data.code})">🔘 Button</button>
+          <span class="feed-time">${data.gateway || 'LAN'} • ${new Date().toLocaleTimeString()}</span>
+        </div>
       `;
       feed.prepend(item);
     }
@@ -428,24 +655,84 @@
         document.getElementById('m-bots').innerText = data.bots_online;
         document.getElementById('m-sensors').innerText = data.sensor_count;
         document.getElementById('m-rules').innerText = data.rule_count;
+        document.getElementById('m-buttons').innerText = data.button_count || 0;
+        document.getElementById('m-snoozes').innerText = data.active_snoozes || 0;
         document.getElementById('hk-pin').innerText = data.homekit_pin;
 
         const botsRes = await fetch('/api/bots');
-        const bots = await botsRes.json();
-        renderBots(bots);
+        renderBots(await botsRes.json());
 
         const rulesRes = await fetch('/api/rules');
-        const rules = await rulesRes.json();
-        renderRules(rules);
+        renderRules(await rulesRes.json());
+
+        const btnsRes = await fetch('/api/buttons');
+        renderButtons(await btnsRes.json());
+
+        fetchSnoozes();
       } catch (err) {
         console.error('Status fetch failed:', err);
       }
     }
 
+    async function fetchSnoozes() {
+      try {
+        const res = await fetch('/api/snooze');
+        const snoozes = await res.json();
+        const card = document.getElementById('snooze-card');
+        const list = document.getElementById('snooze-list');
+
+        if (!snoozes || snoozes.length === 0) {
+          card.style.display = 'none';
+          document.getElementById('m-snoozes').innerText = '0';
+          return;
+        }
+
+        card.style.display = 'block';
+        document.getElementById('m-snoozes').innerText = snoozes.length;
+
+        list.innerHTML = snoozes.map(s => {
+          const mins = Math.floor(s.remaining_sec / 60);
+          const secs = s.remaining_sec % 60;
+          return `
+            <div style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.8rem; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-weight: 600; font-size: 0.88rem; color: #fff;">${s.rule_name}</div>
+                <div style="font-size: 0.75rem; color: var(--accent-amber);">Snoozed remaining: <strong>${mins}m ${secs}s</strong> (until ${new Date(s.snoozed_until).toLocaleTimeString()})</div>
+              </div>
+              <div style="display: flex; gap: 0.4rem;">
+                <button class="btn-sm btn-amber" onclick="extendSnooze('${s.rule_id}', 15)">+15m</button>
+                <button class="btn-sm btn-red" onclick="cancelSnooze('${s.rule_id}')">Cancel Snooze</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to fetch snoozes:', err);
+      }
+    }
+
+    async function extendSnooze(ruleId, mins) {
+      await fetch('/api/snooze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rule_id: ruleId, duration_min: mins, action: 'set' })
+      });
+      fetchSnoozes();
+    }
+
+    async function cancelSnooze(ruleId) {
+      await fetch('/api/snooze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rule_id: ruleId, action: 'cancel' })
+      });
+      fetchSnoozes();
+    }
+
     function renderBots(bots) {
       const container = document.getElementById('bot-list');
       if (!bots || bots.length === 0) {
-        container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted);">No robots discovered yet via mDNS. Listening on local subnet...</div>`;
+        container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted);">No robots discovered yet via mDNS. Listening...</div>`;
         return;
       }
       container.innerHTML = bots.map(b => `
@@ -459,26 +746,21 @@
               <span style="font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 12px; font-weight: 700; background: ${b.status === 'online' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color: ${b.status === 'online' ? 'var(--accent-green)' : '#ef4444'};">
                 ${b.status === 'online' ? 'ONLINE' : 'OFFLINE'}
               </span>
-              <div style="font-size: 0.75rem; color: var(--accent-cyan); font-family: monospace; margin-top: 0.2rem;">
-                ${b.latency_ms ? `⚡ ${b.latency_ms.toFixed(1)} ms` : ''}
-              </div>
             </div>
           </div>
 
-          <div style="font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 6px; display: flex; justify-content: space-between;">
             <span>Host: ${b.hostname || b.ip}:${b.port || 80}</span>
-            ${b.fallback_ip ? `<span title="Fallback IP if mDNS fails" style="color: var(--accent-amber);">Fallback IP: ${b.fallback_ip}</span>` : ''}
           </div>
 
-          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--panel-border); padding-top: 0.5rem; margin-top: 0.1rem;">
-            <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer; color: var(--text-main);">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--panel-border); padding-top: 0.5rem;">
+            <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
               <input type="checkbox" ${b.homekit_enabled ? 'checked' : ''} onchange="toggleHomeKit('${b.id}', this.checked)">
               <span> HomeKit</span>
             </label>
-
             <div style="display: flex; gap: 0.4rem;">
               ${(b.actions || []).map((act, i) => `
-                <button style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="triggerAction('${b.id}', ${i})">${act.name}</button>
+                <button class="btn-sm" onclick="triggerAction('${b.id}', ${i})">${act.name}</button>
               `).join('')}
             </div>
           </div>
@@ -486,76 +768,29 @@
       `).join('');
     }
 
-    async function toggleHomeKit(id, enabled) {
-      try {
-        await fetch('/api/devices/homekit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, enabled })
-        });
-        fetchStatus();
-      } catch (err) {
-        console.error('HomeKit toggle failed:', err);
-      }
-    }
-
-    async function triggerAction(id, actionIndex) {
-      try {
-        const res = await fetch('/api/devices/control', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, action_index: actionIndex })
-        });
-        const data = await res.json();
-        console.log('Action response:', data);
-        fetchStatus();
-      } catch (err) {
-        console.error('Action trigger failed:', err);
-      }
-    }
-
-    function showAddDeviceModal() {
-      document.getElementById('add-device-modal').style.display = 'flex';
-    }
-
-    function closeAddDeviceModal() {
-      document.getElementById('add-device-modal').style.display = 'none';
-    }
-
-    async function saveNewDevice() {
-      const name = document.getElementById('dev-name').value;
-      const hostname = document.getElementById('dev-hostname').value;
-      const fallback_ip = document.getElementById('dev-fallback').value;
-      const platform = document.getElementById('dev-platform').value;
-      const homekit_enabled = document.getElementById('dev-homekit').checked;
-
-      if (!name) {
-        alert('Please specify a device name.');
+    function renderButtons(buttons) {
+      const container = document.getElementById('button-list');
+      if (!buttons || buttons.length === 0) {
+        container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); grid-column: span 2;">No input buttons configured. Click 'Add Input Button' above.</div>`;
         return;
       }
-
-      const payload = {
-        name,
-        hostname: hostname || name.toLowerCase().replace(/\s+/g, '') + '.local',
-        fallback_ip,
-        platform,
-        ip: hostname || fallback_ip || 'localhost',
-        port: 80,
-        homekit_enabled,
-        ping_enabled: true
-      };
-
-      try {
-        await fetch('/api/devices/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        closeAddDeviceModal();
-        fetchStatus();
-      } catch (err) {
-        console.error('Failed to save device:', err);
-      }
+      container.innerHTML = buttons.map(btn => `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); padding: 0.85rem; border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
+          <div>
+            <div style="font-weight: 600; font-size: 0.92rem; color: #fff;">${btn.name}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Code: <span style="color: var(--accent-cyan); font-family: monospace;">${btn.trigger_code}</span> • ${btn.minutes_per_click || 15}m / click
+            </div>
+            <div style="font-size: 0.72rem; color: var(--accent-indigo); margin-top: 0.1rem;">
+              Action: ${btn.action_type} ${btn.target_rule_id ? '-> ' + btn.target_rule_id : ''}
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.4rem;">
+            <button class="btn-sm btn-amber" style="flex: 1;" onclick="pressButton('${btn.id}')">🔘 Press Button</button>
+            <button class="btn-sm btn-red" onclick="deleteButton('${btn.id}')">🗑️</button>
+          </div>
+        </div>
+      `).join('');
     }
 
     function renderRules(rules) {
@@ -565,15 +800,119 @@
         return;
       }
       container.innerHTML = rules.map(r => `
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); padding: 0.85rem 1rem; border-radius: 10px; margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: space-between;">
           <div>
-            <div style="font-weight: 600; font-size: 0.9rem;">${r.name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">Trigger Code: <span style="color: var(--accent-cyan);">${r.trigger_code}</span></div>
+            <div style="font-weight: 600; font-size: 0.92rem;">${r.name}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem;">
+              Trigger: <span style="color: var(--accent-cyan); font-family: monospace;">${r.trigger_code}</span> •
+              Cooldown: <span style="color: var(--accent-green); font-weight: 600;">⏱️ ${r.cooldown_sec || 10}s</span>
+            </div>
           </div>
-          <span style="font-size: 0.75rem; color: var(--accent-green); background: rgba(16,185,129,0.1); padding: 0.2rem 0.5rem; border-radius: 4px;">ACTIVE</span>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button class="btn-sm btn-amber" onclick="extendSnooze('${r.id}', 15)">💤 Snooze 15m</button>
+            <button class="btn-sm btn-red" onclick="deleteRule('${r.id}')">🗑️</button>
+          </div>
         </div>
       `).join('');
     }
+
+    async function pressButton(id) {
+      try {
+        await fetch('/api/buttons/press', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        setTimeout(fetchSnoozes, 500);
+      } catch (err) {
+        console.error('Button press failed:', err);
+      }
+    }
+
+    async function deleteButton(id) {
+      if (!confirm('Delete this input button?')) return;
+      await fetch('/api/buttons?id=' + id, { method: 'DELETE' });
+      fetchStatus();
+    }
+
+    async function deleteRule(id) {
+      if (!confirm('Delete this rule?')) return;
+      await fetch('/api/rules?id=' + id, { method: 'DELETE' });
+      fetchStatus();
+    }
+
+    async function saveInputButton() {
+      const name = document.getElementById('btn-name').value;
+      const code = parseInt(document.getElementById('btn-code').value);
+      const action_type = document.getElementById('btn-action').value;
+      const target_rule_id = document.getElementById('btn-target-rule').value;
+      const minutes_per_click = parseInt(document.getElementById('btn-mins').value) || 15;
+      const feedback_target = document.getElementById('btn-feedback').value;
+
+      if (!name || isNaN(code)) {
+        alert('Please fill out name and valid 433 MHz trigger code.');
+        return;
+      }
+
+      await fetch('/api/buttons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          trigger_code: code,
+          action_type,
+          target_rule_id,
+          minutes_per_click,
+          feedback_target
+        })
+      });
+      closeModal('add-button-modal');
+      fetchStatus();
+    }
+
+    async function saveRule() {
+      const name = document.getElementById('rule-name').value;
+      const code = parseInt(document.getElementById('rule-code').value);
+      const cooldown_sec = parseInt(document.getElementById('rule-cooldown').value) || 30;
+      const target = document.getElementById('rule-target').value;
+      const path = document.getElementById('rule-path').value;
+
+      if (!name || isNaN(code) || !target) {
+        alert('Please fill out rule name, code, and target host.');
+        return;
+      }
+
+      await fetch('/api/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          enabled: true,
+          trigger_code: code,
+          cooldown_sec,
+          snoozeable: true,
+          actions: [{ type: 'http_get', target, path }]
+        })
+      });
+      closeModal('add-rule-modal');
+      fetchStatus();
+    }
+
+    function quickCreateRule(code) {
+      document.getElementById('rule-code').value = code;
+      showModal('add-rule-modal');
+    }
+
+    function quickCreateButton(code) {
+      document.getElementById('btn-code').value = code;
+      showModal('add-button-modal');
+    }
+
+    function showAddDeviceModal() { showModal('add-device-modal'); }
+    function showAddButtonModal() { showModal('add-button-modal'); }
+    function showAddRuleModal() { showModal('add-rule-modal'); }
+    function showModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
     async function testRFTrigger() {
       await fetch('/api/v1/rf_event?code=123456');
@@ -601,7 +940,9 @@
     window.onload = () => {
       fetchStatus();
       connectWS();
+      setInterval(fetchSnoozes, 5000);
     };
   </script>
 </body>
+
 </html>

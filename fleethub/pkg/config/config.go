@@ -74,7 +74,21 @@ type AutomationRule struct {
 	Name        string       `json:"name"`
 	Enabled     bool         `json:"enabled"`
 	TriggerCode uint32       `json:"trigger_code"`
+	CooldownSec int          `json:"cooldown_sec,omitempty"` // Cooldown period in seconds to prevent spam
+	Snoozeable  bool         `json:"snoozeable"`            // Allow rule to be snoozed
 	Actions     []RuleAction `json:"actions"`
+}
+
+// InputButton represents a physical RF button remote code or virtual input button.
+type InputButton struct {
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	TriggerCode        uint32 `json:"trigger_code"`
+	ActionType         string `json:"action_type"`           // "snooze_rule", "snooze_all", "trigger_action", "toggle_device"
+	TargetRuleID       string `json:"target_rule_id,omitempty"`
+	MinutesPerClick    int    `json:"minutes_per_click,omitempty"`    // e.g. 15 mins per click for snooze
+	MultiClickWindowMs int    `json:"multi_click_window_ms,omitempty"`// multi-click aggregation window in ms (default 2500ms)
+	FeedbackTarget     string `json:"feedback_target,omitempty"`     // Target device for audio/visual confirmation
 }
 
 // Config holds all FleetHub settings and fleet state.
@@ -86,6 +100,7 @@ type Config struct {
 	Bots       []RobotNode      `json:"bots"`
 	Sensors    []RFSensor       `json:"sensors"`
 	Rules      []AutomationRule `json:"rules"`
+	Buttons    []InputButton    `json:"buttons"`
 	filePath   string
 	mu         sync.RWMutex
 }
@@ -188,6 +203,8 @@ func DefaultConfig(path string) *Config {
 				Name:        "Photodetector Chime Trigger",
 				Enabled:     true,
 				TriggerCode: 123456,
+				CooldownSec: 30,
+				Snoozeable:  true,
 				Actions: []RuleAction{
 					{
 						Type:   "speakerbot_play",
@@ -195,6 +212,18 @@ func DefaultConfig(path string) *Config {
 						Path:   "/choola",
 					},
 				},
+			},
+		},
+		Buttons: []InputButton{
+			{
+				ID:                 "button-1",
+				Name:               "Stove Snooze Button (15m / click)",
+				TriggerCode:        5577987,
+				ActionType:         "snooze_rule",
+				TargetRuleID:       "rule-1",
+				MinutesPerClick:    15,
+				MultiClickWindowMs: 2500,
+				FeedbackTarget:     "speakerbot1.local",
 			},
 		},
 		filePath: path,
@@ -340,3 +369,85 @@ func (c *Config) UpsertSensor(sensor RFSensor) {
 		c.Sensors = append(c.Sensors, sensor)
 	}
 }
+
+// UpsertButton adds or updates an InputButton configuration.
+func (c *Config) UpsertButton(btn InputButton) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if btn.MinutesPerClick <= 0 {
+		btn.MinutesPerClick = 15
+	}
+	if btn.MultiClickWindowMs <= 0 {
+		btn.MultiClickWindowMs = 2500
+	}
+
+	found := false
+	for i, b := range c.Buttons {
+		if (btn.ID != "" && b.ID == btn.ID) || (btn.TriggerCode != 0 && b.TriggerCode == btn.TriggerCode) {
+			c.Buttons[i] = btn
+			found = true
+			break
+		}
+	}
+	if !found {
+		if btn.ID == "" {
+			btn.ID = fmt.Sprintf("btn-%d", time.Now().UnixNano())
+		}
+		c.Buttons = append(c.Buttons, btn)
+	}
+}
+
+// DeleteButton removes an InputButton configuration by ID.
+func (c *Config) DeleteButton(id string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, b := range c.Buttons {
+		if b.ID == id {
+			c.Buttons = append(c.Buttons[:i], c.Buttons[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// UpsertRule adds or updates an AutomationRule.
+func (c *Config) UpsertRule(rule AutomationRule) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if rule.CooldownSec <= 0 {
+		rule.CooldownSec = 30
+	}
+
+	found := false
+	for i, r := range c.Rules {
+		if (rule.ID != "" && r.ID == rule.ID) || (rule.TriggerCode != 0 && r.TriggerCode == rule.TriggerCode) {
+			c.Rules[i] = rule
+			found = true
+			break
+		}
+	}
+	if !found {
+		if rule.ID == "" {
+			rule.ID = fmt.Sprintf("rule-%d", time.Now().UnixNano())
+		}
+		c.Rules = append(c.Rules, rule)
+	}
+}
+
+// DeleteRule removes an AutomationRule by ID.
+func (c *Config) DeleteRule(id string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, r := range c.Rules {
+		if r.ID == id {
+			c.Rules = append(c.Rules[:i], c.Rules[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
