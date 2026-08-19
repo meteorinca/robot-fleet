@@ -37,9 +37,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("[FleetHub] Config error: %v", err)
 	}
-	if *httpPort != 8126 {
+
+	portSet := false
+	flag.CommandLine.Visit(func(f *flag.Flag) {
+		if f.Name == "port" {
+			portSet = true
+		}
+	})
+
+	if portSet {
 		cfg.HTTPPort = *httpPort
+	} else if cfg.HTTPPort == 8080 {
+		cfg.HTTPPort = 8126
 	}
+
 	if *udpPort != 4330 {
 		cfg.UDPPort = *udpPort
 	}
