@@ -221,18 +221,26 @@
     .dash-tile.state-off .tile-sub   { color: var(--tile-inactive-sub); font-weight: 500; }
     .dash-tile.state-off .tile-icon-badge { background: rgba(255, 255, 255, 0.14); color: #fff; fill: #fff; stroke: #fff; }
 
-    /* Info (i) Button on Tiles */
+    /* Info (i) Button on Tiles — Perfect Circle Guaranteed */
     .tile-info-btn {
-      width: 22px; height: 22px; border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3);
-      color: #fff; font-size: 0.72rem; font-weight: 700; font-style: italic; font-family: 'JetBrains Mono', monospace;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      position: absolute; top: 8px; right: 8px; transition: all 0.2s; z-index: 10;
+      width: 24px; height: 24px;
+      min-width: 24px; min-height: 24px;
+      max-width: 24px; max-height: 24px;
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      padding: 0; margin: 0;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      line-height: 1; text-align: center;
+      background: rgba(255, 255, 255, 0.22); border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #fff; font-size: 0.76rem; font-weight: 700; font-style: italic; font-family: 'JetBrains Mono', monospace;
+      cursor: pointer; position: absolute; top: 8px; right: 8px; transition: all 0.2s; z-index: 10;
     }
     .dash-tile.state-on .tile-info-btn {
       background: #e2e8f0; border-color: #cbd5e1; color: #475569;
     }
-    .tile-info-btn:hover { transform: scale(1.15); background: rgba(255,255,255,0.4); }
+    .tile-info-btn:hover { transform: scale(1.15); background: rgba(255,255,255,0.45); }
 
     /* Edit Mode Handle */
     .tile-edit-handle {
@@ -326,8 +334,8 @@
     .btn-amber { background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; }
     .btn-red { background: rgba(239,68,68,0.2); border: 1px solid var(--accent-rose); color: var(--accent-rose); }
 
-    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(12px); z-index: 1000; align-items: center; justify-content: center; }
-    .modal-content { background: #111827; border: 1px solid rgba(255,255,255,0.15); padding: 1.6rem; border-radius: 20px; width: 440px; color: #fff; box-shadow: 0 25px 50px rgba(0,0,0,0.7); }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); z-index: 1000; align-items: center; justify-content: center; cursor: pointer; }
+    .modal-content { background: #111827; border: 1px solid rgba(255,255,255,0.18); padding: 1.6rem; border-radius: 20px; width: 440px; max-width: 90vw; color: #fff; box-shadow: 0 25px 50px rgba(0,0,0,0.8); cursor: default; }
     input, select { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.6rem 0.8rem; border-radius: 8px; font-size: 0.88rem; width: 100%; }
 
     /* ═══════════════════════════════════════════
@@ -968,19 +976,19 @@
   </main>
 
   <!-- Detail Info Modal for (i) Buttons -->
-  <div id="info-modal" class="modal-overlay">
-    <div class="modal-content">
+  <div id="info-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'info-modal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
         <h3 id="info-modal-title" style="font-size: 1.1rem; color: #fff;">Device Details</h3>
-        <button class="btn-sm btn-secondary" onclick="closeModal('info-modal')">✕</button>
+        <button type="button" class="btn-sm btn-secondary" onclick="event.stopPropagation(); closeModal('info-modal')" style="cursor:pointer;padding:0.3rem 0.7rem;font-size:1rem;">✕</button>
       </div>
       <div id="info-modal-body" style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--text-secondary);white-space:pre-wrap;background:rgba(0,0,0,0.3);padding:1rem;border-radius:10px;border:1px solid rgba(255,255,255,0.1);"></div>
     </div>
   </div>
 
   <!-- Add Device Modal -->
-  <div id="add-device-modal" class="modal-overlay">
-    <div class="modal-content">
+  <div id="add-device-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'add-device-modal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
       <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Add Known Robot Device</h3>
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
         <input type="text" id="dev-name" placeholder="Device Name (e.g. RFBot 2)">
@@ -994,14 +1002,14 @@
         </select>
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
           <button style="flex: 1;" onclick="saveNewDevice()">Save Device</button>
-          <button style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-device-modal')">Cancel</button>
+          <button type="button" style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-device-modal')">Cancel</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="add-button-modal" class="modal-overlay">
-    <div class="modal-content">
+  <div id="add-button-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'add-button-modal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
       <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Configure RF Trigger</h3>
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
         <input type="text" id="btn-name" placeholder="Trigger Name (e.g. Remote Action Trigger)">
@@ -1015,14 +1023,14 @@
         <input type="number" id="btn-mins" placeholder="Minutes per Click" value="15">
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
           <button style="flex: 1;" onclick="saveInputButton()">Save Trigger</button>
-          <button style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-button-modal')">Cancel</button>
+          <button type="button" style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-button-modal')">Cancel</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="add-rule-modal" class="modal-overlay">
-    <div class="modal-content">
+  <div id="add-rule-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'add-rule-modal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
       <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Configure Automation Rule</h3>
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
         <input type="text" id="rule-name" placeholder="Rule Name (e.g. Light Sensor Alert)">
@@ -1032,7 +1040,7 @@
         <input type="text" id="rule-path" placeholder="Endpoint Path" value="/choola">
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
           <button style="flex: 1;" onclick="saveRule()">Save Rule</button>
-          <button style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-rule-modal')">Cancel</button>
+          <button type="button" style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-rule-modal')">Cancel</button>
         </div>
       </div>
     </div>
@@ -1562,7 +1570,25 @@
   window.showAddDeviceModal = function() { document.getElementById('add-device-modal').style.display = 'flex'; };
   window.showAddButtonModal = function() { document.getElementById('add-button-modal').style.display = 'flex'; };
   window.showAddRuleModal   = function() { document.getElementById('add-rule-modal').style.display = 'flex'; };
-  window.closeModal         = function(id) { document.getElementById(id).style.display = 'none'; };
+  window.closeModal         = function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  };
+  window.closeModalOnOverlay = function(evt, id) {
+    if (evt.target === evt.currentTarget || (evt.target && evt.target.classList && evt.target.classList.contains('modal-overlay'))) {
+      window.closeModal(id);
+    }
+  };
+  window.closeAllModals = function() {
+    document.querySelectorAll('.modal-overlay').forEach(function(m) {
+      m.style.display = 'none';
+    });
+  };
+  document.addEventListener('keydown', function(evt) {
+    if (evt.key === 'Escape') {
+      window.closeAllModals();
+    }
+  });
 </script>
 
 <!-- ═══════════════════════════════════════════
@@ -1573,50 +1599,74 @@
 <script type="module">
   import * as THREE from 'three';
 
-  /* Build a procedural canvas Earth texture — works 100% offline */
-  function makeProceduralEarth(size) {
+  /* Build a high-definition procedural Earth texture canvas (2048x1024) */
+  function makeProceduralEarth(w, h) {
     var c = document.createElement('canvas');
-    c.width = c.height = size;
+    c.width = w || 2048;
+    c.height = h || 1024;
     var ctx = c.getContext('2d');
-    /* Ocean base */
-    var g = ctx.createRadialGradient(size*0.5, size*0.35, size*0.05, size*0.5, size*0.5, size*0.6);
-    g.addColorStop(0,   '#1a6ebd');
-    g.addColorStop(0.5, '#0d4f8a');
-    g.addColorStop(1,   '#072040');
+
+    /* Deep Ocean Base */
+    var g = ctx.createLinearGradient(0, 0, 0, c.height);
+    g.addColorStop(0,   '#0a223c');
+    g.addColorStop(0.3, '#124873');
+    g.addColorStop(0.5, '#0b3558');
+    g.addColorStop(0.7, '#124873');
+    g.addColorStop(1,   '#08182b');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
-    /* Rough continents */
-    ctx.fillStyle = '#2a7a3f';
+    ctx.fillRect(0, 0, c.width, c.height);
+
+    /* Continents */
+    ctx.fillStyle = '#226938';
     var blobs = [
-      [0.28,0.40,0.18,0.22],[0.55,0.38,0.20,0.18],[0.72,0.52,0.14,0.16],
-      [0.20,0.62,0.12,0.14],[0.48,0.58,0.10,0.12],[0.82,0.34,0.08,0.10]
+      [0.25, 0.35, 0.14, 0.20], [0.32, 0.42, 0.12, 0.18], [0.28, 0.70, 0.10, 0.22],
+      [0.52, 0.30, 0.15, 0.18], [0.55, 0.55, 0.12, 0.22], [0.72, 0.45, 0.16, 0.18],
+      [0.82, 0.70, 0.10, 0.12], [0.15, 0.30, 0.08, 0.10]
     ];
     blobs.forEach(function(b) {
       ctx.beginPath();
-      ctx.ellipse(b[0]*size, b[1]*size, b[2]*size, b[3]*size, b[0]*2, 0, Math.PI*2);
+      ctx.ellipse(b[0]*c.width, b[1]*c.height, b[2]*c.width, b[3]*c.height, b[0]*3, 0, Math.PI*2);
       ctx.fill();
     });
-    /* Ice caps */
-    ctx.fillStyle = 'rgba(220,240,255,0.75)';
-    ctx.beginPath(); ctx.ellipse(size*0.5, 0, size*0.35, size*0.10, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(size*0.5, size, size*0.28, size*0.08, 0, 0, Math.PI*2); ctx.fill();
-    return new THREE.CanvasTexture(c);
+
+    /* Coastal glow */
+    ctx.strokeStyle = 'rgba(40, 180, 200, 0.4)';
+    ctx.lineWidth = 14;
+    blobs.forEach(function(b) {
+      ctx.beginPath();
+      ctx.ellipse(b[0]*c.width, b[1]*c.height, (b[2]+0.012)*c.width, (b[3]+0.012)*c.height, b[0]*3, 0, Math.PI*2);
+      ctx.stroke();
+    });
+
+    /* Polar Caps */
+    ctx.fillStyle = 'rgba(235, 245, 255, 0.9)';
+    ctx.beginPath(); ctx.ellipse(c.width*0.5, 0, c.width*0.5, c.height*0.12, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(c.width*0.5, c.height, c.width*0.5, c.height*0.10, 0, 0, Math.PI*2); ctx.fill();
+
+    var tex = new THREE.CanvasTexture(c);
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
   }
 
-  function makeProceduralClouds(size) {
+  function makeProceduralClouds(w, h) {
     var c = document.createElement('canvas');
-    c.width = c.height = size;
+    c.width = w || 1024;
+    c.height = h || 512;
     var ctx = c.getContext('2d');
-    ctx.fillStyle = 'rgba(0,0,0,0)';
-    ctx.clearRect(0, 0, size, size);
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    for (var i = 0; i < 40; i++) {
-      var rx = Math.random() * size, ry = Math.random() * size;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    for (var i = 0; i < 60; i++) {
+      var rx = Math.random() * c.width, ry = Math.random() * c.height;
       ctx.beginPath();
-      ctx.ellipse(rx, ry, 30+Math.random()*60, 12+Math.random()*20, Math.random()*Math.PI, 0, Math.PI*2);
+      ctx.ellipse(rx, ry, 40+Math.random()*80, 16+Math.random()*28, Math.random()*Math.PI, 0, Math.PI*2);
       ctx.fill();
     }
-    return new THREE.CanvasTexture(c);
+    var tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
   }
 
   /* Register the 3D init function on window so the UI script can call it */
