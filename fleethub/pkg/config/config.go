@@ -108,7 +108,7 @@ type Config struct {
 // DefaultConfig returns reasonable defaults.
 func DefaultConfig(path string) *Config {
 	return &Config{
-		HTTPPort:   8080,
+		HTTPPort:   8126,
 		UDPPort:    4330,
 		HomeKitPIN: "11122333",
 		Mode:       "home_automation",

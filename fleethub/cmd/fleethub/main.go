@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	httpPort := flag.Int("port", 8080, "HTTP WebUI and API port")
+	httpPort := flag.Int("port", 8126, "HTTP WebUI and API port")
 	udpPort := flag.Int("udp", 4330, "UDP RF mesh listener port")
 	configPath := flag.String("config", "fleethub_config.json", "Path to FleetHub JSON configuration file")
 	homekitPin := flag.String("pin", "11122333", "HomeKit setup PIN (8 digits)")
@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("[FleetHub] Config error: %v", err)
 	}
-	if *httpPort != 8080 {
+	if *httpPort != 8126 {
 		cfg.HTTPPort = *httpPort
 	}
 	if *udpPort != 4330 {

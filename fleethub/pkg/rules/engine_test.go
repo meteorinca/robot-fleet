@@ -10,7 +10,7 @@ import (
 
 func TestEngineCooldownAndSnooze(t *testing.T) {
 	cfg := &config.Config{
-		HTTPPort: 8080,
+		HTTPPort: 8126,
 		UDPPort:  4330,
 		Rules: []config.AutomationRule{
 			{

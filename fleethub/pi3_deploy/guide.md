@@ -32,9 +32,9 @@ chmod +x setup.sh
 
 Open your web browser on any phone, tablet, or PC on the same network:
 ```text
-http://<YOUR-PI-IP>:8080
+http://<YOUR-PI-IP>:8126
 ```
-*(Example: `http://192.168.1.150:8080` or `http://raspberrypi.local:8080`)*
+*(Example: `http://192.168.1.150:8126` or `http://raspberrypi.local:8126`)*
 
 ---
 

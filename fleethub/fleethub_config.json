@@ -1,5 +1,5 @@
 {
-  "http_port": 8080,
+  "http_port": 8126,
   "udp_port": 4330,
   "homekit_pin": "11122333",
   "mode": "home_automation",

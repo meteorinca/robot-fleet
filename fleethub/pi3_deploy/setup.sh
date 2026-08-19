@@ -30,6 +30,6 @@ sudo systemctl restart fleethub.service
 echo ""
 echo "========================================================"
 echo "   FleetHub is ACTIVE and Running on Raspberry Pi 3!"
-echo "   Access Dashboard: http://$(hostname -I | awk '{print $1}'):8080"
+echo "   Access Dashboard: http://$(hostname -I | awk '{print $1}'):8126"
 echo "   View Live Logs:   sudo journalctl -u fleethub -f"
 echo "========================================================"
