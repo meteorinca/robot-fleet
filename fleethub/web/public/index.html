@@ -22,8 +22,6 @@
       --bg-gradient: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 30%, #db2777 65%, #f43f5e 100%);
       --sidebar-bg: rgba(2, 6, 23, 0.42);
       --sidebar-border: rgba(255, 255, 255, 0.14);
-      --panel-glass: rgba(255, 255, 255, 0.08);
-      --panel-glass-border: rgba(255, 255, 255, 0.16);
       --text-primary: #ffffff;
       --text-secondary: rgba(255, 255, 255, 0.78);
       --text-muted: rgba(255, 255, 255, 0.55);
@@ -176,27 +174,29 @@
     #main-content { flex: 1; display: flex; flex-direction: column; padding: 1.75rem 2.2rem; min-width: 0; }
     .main-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
     .header-nav-tabs { display: flex; align-items: center; gap: 1.75rem; }
-    .nav-tab-item { font-size: 1.35rem; font-weight: 800; color: rgba(255,255,255,0.6); cursor: pointer; position: relative; padding-bottom: 0.4rem; transition: color 0.2s; }
+    .nav-tab-item { font-size: 1.35rem; font-weight: 800; color: rgba(255,255,255,0.6); cursor: pointer; position: relative; padding-bottom: 0.4rem; transition: color 0.2s; user-select: none; }
     .nav-tab-item.active { color: #fff; }
     .nav-tab-item.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3.5px; background: #fff; border-radius: 4px; box-shadow: 0 0 10px rgba(255,255,255,0.8); }
 
-    .header-controls { display: flex; align-items: center; gap: 0.85rem; }
+    .header-controls { display: flex; align-items: center; gap: 0.75rem; }
     .ctrl-pill-btn {
       background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
       border-radius: 20px; padding: 0.45rem 1rem; color: #fff; font-size: 0.82rem; font-weight: 600;
       cursor: pointer; backdrop-filter: blur(12px); display: flex; align-items: center; gap: 0.45rem; transition: all 0.2s;
     }
     .ctrl-pill-btn:hover { background: rgba(255,255,255,0.22); transform: translateY(-1px); }
+    .ctrl-pill-btn.edit-active { background: #f59e0b; color: #000; font-weight: 800; border-color: #fbbf24; box-shadow: 0 0 14px rgba(245,158,11,0.5); }
 
     .dashboard-section { margin-bottom: 2.2rem; }
     .section-title { font-size: 1.4rem; font-weight: 800; color: #fff; margin-bottom: 1rem; letter-spacing: -0.02em; text-shadow: 0 2px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: space-between; }
 
     .tiles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.85rem; }
 
+    /* Tile Base */
     .dash-tile {
       border-radius: 16px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem;
       cursor: pointer; user-select: none; transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease;
-      min-height: 64px; position: relative;
+      min-height: 64px; position: relative; overflow: visible;
     }
     .dash-tile:hover { transform: translateY(-2px) scale(1.015); }
     .dash-tile:active { transform: translateY(0) scale(0.98); }
@@ -220,6 +220,29 @@
     .dash-tile.state-off .tile-title { color: #fff; font-weight: 600; }
     .dash-tile.state-off .tile-sub   { color: var(--tile-inactive-sub); font-weight: 500; }
     .dash-tile.state-off .tile-icon-badge { background: rgba(255, 255, 255, 0.14); color: #fff; fill: #fff; stroke: #fff; }
+
+    /* Info (i) Button on Tiles */
+    .tile-info-btn {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #fff; font-size: 0.72rem; font-weight: 700; font-style: italic; font-family: 'JetBrains Mono', monospace;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      position: absolute; top: 8px; right: 8px; transition: all 0.2s; z-index: 10;
+    }
+    .dash-tile.state-on .tile-info-btn {
+      background: #e2e8f0; border-color: #cbd5e1; color: #475569;
+    }
+    .tile-info-btn:hover { transform: scale(1.15); background: rgba(255,255,255,0.4); }
+
+    /* Edit Mode Handle */
+    .tile-edit-handle {
+      display: none; width: 22px; height: 22px; border-radius: 50%;
+      background: #f59e0b; color: #000; position: absolute; top: 8px; left: 8px;
+      align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; cursor: pointer; z-index: 10;
+    }
+    body.edit-mode .tile-edit-handle { display: flex; }
+    body.edit-mode .dash-tile { animation: edit-shake 0.3s ease-in-out infinite alternate; }
+    @keyframes edit-shake { from{transform:rotate(-0.8deg)} to{transform:rotate(0.8deg)} }
 
     .tile-icon-badge { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .tile-icon-svg { width: 22px; height: 22px; }
@@ -260,9 +283,7 @@
     .metric-box {
       background: rgba(255,255,255,0.035); border: 1px solid var(--panel-border); border-left: 4px solid var(--accent-cyan);
       border-radius: 14px; padding: 1rem; backdrop-filter: blur(12px); box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-      transition: transform 0.2s, border-color 0.2s;
     }
-    .metric-box:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.18); }
     .metric-box:nth-child(2) { border-left-color: #a855f7; }
     .metric-box:nth-child(3) { border-left-color: var(--accent-green); }
     .metric-box:nth-child(4) { border-left-color: #ec4899; }
@@ -480,15 +501,23 @@
 
   <!-- Main Content Area -->
   <main id="main-content">
+
+    <!-- REAL FUNCTIONAL TOP TABS HEADER -->
     <header class="main-header">
       <div class="header-nav-tabs">
-        <div class="nav-tab-item active">Home</div>
-        <div class="nav-tab-item">Entities</div>
-        <div class="nav-tab-item">Cameras</div>
-        <div class="nav-tab-item">RF Mesh</div>
+        <div class="nav-tab-item active" onclick="switchNavTab('home', this)">Home</div>
+        <div class="nav-tab-item" onclick="switchNavTab('entities', this)">Entities</div>
+        <div class="nav-tab-item" onclick="switchNavTab('cameras', this)">Cameras</div>
+        <div class="nav-tab-item" onclick="switchNavTab('rfbots', this)">RFBots</div>
+        <div class="nav-tab-item" onclick="switchNavTab('bots', this)">Bots</div>
       </div>
 
       <div class="header-controls">
+        <button class="ctrl-pill-btn" onclick="toggleEditMode()" id="edit-mode-btn" title="Toggle Dashboard Edit Mode">
+          <svg style="width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span id="edit-mode-text">Edit Mode</span>
+        </button>
+
         <button class="ctrl-pill-btn" onclick="toggleTheme()" id="theme-toggle-btn">
           <svg style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           <span id="theme-btn-text">Vivid Mode</span>
@@ -506,136 +535,402 @@
       </div>
     </header>
 
-    <!-- SECTION 1: Test Room -->
-    <section class="dashboard-section">
-      <div class="section-title">Test Room</div>
-      <div class="tiles-grid" id="grid-test">
-        <div class="dash-tile state-on" onclick="toggleTileState(this)">
-          <div class="tile-icon-badge accent-amber">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+    <!-- SECTION: HOME TAB -->
+    <div id="tab-sec-home">
+
+      <!-- Test Room Section -->
+      <section class="dashboard-section">
+        <div class="section-title">Test Room</div>
+        <div class="tiles-grid" id="grid-test">
+          <div class="dash-tile state-on" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-amber">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Desktop Light</div>
+              <div class="tile-sub">100 %</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Desktop Light', 'Light Accessory • Datorlampa\nBrightness: 100%\nRoom: Test Room\nTarget: Zigbee Gateway')"><i>i</i></button>
           </div>
-          <div class="tile-info">
-            <div class="tile-title">Desktop Light</div>
-            <div class="tile-sub">100 %</div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Lighting</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Lighting', 'Main Room Lighting\nState: Off\nRoom: Test Room')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Corner Lamp</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Corner Lamp', 'Corner Accent Lamp\nState: Off\nRoom: Test Room')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">TV</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'TV', 'Smart TV Controller\nState: Off\nRoom: Test Room')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" style="opacity: 0.7;">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Balcony Light</div>
+              <div class="tile-sub">Unavailable</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Balcony Light', 'Balcony Outdoor Lamp\nStatus: Offline / Snoozed')"><i>i</i></button>
           </div>
         </div>
+      </section>
 
-        <div class="dash-tile state-off" onclick="toggleTileState(this)">
-          <div class="tile-icon-badge">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+      <!-- Studio Section -->
+      <section class="dashboard-section">
+        <div class="section-title">Studio</div>
+        <div class="tiles-grid" id="grid-studio">
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Ceiling Lights</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Ceiling Lights', 'Studio Ceiling Array\nState: Off\nRoom: Studio')"><i>i</i></button>
           </div>
-          <div class="tile-info">
-            <div class="tile-title">Lighting</div>
-            <div class="tile-sub">Off</div>
+
+          <div class="dash-tile state-on" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-cyan">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Computer</div>
+              <div class="tile-sub">On</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Computer', 'Studio Main Workstation\nState: Power On\nHost: studio-pc.local')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Monitors</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Monitors', 'Studio Dual Monitor Relay\nState: Off')"><i>i</i></button>
           </div>
         </div>
+      </section>
 
-        <div class="dash-tile state-off" onclick="toggleTileState(this)">
-          <div class="tile-icon-badge">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+      <!-- 433 MHz RF OUTLETS INTEGRATED AS FIRST-CLASS APPLE TILES (NO RAW CODE NUMBERS ON FACE) -->
+      <section class="dashboard-section">
+        <div class="section-title">433 MHz RF Outlets (RFBot 6 TX)</div>
+        <div class="tiles-grid" id="grid-outlets">
+
+          <!-- Alpha Outlet -->
+          <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Alpha', 5576451, 5576460, this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Alpha Outlet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Alpha Outlet', 'Target: RFBot 6 Gateway\nProtocol: 1 (24-bit, 185µs pulse)\nFrequency: 433.92 MHz\nON Code: 5576451\nOFF Code: 5576460')"><i>i</i></button>
           </div>
-          <div class="tile-info">
-            <div class="tile-title">Corner Lamp</div>
-            <div class="tile-sub">Off</div>
+
+          <!-- Bravo Outlet -->
+          <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Bravo', 5584131, 5584140, this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Bravo Outlet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Bravo Outlet', 'Target: RFBot 6 Gateway\nON Code: 5584131\nOFF Code: 5584140')"><i>i</i></button>
+          </div>
+
+          <!-- Charlie Outlet -->
+          <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Charlie', 5576131, 5576140, this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Charlie Outlet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Charlie Outlet', 'Target: RFBot 6 Gateway\nON Code: 5576131\nOFF Code: 5576140')"><i>i</i></button>
+          </div>
+
+          <!-- Delta Outlet -->
+          <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Delta', 5577987, 5577996, this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Delta Outlet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Delta Outlet', 'Target: RFBot 6 Gateway\nON Code: 5577987\nOFF Code: 5577996')"><i>i</i></button>
+          </div>
+
+          <!-- Echo Outlet -->
+          <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Echo', 5575987, 5575996, this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Echo Outlet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Echo Outlet', 'Target: RFBot 6 Gateway\nON Code: 5575987\nOFF Code: 5575996')"><i>i</i></button>
+          </div>
+
+          <!-- Foxtrot Outlet -->
+          <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Foxtrot', 1381827, 1381836, this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Foxtrot Outlet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Foxtrot Outlet', 'Target: RFBot 6 Gateway\nON Code: 1381827\nOFF Code: 1381836')"><i>i</i></button>
+          </div>
+
+          <!-- Golf Outlet -->
+          <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Golf', 1382147, 1382156, this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Golf Outlet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Golf Outlet', 'Target: RFBot 6 Gateway\nON Code: 1382147\nOFF Code: 1382156')"><i>i</i></button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Other Devices Section -->
+      <section class="dashboard-section">
+        <div class="section-title">Other Devices</div>
+        <div class="tiles-grid" id="grid-ovrigt">
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Bathroom</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Bathroom', 'Bathroom Light Relay\nState: Off')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 12c-2 0-4-2-4-4s2-3 4-3 4 2 4 4-2 3-4 3zm0 0c0 2 2 4 4 4s3-2 3-4-2-4-4-4 0 2-3 4zm0 0c-2 0-4 2-4 4s2 3 4 3 4-2 4-4-2-3-4-3z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Fan²</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Fan²', 'Exhaust Fan Speed Controller\nState: Off')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Closet</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Closet', 'Closet Door Motion Sensor Light\nState: Off')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Hallway</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Hallway', 'Hallway Light Dimmer\nState: Off')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-on" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-amber">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Bedside Lamps</div>
+              <div class="tile-sub">56 %</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Bedside Lamps', 'Bedside Dimmable Pair\nBrightness: 56%')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-off" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Climate</div>
+              <div class="tile-sub">Off</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Climate', 'HVAC Climate Control\nTarget Temp: 21°C\nState: Standby')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-on" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-green">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="8" cy="12" r="2"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Playstation</div>
+              <div class="tile-sub">On</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Playstation', 'Console Power Outlet Relay\nState: Power On')"><i>i</i></button>
+          </div>
+
+          <div class="dash-tile state-on" onclick="toggleTileState(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-cyan">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Tv²</div>
+              <div class="tile-sub">On</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Tv²', 'Bedroom TV Outlet\nState: Power On')"><i>i</i></button>
           </div>
         </div>
+      </section>
 
-        <div class="dash-tile state-off" onclick="toggleTileState(this)">
-          <div class="tile-icon-badge">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+      <!-- Presence & Master Actions -->
+      <section class="dashboard-section">
+        <div class="section-title">Home Presence</div>
+        <div class="tiles-grid" id="grid-hemma">
+          <div class="person-tile">
+            <div class="person-avatar" style="background:#06b6d4;">M</div>
+            <div class="tile-info">
+              <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Matte</div>
+              <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Home</div>
+            </div>
           </div>
-          <div class="tile-info">
-            <div class="tile-title">TV</div>
-            <div class="tile-sub">Off</div>
+
+          <div class="person-tile">
+            <div class="person-avatar" style="background:#ec4899;">S</div>
+            <div class="tile-info">
+              <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Sanja</div>
+              <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Home</div>
+            </div>
+          </div>
+
+          <div class="dash-tile state-off" onclick="turnOffAllTiles()">
+            <div class="tile-icon-badge">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Turn Off All</div>
+              <div class="tile-sub">Action</div>
+            </div>
           </div>
         </div>
+      </section>
+    </div><!-- /tab-sec-home -->
 
-        <div class="dash-tile state-off" style="opacity: 0.7;">
-          <div class="tile-icon-badge">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
-          </div>
-          <div class="tile-info">
-            <div class="tile-title">Balcony Light</div>
-            <div class="tile-sub">Unavailable</div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- SECTION: ENTITIES TAB -->
+    <div id="tab-sec-entities" style="display: none;">
+      <section class="dashboard-section">
+        <div class="section-title">Mapped RF Sensors &amp; Triggers</div>
+        <div id="entities-sensor-list"></div>
+      </section>
+      <section class="dashboard-section">
+        <div class="section-title">Automation Engine Rules</div>
+        <div id="rule-list"></div>
+      </section>
+    </div>
 
-    <!-- SECTION 2: Studio -->
-    <section class="dashboard-section">
-      <div class="section-title">Studio</div>
-      <div class="tiles-grid" id="grid-studio">
-        <div class="dash-tile state-off" onclick="toggleTileState(this)">
-          <div class="tile-icon-badge">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
-          </div>
-          <div class="tile-info">
-            <div class="tile-title">Ceiling Lights</div>
-            <div class="tile-sub">Off</div>
-          </div>
-        </div>
-
-        <div class="dash-tile state-on" onclick="toggleTileState(this)">
-          <div class="tile-icon-badge accent-cyan">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-          </div>
-          <div class="tile-info">
-            <div class="tile-title">Computer</div>
-            <div class="tile-sub">On</div>
-          </div>
-        </div>
-
-        <div class="dash-tile state-off" onclick="toggleTileState(this)">
-          <div class="tile-icon-badge">
-            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </div>
-          <div class="tile-info">
-            <div class="tile-title">Monitors</div>
-            <div class="tile-sub">Off</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 3: Media & Camera Feeds -->
-    <section class="dashboard-section">
-      <div class="section-title">
-        <span>Media &amp; Camera Feeds</span>
-      </div>
-
-      <div class="tiles-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
-        <div class="media-card-wide">
-          <div class="cam-viewport-box">
-            <canvas id="esp32-cam-canvas" class="cam-stream-canvas"></canvas>
-            <div class="cam-overlay-bar">
-              <div>
-                <div style="font-size:0.92rem;font-weight:700;">Camera Stream 1</div>
-                <div style="font-size:0.75rem;color:rgba(255,255,255,0.7);">Front Gate Cam • 1080p @ 30 FPS</div>
-              </div>
-              <div class="cam-live-indicator">
-                <div class="cam-live-dot"></div>
-                <span>LIVE</span>
+    <!-- SECTION: CAMERAS TAB -->
+    <div id="tab-sec-cameras" style="display: none;">
+      <section class="dashboard-section">
+        <div class="section-title">Live High-FPS Camera Grid</div>
+        <div class="tiles-grid" style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));">
+          <div class="media-card-wide" style="grid-column: span 1;">
+            <div class="cam-viewport-box">
+              <canvas id="esp32-cam-canvas-tab" class="cam-stream-canvas"></canvas>
+              <div class="cam-overlay-bar">
+                <div>
+                  <div style="font-size:0.92rem;font-weight:700;">Camera 1 (Front Gate)</div>
+                  <div style="font-size:0.75rem;color:rgba(255,255,255,0.7);">1080p Stream</div>
+                </div>
+                <div class="cam-live-indicator"><div class="cam-live-dot"></div><span>LIVE</span></div>
               </div>
             </div>
           </div>
-          <div class="media-card-controls">
-            <button class="ctrl-pill-btn" style="padding:0.35rem 0.75rem;font-size:0.78rem;" onclick="snapCamFrame()">
-              <svg style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              <span>Snap Photo</span>
-            </button>
-            <select id="esp32-cam-select" style="width:auto;padding:0.3rem 0.6rem;font-size:0.78rem;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;" onchange="switchCamStream(this.value)">
-              <option value="cam1">Camera 1 (Gate)</option>
-              <option value="cam2">Camera 2 (Kitchen)</option>
-              <option value="cam3">Camera 3 (Garage)</option>
-            </select>
-          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <!-- SECTION 4: System Metrics Overview -->
-    <section class="dashboard-section">
+    <!-- SECTION: RFBOTS TAB -->
+    <div id="tab-sec-rfbots" style="display: none;">
+      <section class="dashboard-section">
+        <div class="section-title">RF Mesh Gateway Nodes</div>
+        <div id="rfbot-grid-container"></div>
+      </section>
+    </div>
+
+    <!-- SECTION: BOTS TAB -->
+    <div id="tab-sec-bots" style="display: none;">
+      <section class="dashboard-section">
+        <div class="section-title">Multi-Bot Fleet Registry</div>
+        <div id="bot-list"></div>
+      </section>
+    </div>
+
+    <!-- System Metrics Overview (Always available below) -->
+    <section class="dashboard-section" style="margin-top: 2rem;">
       <div class="section-title">System Metrics Overview</div>
       <div class="metrics-grid">
         <div class="metric-box">
@@ -661,206 +956,29 @@
       </div>
     </section>
 
-    <!-- Snooze Card -->
+    <!-- Snooze Alert Card -->
     <div class="card" id="snooze-card" style="border: 1px solid rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.08); display: none;">
-      <div class="card-header" style="margin-bottom: 0.75rem;">
-        <div class="card-title" style="color: var(--accent-amber);">
-          <span>Active Snoozed Rules</span>
-        </div>
+      <div class="card-header">
+        <div class="card-title" style="color: var(--accent-amber);">Active Snoozed Rules</div>
         <button class="btn-sm btn-secondary" onclick="fetchSnoozes()">Refresh</button>
       </div>
       <div id="snooze-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
     </div>
 
-    <!-- SECTION 5: Multi-Bot Fleet Registry -->
-    <section class="dashboard-section">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Multi-Bot Fleet Registry</div>
-          <div style="display: flex; gap: 0.5rem;">
-            <button class="btn-sm" onclick="showAddDeviceModal()" style="background: rgba(16,185,129,0.2); border: 1px solid var(--accent-green); color: var(--accent-green);">+ Add Device</button>
-            <button class="btn-sm btn-secondary" onclick="fetchStatus()">Refresh Fleet</button>
-          </div>
-        </div>
-        <div id="bot-list"></div>
-      </div>
-    </section>
-
-    <!-- SECTION 6: RF Triggers & Automations -->
-    <section class="dashboard-section">
-      <div class="section-title">RF Triggers &amp; Automations</div>
-
-      <!-- Real-Time RF Traffic -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title"><span>Real-Time RF Mesh Traffic Feed</span></div>
-          <button class="btn-sm" onclick="testRFTrigger()">Simulate RF Signal (123456)</button>
-        </div>
-        <div class="oscilloscope-feed" id="rf-feed">
-          <div style="color: var(--text-muted); text-align: center; padding-top: 3.5rem;">Listening for 433 MHz signals from RFBot gateways...</div>
-        </div>
-      </div>
-
-      <!-- RF Triggers -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">RF Triggers &amp; Multi-Click Actions</div>
-          <button class="btn-sm" onclick="showAddButtonModal()">Add RF Trigger</button>
-        </div>
-        <div id="button-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;"></div>
-      </div>
-
-      <!-- Automation Rules -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Automation Rules &amp; Cooldown Engine</div>
-          <button class="btn-sm" onclick="showAddRuleModal()">Add Rule</button>
-        </div>
-        <div id="rule-list"></div>
-      </div>
-    </section>
-
-    <!-- SECTION 7: Sidebar Functional Cards (HomeKit, Sensor Pair, Outlets, REST API) -->
-    <section class="dashboard-section">
-      <div class="section-title">Wireless Outlets &amp; Hardware Pairing</div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
-
-        <!-- HomeKit Card -->
-        <div class="homekit-box">
-          <h3 style="font-size: 1.1rem; color: #fff;">Apple HomeKit Bridge</h3>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.3rem;">Scan in Apple Home app to pair FleetHub accessories.</p>
-          <div class="qr-placeholder">[ HomeKit QR ]</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">SETUP PIN</div>
-          <div class="hk-pin" id="hk-pin">111-22-333</div>
-        </div>
-
-        <!-- Sensor Pair Wizard -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Sensor Pair Wizard</div>
-          </div>
-          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">Click below and trigger any 433 MHz sensor to capture code.</p>
-          <button style="width: 100%;" onclick="startPairing()">Listen for Sensor</button>
-          <div id="pair-result" style="margin-top: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; text-align: center; color: var(--accent-cyan);"></div>
-        </div>
-
-        <!-- Mapped RF Sensors -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Mapped RF Sensors</div>
-          </div>
-          <div id="sensor-list"></div>
-        </div>
-
-        <!-- 433 MHz RF Outlets Remote Card -->
-        <div class="card" style="grid-column: span 2;">
-          <div class="card-header">
-            <div class="card-title">433 MHz RF Outlets Remote (RFBot TX)</div>
-            <span style="font-size: 0.72rem; color: var(--accent-cyan);">Target: RFBot 6</span>
-          </div>
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">One-tap 433 MHz transmission for standard wireless power outlets (Alpha through Golf):</p>
-          
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.8rem;">
-            <!-- Alpha -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: #fff;">Alpha</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted);">ON: 5576451 &bull; OFF: 5576460</div>
-              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                <button class="btn-sm" style="flex: 1; background: rgba(0,255,136,0.15); border: 1px solid var(--accent-green); color: var(--accent-green);" onclick="sendOutletRF('rfbot6', 'Alpha ON')">ON</button>
-                <button class="btn-sm" style="flex: 1; background: rgba(255,68,90,0.15); border: 1px solid #ff445a; color: #ff445a;" onclick="sendOutletRF('rfbot6', 'Alpha OFF')">OFF</button>
-              </div>
-            </div>
-
-            <!-- Bravo -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: #fff;">Bravo</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted);">ON: 5584131 &bull; OFF: 5584140</div>
-              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                <button class="btn-sm" style="flex: 1; background: rgba(0,255,136,0.15); border: 1px solid var(--accent-green); color: var(--accent-green);" onclick="sendOutletRF('rfbot6', 'Bravo ON')">ON</button>
-                <button class="btn-sm" style="flex: 1; background: rgba(255,68,90,0.15); border: 1px solid #ff445a; color: #ff445a;" onclick="sendOutletRF('rfbot6', 'Bravo OFF')">OFF</button>
-              </div>
-            </div>
-
-            <!-- Charlie -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: #fff;">Charlie</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted);">ON: 5576131 &bull; OFF: 5576140</div>
-              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                <button class="btn-sm" style="flex: 1; background: rgba(0,255,136,0.15); border: 1px solid var(--accent-green); color: var(--accent-green);" onclick="sendOutletRF('rfbot6', 'Charlie ON')">ON</button>
-                <button class="btn-sm" style="flex: 1; background: rgba(255,68,90,0.15); border: 1px solid #ff445a; color: #ff445a;" onclick="sendOutletRF('rfbot6', 'Charlie OFF')">OFF</button>
-              </div>
-            </div>
-
-            <!-- Delta -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: #fff;">Delta</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted);">ON: 5577987 &bull; OFF: 5577996</div>
-              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                <button class="btn-sm" style="flex: 1; background: rgba(0,255,136,0.15); border: 1px solid var(--accent-green); color: var(--accent-green);" onclick="sendOutletRF('rfbot6', 'Delta ON')">ON</button>
-                <button class="btn-sm" style="flex: 1; background: rgba(255,68,90,0.15); border: 1px solid #ff445a; color: #ff445a;" onclick="sendOutletRF('rfbot6', 'Delta OFF')">OFF</button>
-              </div>
-            </div>
-
-            <!-- Echo -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: #fff;">Echo</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted);">ON: 5575987 &bull; OFF: 5575996</div>
-              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                <button class="btn-sm" style="flex: 1; background: rgba(0,255,136,0.15); border: 1px solid var(--accent-green); color: var(--accent-green);" onclick="sendOutletRF('rfbot6', 'Echo ON')">ON</button>
-                <button class="btn-sm" style="flex: 1; background: rgba(255,68,90,0.15); border: 1px solid #ff445a; color: #ff445a;" onclick="sendOutletRF('rfbot6', 'Echo OFF')">OFF</button>
-              </div>
-            </div>
-
-            <!-- Foxtrot -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: #fff;">Foxtrot</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted);">ON: 1381827 &bull; OFF: 1381836</div>
-              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                <button class="btn-sm" style="flex: 1; background: rgba(0,255,136,0.15); border: 1px solid var(--accent-green); color: var(--accent-green);" onclick="sendOutletRF('rfbot6', 'Foxtrot ON')">ON</button>
-                <button class="btn-sm" style="flex: 1; background: rgba(255,68,90,0.15); border: 1px solid #ff445a; color: #ff445a;" onclick="sendOutletRF('rfbot6', 'Foxtrot OFF')">OFF</button>
-              </div>
-            </div>
-
-            <!-- Golf -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: #fff;">Golf</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted);">ON: 1382147 &bull; OFF: 1382156</div>
-              <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                <button class="btn-sm" style="flex: 1; background: rgba(0,255,136,0.15); border: 1px solid var(--accent-green); color: var(--accent-green);" onclick="sendOutletRF('rfbot6', 'Golf ON')">ON</button>
-                <button class="btn-sm" style="flex: 1; background: rgba(255,68,90,0.15); border: 1px solid #ff445a; color: #ff445a;" onclick="sendOutletRF('rfbot6', 'Golf OFF')">OFF</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- REST API Cheatsheet Card -->
-        <div class="card" style="grid-column: span 2;">
-          <div class="card-header">
-            <div class="card-title">Fleethub REST API Cheatsheet</div>
-            <span style="font-size: 0.72rem; color: var(--accent-green);">Zero-Friction URLs</span>
-          </div>
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">Trigger any outlet, send raw 433 MHz codes, or execute bot actions from any browser, curl, Stream Deck, or Python script:</p>
-
-          <div style="display: flex; flex-direction: column; gap: 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;">
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--panel-border); border-radius: 6px; padding: 0.6rem 0.8rem;">
-              <div style="font-weight: 600; color: var(--accent-cyan); margin-bottom: 0.3rem;">Direct Outlet URLs (GET):</div>
-              <div style="color: #fff; word-break: break-all;">http://localhost:8080/api/outlet/alpha/on</div>
-              <div style="color: #fff; word-break: break-all;">http://localhost:8080/api/outlet/alpha/off</div>
-            </div>
-
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--panel-border); border-radius: 6px; padding: 0.6rem 0.8rem;">
-              <div style="font-weight: 600; color: var(--accent-green); margin-bottom: 0.3rem;">Send Raw RF Code (GET):</div>
-              <div style="color: #fff; word-break: break-all;">http://localhost:8080/api/rf/send?code=5576451</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
   </main>
 
-  <!-- Modals -->
+  <!-- Detail Info Modal for (i) Buttons -->
+  <div id="info-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <h3 id="info-modal-title" style="font-size: 1.1rem; color: #fff;">Device Details</h3>
+        <button class="btn-sm btn-secondary" onclick="closeModal('info-modal')">✕</button>
+      </div>
+      <div id="info-modal-body" style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--text-secondary);white-space:pre-wrap;background:rgba(0,0,0,0.3);padding:1rem;border-radius:10px;border:1px solid rgba(255,255,255,0.1);"></div>
+    </div>
+  </div>
+
+  <!-- Add Device Modal -->
   <div id="add-device-modal" class="modal-overlay">
     <div class="modal-content">
       <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Add Known Robot Device</h3>
@@ -876,7 +994,7 @@
         </select>
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
           <button style="flex: 1;" onclick="saveNewDevice()">Save Device</button>
-          <button style="flex: 1; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);" onclick="closeModal('add-device-modal')">Cancel</button>
+          <button style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-device-modal')">Cancel</button>
         </div>
       </div>
     </div>
@@ -1041,11 +1159,95 @@
 
   let threeInited = false;
   let hudBooted = false;
-  let ws;
 
   window._hudTargetEarthY = 0.0;
   window._hudTargetEarthZ = 0.0;
   window._hudTargetEarthRotX = 0.0;
+
+  /* ──────────────────────────────────────────
+     DYNAMIC NAV TABS FILTER ENGINE
+  ────────────────────────────────────────── */
+  window.switchNavTab = function(tabName, el) {
+    document.querySelectorAll('.nav-tab-item').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    const tabs = ['home', 'entities', 'cameras', 'rfbots', 'bots'];
+    tabs.forEach(t => {
+      const sec = document.getElementById(`tab-sec-${t}`);
+      if (sec) sec.style.display = (t === tabName) ? 'block' : 'none';
+    });
+  };
+
+  /* ──────────────────────────────────────────
+     EDIT MODE & INLINE TILE LABEL EDITING
+  ────────────────────────────────────────── */
+  let editModeActive = false;
+  window.toggleEditMode = function() {
+    editModeActive = !editModeActive;
+    document.body.classList.toggle('edit-mode', editModeActive);
+    const btn = document.getElementById('edit-mode-btn');
+    const txt = document.getElementById('edit-mode-text');
+    if (btn) btn.classList.toggle('edit-active', editModeActive);
+    if (txt) txt.textContent = editModeActive ? 'Done Editing' : 'Edit Mode';
+  };
+
+  window.editTileLabel = function(evt, handleEl) {
+    evt.stopPropagation();
+    const tile = handleEl.closest('.dash-tile');
+    if (!tile) return;
+    const titleEl = tile.querySelector('.tile-title');
+    if (!titleEl) return;
+
+    const currentName = titleEl.textContent;
+    const newName = prompt('Enter new label for this tile:', currentName);
+    if (newName && newName.trim() !== '') {
+      titleEl.textContent = newName.trim();
+      // Save custom label in localStorage
+      const savedLabels = JSON.parse(localStorage.getItem('fleethub-custom-labels') || '{}');
+      savedLabels[currentName] = newName.trim();
+      localStorage.setItem('fleethub-custom-labels', JSON.stringify(savedLabels));
+    }
+  };
+
+  /* ──────────────────────────────────────────
+     INFO (i) MODAL FOR TECHNICAL DETAILS
+  ────────────────────────────────────────── */
+  window.showTileInfo = function(evt, title, infoText) {
+    evt.stopPropagation();
+    const titleEl = document.getElementById('info-modal-title');
+    const bodyEl = document.getElementById('info-modal-body');
+    if (titleEl) titleEl.textContent = title;
+    if (bodyEl) bodyEl.textContent = infoText;
+    document.getElementById('info-modal').style.display = 'flex';
+  };
+
+  /* ──────────────────────────────────────────
+     OUTLET ONE-TAP TOGGLE INTEGRATION
+  ────────────────────────────────────────── */
+  window.toggleOutletTile = async function(deviceId, outletName, onCode, offCode, tileEl) {
+    const isOn = tileEl.classList.contains('state-on');
+    const newState = !isOn;
+    tileEl.classList.toggle('state-on', newState);
+    tileEl.classList.toggle('state-off', !newState);
+
+    const sub = tileEl.querySelector('.tile-sub');
+    if (sub) sub.textContent = newState ? 'On' : 'Off';
+
+    const actionName = `${outletName} ${newState ? 'ON' : 'OFF'}`;
+    const code = newState ? onCode : offCode;
+
+    try {
+      await fetch('/api/devices/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: deviceId,
+          endpoint: `/rf/send?code=${code}&bits=24&proto=1&pulse=185`,
+          method: 'GET'
+        })
+      });
+    } catch(err) { console.error('Failed to toggle outlet:', err); }
+  };
 
   /* ──────────────────────────────────────────
      CLOCK & SIDEBAR
@@ -1191,18 +1393,15 @@
       return;
     }
     container.innerHTML = buttons.map(btn => `
-      <div style="background:rgba(255,255,255,0.035);border:1px solid var(--panel-border);padding:0.95rem;border-radius:12px;display:flex;flex-direction:column;justify-content:space-between;gap:0.65rem;backdrop-filter:blur(12px);">
-        <div>
-          <div style="font-weight:700;font-size:0.95rem;color:#fff;">${btn.name}</div>
-          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">
-            Code: <span style="color:var(--accent-cyan);font-family:'JetBrains Mono',monospace;font-weight:700;">${btn.trigger_code}</span> &bull; <span style="color:var(--accent-amber);font-weight:600;">${btn.minutes_per_click||15}m / click</span>
-          </div>
-          <div style="font-size:0.72rem;color:var(--accent-purple);margin-top:0.15rem;font-weight:600;">Action: ${btn.action_type} ${btn.target_rule_id ? '-> '+btn.target_rule_id : ''}</div>
+      <div class="dash-tile state-off" style="min-height:72px;" onclick="pressButton('${btn.id}')">
+        <div class="tile-icon-badge accent-cyan">
+          <svg class="tile-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
         </div>
-        <div style="display:flex;gap:0.4rem;border-top:1px solid var(--panel-border);padding-top:0.55rem;">
-          <button class="btn-sm btn-amber" style="flex:1;" onclick="pressButton('${btn.id}')">Press Trigger</button>
-          <button class="btn-sm btn-red" onclick="deleteButton('${btn.id}')">Delete</button>
+        <div class="tile-info">
+          <div class="tile-title">${btn.name}</div>
+          <div class="tile-sub">${btn.action_type} • ${btn.minutes_per_click||15}m / click</div>
         </div>
+        <button class="tile-info-btn" onclick="showTileInfo(event, '${btn.name}', 'Trigger Code: ${btn.trigger_code}\nAction: ${btn.action_type}\nTarget: ${btn.target_rule_id||'All Rules'}')"><i>i</i></button>
       </div>`).join('');
   }
 
@@ -1230,36 +1429,28 @@
 
   function renderSensors(sensors) {
     const container = document.getElementById('sensor-list');
-    if (!container) return;
+    const entContainer = document.getElementById('entities-sensor-list');
     if (!sensors || sensors.length === 0) {
-      container.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No sensors mapped yet.</div>`;
+      if (container) container.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No sensors mapped yet.</div>`;
+      if (entContainer) entContainer.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No sensors mapped yet.</div>`;
       return;
     }
-    container.innerHTML = sensors.map(s => `
-      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);padding:0.75rem 0.9rem;border-radius:10px;margin-bottom:0.5rem;display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-weight:600;font-size:0.88rem;color:#fff;">${s.name} <span style="font-size:0.75rem;color:var(--accent-purple);">[${s.room || 'General'}]</span></div>
-          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.1rem;">Code: <span style="color:var(--accent-cyan);font-family:monospace;">0x${s.code.toString(16).toUpperCase()} (${s.code})</span></div>
-        </div>
-        <button class="btn-sm btn-red" onclick="deleteSensor(${s.code})">Delete</button>
-      </div>`).join('');
-  }
 
-  window.sendOutletRF = async function(deviceId, actionName) {
-    const outlets = {
-      "Alpha ON": 5576451, "Alpha OFF": 5576460, "Bravo ON": 5584131, "Bravo OFF": 5584140,
-      "Charlie ON": 5576131, "Charlie OFF": 5576140, "Delta ON": 5577987, "Delta OFF": 5577996,
-      "Echo ON": 5575987, "Echo OFF": 5575996, "Foxtrot ON": 1381827, "Foxtrot OFF": 1381836,
-      "Golf ON": 1382147, "Golf OFF": 1382156,
-    };
-    const code = outlets[actionName];
-    if (code) {
-      await fetch('/api/devices/control', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: deviceId, endpoint: `/rf/send?code=${code}&bits=24&proto=1&pulse=185`, method: 'GET' })
-      });
-    }
-  };
+    const html = sensors.map(s => `
+      <div class="dash-tile state-off" style="min-height:64px;margin-bottom:0.5rem;">
+        <div class="tile-icon-badge accent-purple">
+          <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="tile-info">
+          <div class="tile-title">${s.name} [${s.room || 'General'}]</div>
+          <div class="tile-sub">${s.accessory_type || 'Sensor'}</div>
+        </div>
+        <button class="tile-info-btn" onclick="showTileInfo(event, '${s.name}', 'Sensor Code: 0x${s.code.toString(16).toUpperCase()} (${s.code})\nRoom: ${s.room||'General'}\nType: ${s.accessory_type||'sensor'}')"><i>i</i></button>
+      </div>`).join('');
+
+    if (container) container.innerHTML = html;
+    if (entContainer) entContainer.innerHTML = html;
+  }
 
   window.fetchSnoozes = async function() {
     try {
@@ -1462,29 +1653,32 @@
   };
 
   const camCanvas = document.getElementById('esp32-cam-canvas');
-  let camCtx = camCanvas ? camCanvas.getContext('2d') : null;
-  function drawCamPlaceholder() {
-    if (!camCanvas || !camCtx) return;
-    const w = camCanvas.width = camCanvas.clientWidth || 300;
-    const h = camCanvas.height = camCanvas.clientHeight || 200;
+  const camCanvasTab = document.getElementById('esp32-cam-canvas-tab');
+  
+  function drawCamPlaceholder(canvas) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.clientWidth || 300;
+    const h = canvas.height = canvas.clientHeight || 200;
 
-    const grad = camCtx.createLinearGradient(0, 0, w, h);
+    const grad = ctx.createLinearGradient(0, 0, w, h);
     grad.addColorStop(0, '#0f172a'); grad.addColorStop(1, '#1e1b4b');
-    camCtx.fillStyle = grad; camCtx.fillRect(0, 0, w, h);
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
 
-    camCtx.strokeStyle = 'rgba(6, 186, 212, 0.15)'; camCtx.lineWidth = 1;
-    for (let x = 0; x < w; x += 30) { camCtx.beginPath(); camCtx.moveTo(x, 0); camCtx.lineTo(x, h); camCtx.stroke(); }
-    for (let y = 0; y < h; y += 30) { camCtx.beginPath(); camCtx.moveTo(0, y); camCtx.lineTo(w, y); camCtx.stroke(); }
+    ctx.strokeStyle = 'rgba(6, 186, 212, 0.15)'; ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
     const cx = w/2, cy = h/2;
-    camCtx.strokeStyle = '#06b6d4'; camCtx.lineWidth = 1.5;
-    camCtx.beginPath(); camCtx.arc(cx, cy, 35, 0, Math.PI*2); camCtx.stroke();
-    camCtx.beginPath(); camCtx.moveTo(cx-45, cy); camCtx.lineTo(cx+45, cy); camCtx.stroke();
-    camCtx.beginPath(); camCtx.moveTo(cx, cy-45); camCtx.lineTo(cx, cy+45); camCtx.stroke();
+    ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, 35, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-45, cy); ctx.lineTo(cx+45, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy-45); ctx.lineTo(cx, cy+45); ctx.stroke();
 
-    requestAnimationFrame(drawCamPlaceholder);
+    requestAnimationFrame(() => drawCamPlaceholder(canvas));
   }
-  if (camCanvas) drawCamPlaceholder();
+  if (camCanvas) drawCamPlaceholder(camCanvas);
+  if (camCanvasTab) drawCamPlaceholder(camCanvasTab);
 
   window.snapCamFrame = function() { alert('Snapshot saved to gallery.'); };
   window.switchCamStream = function(c) { console.log('Switched camera stream:', c); };

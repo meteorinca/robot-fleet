@@ -1,0 +1,20 @@
+[Unit]
+Description=FleetHub Mothership Daemon & RF Mesh Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/fleethub/pi3_deploy
+ExecStart=/home/pi/fleethub/pi3_deploy/fleethub-pi -homekit
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fleethub
+
+[Install]
+WantedBy=multi-user.target
