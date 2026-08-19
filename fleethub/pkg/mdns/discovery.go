@@ -93,9 +93,17 @@ func (s *Scanner) scanOnce() {
 					platform = config.PlatformRFBot
 				}
 
+				hostname := entry.HostName
+				if hostname != "" {
+					hostname = strings.TrimSuffix(hostname, ".")
+				} else {
+					hostname = strings.ToLower(name) + ".local"
+				}
+
 				node := config.RobotNode{
 					ID:       entry.Instance,
 					Name:     name,
+					Hostname: hostname,
 					Platform: platform,
 					IP:       ip,
 					Port:     entry.Port,

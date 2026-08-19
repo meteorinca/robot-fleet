@@ -15,7 +15,7 @@ func TestEngineCooldownAndSnooze(t *testing.T) {
 		Rules: []config.AutomationRule{
 			{
 				ID:          "stove-rule",
-				Name:        "Photodetector Stove Alert",
+				Name:        "Light Sensor Stove Alert",
 				Enabled:     true,
 				TriggerCode: 123456,
 				CooldownSec: 2, // 2-second cooldown

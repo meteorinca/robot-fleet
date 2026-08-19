@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rules"
 )
 
 // UDPListener listens for incoming RF packets over UDP.
 type UDPListener struct {
+	cfg    *config.Config
 	port   int
 	engine *rules.Engine
 	conn   *net.UDPConn
@@ -19,8 +21,9 @@ type UDPListener struct {
 }
 
 // NewUDPListener creates a UDP socket listener.
-func NewUDPListener(port int, engine *rules.Engine) *UDPListener {
+func NewUDPListener(cfg *config.Config, port int, engine *rules.Engine) *UDPListener {
 	return &UDPListener{
+		cfg:    cfg,
 		port:   port,
 		engine: engine,
 		done:   make(chan struct{}),
@@ -57,14 +60,29 @@ func (l *UDPListener) listenLoop() {
 				continue
 			}
 
+			senderIP := remoteAddr.IP.String()
+
 			var payload rules.EventPayload
 			if err := json.Unmarshal(buf[:n], &payload); err == nil {
 				if payload.Gateway == "" {
-					payload.Gateway = remoteAddr.IP.String()
+					payload.Gateway = senderIP
 				}
 				if payload.Timestamp.IsZero() {
 					payload.Timestamp = time.Now()
 				}
+
+				// Auto-learn/update gateway bot IP and online status
+				if l.cfg != nil && senderIP != "" {
+					l.cfg.UpsertBot(config.RobotNode{
+						ID:       "rfbot1",
+						Name:     "RFBot 1 (RX Gateway)",
+						Hostname: "rfbot1.local",
+						Platform: config.PlatformRFBot,
+						IP:       senderIP,
+						Status:   "online",
+					})
+				}
+
 				l.engine.ProcessEvent(payload)
 			}
 		}

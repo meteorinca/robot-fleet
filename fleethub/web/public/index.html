@@ -4,540 +4,787 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FleetHub Mothership — Robot Fleet & RF Mesh Gateway</title>
+  <title>FleetHub Mothership — Command &amp; Automation Deck</title>
+  <meta name="description" content="FleetHub Mothership: multi-bot fleet management, ESP32-CAM video streams, RF mesh gateway, and home automation dashboard.">
+  <link rel="icon" type="image/gif" href="zergRefinery.gif">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
   <style>
+    /* ═══════════════════════════════════════════
+       THEME & DESIGN SYSTEM TOKENS
+    ═══════════════════════════════════════════ */
     :root {
-      --bg-dark: #090d16;
-      --panel-bg: rgba(18, 24, 38, 0.75);
-      --panel-border: rgba(255, 255, 255, 0.08);
-      --accent-green: #10b981;
+      /* Default Light / Vivid Glass Theme (Matches Screenshot) */
+      --bg-gradient: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 30%, #db2777 65%, #f43f5e 100%);
+      --sidebar-bg: rgba(2, 6, 23, 0.42);
+      --sidebar-border: rgba(255, 255, 255, 0.14);
+      --panel-glass: rgba(255, 255, 255, 0.08);
+      --panel-glass-border: rgba(255, 255, 255, 0.16);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.75);
+      --text-muted: rgba(255, 255, 255, 0.55);
+
+      /* Tile states */
+      --tile-active-bg: #ffffff;
+      --tile-active-text: #0f172a;
+      --tile-active-sub: #475569;
+      --tile-active-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      
+      --tile-inactive-bg: rgba(115, 18, 55, 0.48);
+      --tile-inactive-hover: rgba(135, 24, 65, 0.65);
+      --tile-inactive-text: #ffffff;
+      --tile-inactive-sub: rgba(255, 255, 255, 0.65);
+      --tile-inactive-border: rgba(255, 255, 255, 0.12);
+
+      /* Accents */
       --accent-cyan: #06b6d4;
-      --accent-indigo: #6366f1;
+      --accent-green: #10b981;
       --accent-amber: #f59e0b;
-      --accent-red: #ef4444;
-      --text-main: #f3f4f6;
-      --text-muted: #9ca3af;
+      --accent-rose: #f43f5e;
+      --accent-purple: #a855f7;
+
+      /* Pretty HUD compatibility */
+      --hc: #00d4ff;
+      --hgreen: #00ff88;
+      --horange: #ffaa44;
+      --hred: #ff4560;
+      --hglass: rgba(3,11,26,0.58);
+      --hmono: 'JetBrains Mono', monospace;
+      --hui: 'Inter', sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    body.theme-dark {
+      --bg-gradient: radial-gradient(ellipse at 20% 10%, rgba(30, 20, 60, 0.9) 0%, transparent 60%), #070913;
+      --sidebar-bg: rgba(10, 15, 30, 0.85);
+      --sidebar-border: rgba(255, 255, 255, 0.08);
+      --tile-active-bg: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(99, 102, 241, 0.2));
+      --tile-active-text: #ffffff;
+      --tile-active-sub: #06b6d4;
+      --tile-inactive-bg: rgba(255, 255, 255, 0.04);
+      --tile-inactive-text: #e2e8f0;
+      --tile-inactive-sub: #94a3b8;
     }
 
-    body {
-      background: var(--bg-dark);
-      color: var(--text-main);
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #090d16;
+      color: var(--text-primary);
       font-family: 'Inter', sans-serif;
-      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── VIEW TOGGLES ─────────────────────────── */
+    #view-list { display: flex; min-height: 100vh; background: var(--bg-gradient); background-attachment: fixed; }
+    #view-pretty { display: none; }
+    body.pretty-mode #view-list  { display: none; }
+    body.pretty-mode #view-pretty { display: block; }
+    body.pretty-mode { overflow: hidden; }
+
+    /* Custom sleek scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.15); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); }
+
+    /* ═══════════════════════════════════════════
+       LEFT SIDEBAR (MATCHES SCREENSHOT EXACTLY)
+    ═══════════════════════════════════════════ */
+    #sidebar {
+      width: 320px;
+      min-width: 320px;
+      background: var(--sidebar-bg);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-right: 1px solid var(--sidebar-border);
+      padding: 1.75rem 1.4rem;
       display: flex;
       flex-direction: column;
-      background-image:
-        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.15), transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.12), transparent 40%);
-    }
-
-    header {
-      padding: 1.25rem 2rem;
-      background: rgba(13, 18, 30, 0.8);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--panel-border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      gap: 1.5rem;
       position: sticky;
       top: 0;
-      z-index: 100;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 50;
+      box-shadow: 10px 0 30px rgba(0,0,0,0.25);
     }
 
-    .brand {
+    /* Clock Widget */
+    .sidebar-clock-box { display: flex; flex-direction: column; }
+    .sidebar-clock-time {
+      font-size: 3.5rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1;
+      color: #ffffff; text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .sidebar-clock-meta { font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.5rem; font-weight: 500; }
+    .sidebar-clock-sub  { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .sidebar-greeting   { font-size: 0.95rem; font-weight: 600; color: #ffffff; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+
+    /* Weather Widget */
+    .sidebar-weather-box {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 0; border-top: 1px solid rgba(255,255,255,0.12); border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+    .weather-left { display: flex; align-items: center; gap: 0.75rem; }
+    .weather-icon { width: 28px; height: 28px; stroke: #fff; fill: none; stroke-width: 2; }
+    .weather-temp { font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .weather-desc { font-size: 0.75rem; color: var(--text-muted); }
+    .weather-humidity { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem; }
+
+    /* Event Banner */
+    .sidebar-event-pill {
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px; padding: 0.65rem 0.9rem; font-size: 0.82rem; color: var(--text-secondary);
+      backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* Sidebar Nav Tabs */
+    .sidebar-nav-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    .sidebar-search-bar {
+      background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 14px; padding: 0.6rem 0.9rem; display: flex; align-items: center; justify-content: space-between;
+      color: #fff; font-size: 0.88rem; font-weight: 500;
+    }
+
+    /* Timer Widget */
+    .sidebar-timer-box {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px; padding: 0.85rem 1.1rem;
+    }
+    .timer-display { font-size: 1.8rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
+    .timer-btn {
+      width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.2);
+      border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .timer-btn:hover { background: rgba(255,255,255,0.35); }
+
+    /* Resource Monitoring Gauges */
+    .sidebar-monitor-box { display: flex; flex-direction: column; gap: 0.85rem; margin-top: auto; }
+    .monitor-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; }
+    .monitor-label { font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 0.4rem; }
+    .monitor-val   { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff; }
+    
+    .progress-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.12); border-radius: 10px; overflow: hidden; margin-top: 0.35rem; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green)); border-radius: 10px; transition: width 0.5s ease; }
+
+    /* Sparkline Chart Container */
+    .sparkline-box { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.4rem; }
+    .sparkline-svg { width: 100%; height: 42px; overflow: visible; }
+    .sparkline-path { fill: none; stroke: #38bdf8; stroke-width: 2.5; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(56,189,248,0.6)); }
+
+    /* ═══════════════════════════════════════════
+       MAIN CONTENT DASHBOARD
+    ═══════════════════════════════════════════ */
+    #main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1.75rem 2.2rem;
+      min-width: 0;
+    }
+
+    /* Top Navigation Header */
+    .main-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+    .header-nav-tabs { display: flex; align-items: center; gap: 1.75rem; }
+    .nav-tab-item {
+      font-size: 1.35rem; font-weight: 800; color: rgba(255,255,255,0.6);
+      cursor: pointer; position: relative; padding-bottom: 0.4rem; transition: color 0.2s;
+    }
+    .nav-tab-item.active { color: #ffffff; }
+    .nav-tab-item.active::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3.5px;
+      background: #ffffff; border-radius: 4px; box-shadow: 0 0 10px rgba(255,255,255,0.8);
+    }
+    .nav-tab-item:hover:not(.active) { color: rgba(255,255,255,0.85); }
+
+    .header-controls { display: flex; align-items: center; gap: 0.85rem; }
+    
+    .ctrl-pill-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px; padding: 0.45rem 1rem; color: #fff; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; backdrop-filter: blur(12px); display: flex; align-items: center; gap: 0.45rem;
+      transition: all 0.2s;
+    }
+    .ctrl-pill-btn:hover { background: rgba(255,255,255,0.22); transform: translateY(-1px); }
+
+    /* Category Section Headers */
+    .dashboard-section { margin-bottom: 2.2rem; }
+    .section-title {
+      font-size: 1.4rem; font-weight: 800; color: #ffffff; margin-bottom: 1rem;
+      letter-spacing: -0.02em; text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* ═══════════════════════════════════════════
+       TILE CARDS GRID (MATCHES SCREENSHOT)
+    ═══════════════════════════════════════════ */
+    .tiles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 0.85rem;
+    }
+
+    /* Individual Tile Base */
+    .dash-tile {
+      border-radius: 16px;
+      padding: 0.85rem 1rem;
       display: flex;
       align-items: center;
       gap: 0.75rem;
-    }
-
-    .brand-logo {
-      width: 38px;
-      height: 38px;
-      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 1.2rem;
-      box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
-    }
-
-    .brand-title h1 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-
-    .brand-title p {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-    }
-
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 0.35rem 0.85rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      color: var(--accent-green);
-      font-weight: 600;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background: var(--accent-green);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--accent-green);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1;
-        transform: scale(1);
-      }
-
-      50% {
-        opacity: 0.4;
-        transform: scale(1.2);
-      }
-    }
-
-    main {
-      padding: 2rem;
-      max-width: 1400px;
-      margin: 0 auto;
-      width: 100%;
-      display: grid;
-      grid-template-columns: 1fr 340px;
-      gap: 1.5rem;
-    }
-
-    .card {
-      background: var(--panel-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--panel-border);
-      border-radius: 16px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.25rem;
-    }
-
-    .card-title {
-      font-size: 1.05rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .metric-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--panel-border);
-      border-radius: 12px;
-      padding: 1rem;
-    }
-
-    .metric-value {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin-top: 0.25rem;
-      color: var(--accent-cyan);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .metric-label {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    /* RF Oscilloscope Feed */
-    .oscilloscope-feed {
-      background: #050811;
-      border: 1px solid rgba(6, 182, 212, 0.2);
-      border-radius: 12px;
-      height: 240px;
-      overflow-y: auto;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column-reverse;
-      gap: 0.4rem;
-    }
-
-    .feed-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(16, 185, 129, 0.05);
-      border-left: 3px solid var(--accent-green);
-      padding: 0.4rem 0.75rem;
-      border-radius: 4px;
-      animation: fadeIn 0.25s ease-out;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-4px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .feed-code {
-      color: var(--accent-cyan);
-      font-weight: 700;
-    }
-
-    .feed-time {
-      color: var(--text-muted);
-      font-size: 0.75rem;
-    }
-
-    /* Bot Fleet List */
-    .bot-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1rem;
-    }
-
-    .bot-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--panel-border);
-      border-radius: 12px;
-      padding: 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      transition: all 0.2s;
-    }
-
-    .bot-card:hover {
-      border-color: rgba(99, 102, 241, 0.4);
-      transform: translateY(-2px);
-    }
-
-    .bot-name {
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-
-    .bot-type {
-      font-size: 0.75rem;
-      color: var(--accent-indigo);
-      text-transform: uppercase;
-      font-weight: 700;
-      margin-top: 0.1rem;
-    }
-
-    /* HomeKit Card */
-    .homekit-box {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(99, 102, 241, 0.1));
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-radius: 16px;
-      padding: 1.5rem;
-      text-align: center;
-    }
-
-    .qr-placeholder {
-      width: 140px;
-      height: 140px;
-      background: #ffffff;
-      margin: 1rem auto;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #000;
-      font-weight: 800;
-      font-size: 0.9rem;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-    }
-
-    .hk-pin {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: var(--accent-amber);
-      letter-spacing: 0.15em;
-      margin-top: 0.5rem;
-    }
-
-    button {
-      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
-      color: white;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.85rem;
       cursor: pointer;
-      transition: opacity 0.2s;
+      user-select: none;
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, background-color 0.2s ease;
+      min-height: 64px;
+      position: relative;
+    }
+    .dash-tile:hover { transform: translateY(-2px) scale(1.015); }
+    .dash-tile:active { transform: translateY(0) scale(0.98); }
+
+    /* ON State (Crisp Solid White Pill) */
+    .dash-tile.state-on {
+      background: var(--tile-active-bg);
+      color: var(--tile-active-text);
+      box-shadow: var(--tile-active-shadow);
+      border: 1px solid rgba(255,255,255,0.9);
+    }
+    .dash-tile.state-on .tile-title { color: #0f172a; font-weight: 700; }
+    .dash-tile.state-on .tile-sub   { color: #475569; font-weight: 600; }
+    .dash-tile.state-on .tile-icon-badge {
+      background: #f1f5f9; color: #0f172a; fill: #0f172a; stroke: #0f172a;
+    }
+    .dash-tile.state-on .tile-icon-badge.accent-amber { background: #fef3c7; color: #d97706; fill: #d97706; stroke: #d97706; }
+    .dash-tile.state-on .tile-icon-badge.accent-cyan  { background: #e0f2fe; color: #0284c7; fill: #0284c7; stroke: #0284c7; }
+    .dash-tile.state-on .tile-icon-badge.accent-green { background: #dcfce7; color: #15803d; fill: #15803d; stroke: #15803d; }
+
+    /* OFF State (Translucent Frosted Glass Pill) */
+    .dash-tile.state-off {
+      background: var(--tile-inactive-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--tile-inactive-border);
+      color: var(--tile-inactive-text);
+    }
+    .dash-tile.state-off:hover { background: var(--tile-inactive-hover); border-color: rgba(255,255,255,0.22); }
+    .dash-tile.state-off .tile-title { color: #ffffff; font-weight: 600; }
+    .dash-tile.state-off .tile-sub   { color: var(--tile-inactive-sub); font-weight: 500; }
+    .dash-tile.state-off .tile-icon-badge {
+      background: rgba(255, 255, 255, 0.14); color: #ffffff; fill: #ffffff; stroke: #ffffff;
     }
 
-    button:hover {
-      opacity: 0.9;
+    /* Icon Badge Container */
+    .tile-icon-badge {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.2s;
+    }
+    .tile-icon-svg { width: 22px; height: 22px; }
+
+    /* Tile Info */
+    .tile-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+    .tile-title { font-size: 0.88rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile-sub   { font-size: 0.76rem; }
+
+    /* ═══════════════════════════════════════════
+       MEDIA & ESP32-CAM FEED TILE
+    ═══════════════════════════════════════════ */
+    .media-card-wide {
+      grid-column: span 2;
+      border-radius: 20px;
+      background: rgba(10, 15, 30, 0.65);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+      min-height: 260px;
+    }
+    @media (max-width: 768px) { .media-card-wide { grid-column: span 1; } }
+
+    .cam-viewport-box {
+      width: 100%; height: 200px; background: #000; position: relative;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .cam-stream-canvas, .cam-stream-img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .cam-overlay-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 0.75rem 1rem;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+      display: flex; align-items: center; justify-content: space-between;
+      color: #fff; font-size: 0.85rem; font-weight: 600;
+    }
+    .cam-live-indicator {
+      display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem;
+      background: rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #f87171; padding: 0.2rem 0.55rem; border-radius: 12px; font-weight: 700;
+    }
+    .cam-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444; animation: list-pulse 1.8s infinite; }
+
+    .media-card-controls {
+      padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255,255,255,0.04); border-top: 1px solid rgba(255,255,255,0.08);
     }
 
-    .btn-sm {
-      padding: 0.3rem 0.65rem;
-      font-size: 0.75rem;
-      border-radius: 6px;
+    /* Person / Avatar Tiles */
+    .person-tile {
+      background: #ffffff; color: #0f172a; border-radius: 16px; padding: 0.75rem 1rem;
+      display: flex; align-items: center; gap: 0.75rem; box-shadow: 0 8px 25px rgba(0,0,0,0.2);
     }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-main);
-      border: 1px solid var(--panel-border);
+    .person-avatar {
+      width: 42px; height: 42px; border-radius: 50%; background: #38bdf8;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-weight: 800; font-size: 1rem; color: #fff; overflow: hidden;
     }
+    .person-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .btn-amber {
-      background: linear-gradient(135deg, #d97706, #f59e0b);
-      color: #fff;
-    }
-
-    .btn-red {
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid var(--accent-red);
-      color: var(--accent-red);
-    }
-
-    .btn-red:hover {
-      background: rgba(239, 68, 68, 0.3);
-    }
-
+    /* Modals */
     .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(8px);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(12px);
+      z-index: 1000; align-items: center; justify-content: center;
     }
-
     .modal-content {
-      background: var(--bg-dark);
-      border: 1px solid var(--panel-border);
-      padding: 1.5rem;
-      border-radius: 16px;
-      width: 420px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      background: #111827; border: 1px solid rgba(255,255,255,0.15);
+      padding: 1.6rem; border-radius: 20px; width: 440px; color: #fff;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.7);
     }
-
-    input,
-    select {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--panel-border);
-      color: #fff;
-      padding: 0.55rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      width: 100%;
+    input, select {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+      color: #fff; padding: 0.6rem 0.8rem; border-radius: 8px; font-size: 0.88rem; width: 100%;
     }
+    input:focus, select:focus { outline: none; border-color: var(--accent-cyan); }
 
-    @media (max-width: 960px) {
-      main {
-        grid-template-columns: 1fr;
-      }
-
-      .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
+    /* Responsive */
+    @media (max-width: 1024px) {
+      #view-list { flex-direction: column; }
+      #sidebar { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 1px solid var(--sidebar-border); }
     }
   </style>
 </head>
 
 <body>
 
-  <header>
-    <div class="brand">
-      <div class="brand-logo">F</div>
-      <div class="brand-title">
-        <h1>FleetHub Mothership</h1>
-        <p>Home Assistant Alternative & Multi-Bot Mesh Gateway</p>
+<!-- ═══════════════════════════════════════════
+     MAIN LIST VIEW (HOME ASSISTANT DASHBOARD)
+════════════════════════════════════════════ -->
+<div id="view-list">
+
+  <!-- ── LEFT SIDEBAR (EXACT MATCH TO SCREENSHOT) ── -->
+  <aside id="sidebar">
+
+    <!-- Clock & Date -->
+    <div class="sidebar-clock-box">
+      <div class="sidebar-clock-time" id="clock-large">13:07</div>
+      <div class="sidebar-clock-meta" id="date-weekday">Söndag</div>
+      <div class="sidebar-clock-meta" id="date-daymonth">24 december</div>
+      <div class="sidebar-clock-sub" id="date-week">Vecka 51</div>
+      <div class="sidebar-greeting">
+        <span>God dag</span>
+        <svg class="weather-icon" style="width:18px;height:18px;stroke:none;fill:#fbbf24;" viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 16a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zM4.22 4.22a1 1 0 0 1 1.42 0l1.42 1.42a1 1 0 1 1-1.42 1.42L4.22 5.64a1 1 0 0 1 0-1.42zm12.72 12.72a1 1 0 0 1 1.42 0l1.42 1.42a1 1 0 0 1-1.42 1.42l-1.42-1.42a1 1 0 0 1 0-1.42zM2 12a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1zm16 0a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2h-2a1 1 0 0 1-1-1z"/></svg>
       </div>
     </div>
-    <div class="status-badge">
-      <div class="status-dot"></div>
-      <span id="system-status">HUB ONLINE (De-Spam Engine Active)</span>
-    </div>
-  </header>
 
-  <main>
-    <div class="content-left">
-
-      <!-- Metrics -->
-      <div class="metrics-grid">
-        <div class="metric-box">
-          <div class="metric-label">Fleet Bots</div>
-          <div class="metric-value" id="m-bots">--</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Mapped Sensors</div>
-          <div class="metric-value" id="m-sensors">--</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Active Rules</div>
-          <div class="metric-value" id="m-rules">--</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Input Buttons</div>
-          <div class="metric-value" id="m-buttons">--</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Active Snoozes</div>
-          <div class="metric-value" id="m-snoozes" style="color: var(--accent-amber);">0</div>
+    <!-- Weather Widget -->
+    <div class="sidebar-weather-box">
+      <div class="weather-left">
+        <svg class="weather-icon" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>
+        <div>
+          <div class="weather-temp">2°C</div>
+          <div class="weather-desc">Molnigt</div>
         </div>
       </div>
+      <div class="weather-humidity">
+        <svg style="width:14px;height:14px;fill:#38bdf8;" viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+        <span>81 %</span>
+      </div>
+    </div>
 
-      <!-- Active Snoozes Alert Card -->
-      <div class="card" id="snooze-card"
-        style="border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05); display: none;">
-        <div class="card-header" style="margin-bottom: 0.75rem;">
-          <div class="card-title" style="color: var(--accent-amber);">
-            <span>⏰ Active Snoozed Rules</span>
+    <!-- Event Banner -->
+    <div class="sidebar-event-pill">
+      <span>Tvätt om 4 dagar på Torsdag kl 17:00</span>
+    </div>
+
+    <!-- Nav Search / Select Pill -->
+    <div class="sidebar-nav-group">
+      <div class="sidebar-search-bar">
+        <span>Hemma</span>
+        <svg style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+      </div>
+    </div>
+
+    <!-- Timer Widget -->
+    <div class="sidebar-timer-box">
+      <div class="timer-display">
+        <svg style="width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>54:26</span>
+      </div>
+      <button class="timer-btn" title="Start/Pause Timer">
+        <svg style="width:16px;height:16px;fill:#fff;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </button>
+    </div>
+
+    <!-- System Monitoring & Gauges (Efficient Non-Blocking Canvas Sparkline) -->
+    <div class="sidebar-monitor-box">
+      <div>
+        <div class="monitor-row">
+          <span class="monitor-label">
+            <svg style="width:15px;height:15px;stroke:#06b6d4;fill:none;stroke-width:2;" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/></svg>
+            CPU
+          </span>
+          <span class="monitor-val" id="sb-cpu-val">15 %</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="sb-cpu-bar" style="width: 15%;"></div></div>
+      </div>
+
+      <div>
+        <div class="monitor-row">
+          <span class="monitor-label">
+            <svg style="width:15px;height:15px;stroke:#a855f7;fill:none;stroke-width:2;" viewBox="0 0 24 24"><path d="M2 20h20M5 20V8h4v12M11 20V4h4v16M17 20v-8h4v8"/></svg>
+            RAM
+          </span>
+          <span class="monitor-val" id="sb-ram-val">22 %</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="sb-ram-bar" style="width: 22%; background: linear-gradient(90deg, #a855f7, #ec4899);"></div></div>
+      </div>
+
+      <div class="sparkline-box">
+        <div class="monitor-row">
+          <span class="monitor-label">Memory use (percent)</span>
+        </div>
+        <div class="monitor-val" id="sb-mem-val" style="font-size:0.9rem;margin-bottom:0.2rem;">58,9 %</div>
+        <svg class="sparkline-svg" viewBox="0 0 200 40">
+          <path id="sparkline-path" class="sparkline-path" d="M 0,25 Q 25,10 50,30 T 100,20 T 150,35 T 200,15" />
+        </svg>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN DASHBOARD AREA ── -->
+  <main id="main-content">
+
+    <!-- Top Header -->
+    <header class="main-header">
+      <div class="header-nav-tabs">
+        <div class="nav-tab-item active">Hemma</div>
+        <div class="nav-tab-item">Entities</div>
+        <div class="nav-tab-item">Cameras</div>
+        <div class="nav-tab-item">RF Mesh</div>
+      </div>
+
+      <div class="header-controls">
+        <button class="ctrl-pill-btn" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle Light / Dark Mode">
+          <svg style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <span id="theme-btn-text">Vivid Mode</span>
+        </button>
+
+        <button class="ctrl-pill-btn" onclick="setView('pretty')" title="Switch to 3D Command Deck">
+          <svg style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          <span>3D Deck</span>
+        </button>
+
+        <button class="ctrl-pill-btn" onclick="showAddDeviceModal()">
+          <svg style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Add Device</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- SECTION 1: Test -->
+    <section class="dashboard-section">
+      <div class="section-title">Test</div>
+      <div class="tiles-grid" id="grid-test">
+        <!-- Light 1 (ON - Solid White Pill) -->
+        <div class="dash-tile state-on" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge accent-amber">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
           </div>
-          <button class="btn-sm btn-secondary" onclick="fetchSnoozes()">🔄 Refresh</button>
-        </div>
-        <div id="snooze-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
-
-      <!-- Real-Time RF Traffic Oscilloscope -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>📡 Real-Time RF Mesh Traffic Feed</span>
-          </div>
-          <button class="btn-sm" onclick="testRFTrigger()">⚡ Simulate RF Signal (123456)</button>
-        </div>
-        <div class="oscilloscope-feed" id="rf-feed">
-          <div style="color: var(--text-muted); text-align: center; padding-top: 5rem;">Listening for 433 MHz signals
-            from RFBot gateways...</div>
-        </div>
-      </div>
-
-      <!-- Input Buttons Card -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">🔘 Input Buttons & Multi-Click Triggers</div>
-          <button class="btn-sm" onclick="showAddButtonModal()">➕ Add Input Button</button>
-        </div>
-        <div id="button-list"
-          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
-
-      <!-- Automation Matrix & Rules -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">⚡ Automation Rules & Cooldown Engine</div>
-          <button class="btn-sm" onclick="showAddRuleModal()">➕ Add Rule</button>
-        </div>
-        <div id="rule-list">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
-
-      <!-- Fleet Robot Nodes -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">🤖 Multi-Bot Fleet Registry</div>
-          <div style="display: flex; gap: 0.5rem;">
-            <button class="btn-sm" onclick="showAddDeviceModal()"
-              style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); color: var(--accent-green);">➕
-              Add Device</button>
-            <button class="btn-sm btn-secondary" onclick="fetchStatus()">🔄 Refresh Fleet</button>
+          <div class="tile-info">
+            <div class="tile-title">Datorlampa</div>
+            <div class="tile-sub">100 %</div>
           </div>
         </div>
-        <div class="bot-grid" id="bot-list">
-          <!-- Dynamically populated -->
+
+        <!-- Light 2 (OFF - Translucent Frosted Glass) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Belysning</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Light 3 (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Hörnlampa</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- TV (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Tv</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Balcony (Unavailable / Snoozed) -->
+        <div class="dash-tile state-off" style="opacity: 0.7;">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Balkong</div>
+            <div class="tile-sub">Otillgänglig</div>
+          </div>
         </div>
       </div>
+    </section>
 
-    </div>
-
-    <!-- Right Sidebar -->
-    <div class="content-right">
-
-      <!-- HomeKit Pair Box -->
-      <div class="homekit-box">
-        <h3 style="font-size: 1.1rem; color: #fff;"> Apple HomeKit Bridge</h3>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">Scan in Apple Home app on iOS /
-          macOS to pair FleetHub sensors.</p>
-
-        <div class="qr-placeholder">
-          [ HomeKit QR ]
+    <!-- SECTION 2: Studio -->
+    <section class="dashboard-section">
+      <div class="section-title">Studio</div>
+      <div class="tiles-grid" id="grid-studio">
+        <!-- Taklampor (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Taklampor</div>
+            <div class="tile-sub">Av</div>
+          </div>
         </div>
 
-        <div style="font-size: 0.75rem; color: var(--text-muted);">SETUP PIN</div>
-        <div class="hk-pin" id="hk-pin">111-22-333</div>
+        <!-- Dator (ON - Solid White Pill) -->
+        <div class="dash-tile state-on" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge accent-cyan">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Dator</div>
+            <div class="tile-sub">På</div>
+          </div>
+        </div>
+
+        <!-- Monitorer (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Monitorer</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: Media & ESP32-CAM Feeds -->
+    <section class="dashboard-section">
+      <div class="section-title">
+        <span>Media &amp; ESP32-CAM Streams</span>
+        <span style="font-size:0.8rem;color:var(--text-muted);font-weight:500;">Non-blocking High FPS</span>
       </div>
 
-      <!-- Sensor Learn Wizard -->
-      <div class="card" style="margin-top: 1.5rem;">
-        <div class="card-header">
-          <div class="card-title">🎯 Sensor Pair Wizard</div>
-        </div>
-        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">Click below and trigger any 433
-          MHz sensor or remote to capture code.</p>
-        <button style="width: 100%;" onclick="startPairing()">Listen for Sensor</button>
-        <div id="pair-result"
-          style="margin-top: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; text-align: center; color: var(--accent-cyan);">
+      <div class="tiles-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+        <!-- Live ESP32-CAM Stream Card (Matches Screenshot Media Feed Tile) -->
+        <div class="media-card-wide">
+          <div class="cam-viewport-box">
+            <!-- Efficient Canvas Video Buffer for ESP32-CAM Stream -->
+            <canvas id="esp32-cam-canvas" class="cam-stream-canvas"></canvas>
+            <div class="cam-overlay-bar">
+              <div>
+                <div style="font-size:0.92rem;font-weight:700;">ESP32-CAM Stream 1</div>
+                <div style="font-size:0.75rem;color:rgba(255,255,255,0.7);">Front Gate Cam • 1080p @ 30 FPS</div>
+              </div>
+              <div class="cam-live-indicator">
+                <div class="cam-live-dot"></div>
+                <span>LIVE</span>
+              </div>
+            </div>
+          </div>
+          <div class="media-card-controls">
+            <button class="ctrl-pill-btn" style="padding:0.35rem 0.75rem;font-size:0.78rem;" onclick="snapCamFrame()">
+              <svg style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Snap Photo</span>
+            </button>
+
+            <select id="esp32-cam-select" style="width:auto;padding:0.3rem 0.6rem;font-size:0.78rem;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;" onchange="switchCamStream(this.value)">
+              <option value="cam1">ESP32-CAM 1 (Gate)</option>
+              <option value="cam2">ESP32-CAM 2 (Kitchen)</option>
+              <option value="cam3">ESP32-CAM 3 (Garage)</option>
+            </select>
+          </div>
         </div>
       </div>
+    </section>
 
-    </div>
+    <!-- SECTION 4: Övrigt (RF Outlets & Smart Devices) -->
+    <section class="dashboard-section">
+      <div class="section-title">Övrigt</div>
+      <div class="tiles-grid" id="grid-ovrigt">
+        <!-- Badrum (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Badrum</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Fläkt (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 12c-2 0-4-2-4-4s2-3 4-3 4 2 4 4-2 3-4 3zm0 0c0 2 2 4 4 4s3-2 3-4-2-4-4-4 0 2-3 4zm0 0c-2 0-4 2-4 4s2 3 4 3 4-2 4-4-2-3-4-3z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Fläkt²</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Garderob (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="8" y1="12" x2="8.01" y2="12"/><line x1="16" y1="12" x2="16.01" y2="12"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Garderob</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Hall (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Hall</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Sänglampor (ON 56%) -->
+        <div class="dash-tile state-on" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge accent-amber">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Sänglampor</div>
+            <div class="tile-sub">56 %</div>
+          </div>
+        </div>
+
+        <!-- Klimat (OFF) -->
+        <div class="dash-tile state-off" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Klimat</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Playstation (ON - Green Icon) -->
+        <div class="dash-tile state-on" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge accent-green">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="8" cy="12" r="2"/><line x1="15" y1="10" x2="15.01" y2="10"/><line x1="17" y1="12" x2="17.01" y2="12"/><line x1="15" y1="14" x2="15.01" y2="14"/><line x1="13" y1="12" x2="13.01" y2="12"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Playstation</div>
+            <div class="tile-sub">På</div>
+          </div>
+        </div>
+
+        <!-- Tv² (ON - Cyan Icon) -->
+        <div class="dash-tile state-on" onclick="toggleTileState(this)">
+          <div class="tile-icon-badge accent-cyan">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Tv²</div>
+            <div class="tile-sub">På</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: Hemma (Presence & Master Actions) -->
+    <section class="dashboard-section">
+      <div class="section-title">Hemma</div>
+      <div class="tiles-grid" id="grid-hemma">
+        <!-- Person 1: Matte -->
+        <div class="person-tile">
+          <div class="person-avatar" style="background:#06b6d4;">M</div>
+          <div class="tile-info">
+            <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Matte</div>
+            <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Hemma</div>
+          </div>
+        </div>
+
+        <!-- Person 2: Sanja -->
+        <div class="person-tile">
+          <div class="person-avatar" style="background:#ec4899;">S</div>
+          <div class="tile-info">
+            <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Sanja</div>
+            <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Hemma</div>
+          </div>
+        </div>
+
+        <!-- Action: Stäng allt (Turn Off All) -->
+        <div class="dash-tile state-off" onclick="turnOffAllTiles()">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Stäng allt</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+
+        <!-- Action: Hemma mode -->
+        <div class="dash-tile state-off">
+          <div class="tile-icon-badge">
+            <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          </div>
+          <div class="tile-info">
+            <div class="tile-title">Hemma</div>
+            <div class="tile-sub">Av</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
-  <!-- Add Device Modal -->
+  <!-- Modals -->
   <div id="add-device-modal" class="modal-overlay">
     <div class="modal-content">
       <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Add Known Robot Device</h3>
@@ -551,398 +798,194 @@
           <option value="simplebot">SimpleBot (Kitchen Light Controller)</option>
           <option value="dogbot_v1">DogBot v1 (Quadruped)</option>
         </select>
-        <label style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
-          <input type="checkbox" id="dev-homekit" checked style="width: auto;"> Enable Apple HomeKit Accessory
-        </label>
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-          <button style="flex: 1;" onclick="saveNewDevice()">Save Device</button>
-          <button class="btn-secondary" style="flex: 1;" onclick="closeModal('add-device-modal')">Cancel</button>
+          <button style="flex: 1; padding:0.6rem; border-radius:8px; background:var(--accent-cyan); color:#000; font-weight:700; border:none; cursor:pointer;" onclick="saveNewDevice()">Save Device</button>
+          <button style="flex: 1; padding:0.6rem; border-radius:8px; background:rgba(255,255,255,0.1); color:#fff; font-weight:600; border:none; cursor:pointer;" onclick="closeModal('add-device-modal')">Cancel</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Add Input Button Modal -->
-  <div id="add-button-modal" class="modal-overlay">
-    <div class="modal-content">
-      <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Configure Input Button</h3>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <input type="text" id="btn-name" placeholder="Button Name (e.g. Stove Snooze Remote)">
-        <input type="number" id="btn-code" placeholder="433 MHz Code (e.g. 5577987)">
-        <select id="btn-action">
-          <option value="snooze_rule">Snooze Specific Rule (15m / click)</option>
-          <option value="snooze_all">Snooze ALL Rules (15m / click)</option>
-          <option value="trigger_action">Trigger Automation Action</option>
-        </select>
-        <input type="text" id="btn-target-rule" placeholder="Target Rule ID (e.g. rule-1 or leave blank for all)">
-        <input type="number" id="btn-mins" placeholder="Minutes per Click (default 15)" value="15">
-        <input type="text" id="btn-feedback" placeholder="Feedback Target Host (e.g. speakerbot1.local)">
-        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-          <button style="flex: 1;" onclick="saveInputButton()">Save Button</button>
-          <button class="btn-secondary" style="flex: 1;" onclick="closeModal('add-button-modal')">Cancel</button>
-        </div>
-      </div>
-    </div>
+</div><!-- /view-list -->
+
+<!-- ═══════════════════════════════════════════
+     3D COMMAND DECK (PRETTY VIEW MODE)
+════════════════════════════════════════════ -->
+<div id="view-pretty">
+  <div id="hud-loading">
+    <div class="hspinner"></div>
+    <div class="hmsg">Initializing Command Deck</div>
+  </div>
+  <div id="hud-canvas"></div>
+  <div class="hud-vignette"></div>
+  <div class="hud-scanlines"></div>
+  <div class="hud-reticle" aria-hidden="true"><div class="rh"></div><div class="rv"></div></div>
+  <div id="hud-wallpaper-container" class="wallpaper-hidden">
+    <img id="hud-wallpaper-img" src="futuristic_cockpit_frame.png" alt="Cockpit View" />
   </div>
 
-  <!-- Add Rule Modal -->
-  <div id="add-rule-modal" class="modal-overlay">
-    <div class="modal-content">
-      <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #fff;">Configure Automation Rule</h3>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <input type="text" id="rule-name" placeholder="Rule Name (e.g. Photodetector Stove Alert)">
-        <input type="number" id="rule-code" placeholder="Trigger Code (e.g. 123456)">
-        <input type="number" id="rule-cooldown" placeholder="Cooldown Period in Seconds (e.g. 30)" value="30">
-        <input type="text" id="rule-target" placeholder="Target Robot Host/URL (e.g. speakerbot1.local)">
-        <input type="text" id="rule-path" placeholder="Endpoint Path (e.g. /choola)" value="/choola">
-        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-          <button style="flex: 1;" onclick="saveRule()">Save Rule</button>
-          <button class="btn-secondary" style="flex: 1;" onclick="closeModal('add-rule-modal')">Cancel</button>
-        </div>
-      </div>
-    </div>
+  <div class="hud-controls-group">
+    <button id="hud-overlay-btn" class="hud-ctrl-btn" onclick="toggleOverlay()">SHOW OVERLAY</button>
+    <button id="hud-interact-btn" class="hud-ctrl-btn" onclick="toggleInteractiveSpin()">SPIN: OFF</button>
+    <button id="hud-hide-ui-btn" class="hud-ctrl-btn" onclick="toggleHUD(false)">HIDE UI</button>
+    <button id="hud-switch-btn" class="hud-ctrl-btn" onclick="setView('list')">LIST VIEW</button>
   </div>
+</div><!-- /view-pretty -->
 
-  <script>
-    let ws;
+<!-- ═══════════════════════════════════════════
+     HIGH-EFFICIENCY NON-BLOCKING JS ENGINE
+════════════════════════════════════════════ -->
+<script type="module">
+  /* ──────────────────────────────────────────
+     CLOCK & REALTIME MONITORING
+  ────────────────────────────────────────── */
+  function updateSidebarClock() {
+    const now = new Date();
+    const pad = v => String(v).padStart(2, '0');
+    
+    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const weekdays = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag'];
+    const months   = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december'];
+    
+    const el = id => document.getElementById(id);
+    if (el('clock-large')) el('clock-large').textContent = timeStr;
+    if (el('date-weekday')) el('date-weekday').textContent = weekdays[now.getDay()];
+    if (el('date-daymonth')) el('date-daymonth').textContent = `${now.getDate()} ${months[now.getMonth()]}`;
+  }
+  setInterval(updateSidebarClock, 1000);
+  updateSidebarClock();
 
-    function connectWS() {
-      const loc = window.location;
-      const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${loc.host}/ws/traffic`;
+  /* ──────────────────────────────────────────
+     EFFICIENT SPARKLINE MEMORY GRAPH
+  ────────────────────────────────────────── */
+  let memPts = [25, 10, 30, 20, 35, 15, 28, 18, 22, 30, 14, 25];
+  function updateMemorySparkline() {
+    const newVal = Math.floor(45 + Math.random() * 25);
+    memPts.shift();
+    memPts.push(newVal);
 
-      ws = new WebSocket(wsUrl);
+    const el = document.getElementById('sb-mem-val');
+    if (el) el.textContent = `${newVal},${Math.floor(Math.random()*9)} %`;
 
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'rf_event') {
-          appendRFFeed(data);
-          fetchSnoozes();
-        }
-      };
-
-      ws.onclose = () => {
-        setTimeout(connectWS, 2000);
-      };
-    }
-
-    function appendRFFeed(data) {
-      const feed = document.getElementById('rf-feed');
-      if (feed.children.length === 1 && feed.children[0].innerText.includes('Listening')) {
-        feed.innerHTML = '';
+    const path = document.getElementById('sparkline-path');
+    if (path) {
+      const step = 200 / (memPts.length - 1);
+      let d = `M 0,${40 - memPts[0] * 0.4}`;
+      for (let i = 1; i < memPts.length; i++) {
+        const x = i * step;
+        const y = 40 - memPts[i] * 0.4;
+        d += ` L ${x},${y}`;
       }
-
-      const item = document.createElement('div');
-      item.className = 'feed-item';
-      item.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 0.6rem;">
-          <span class="feed-code">${data.code_hex} (${data.code})</span>
-          <span style="font-size: 0.75rem; color: var(--accent-green);">proto:${data.protocol} bits:${data.bits}</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <button class="btn-sm btn-secondary" onclick="quickCreateRule(${data.code})">⚡ Rule</button>
-          <button class="btn-sm btn-secondary" onclick="quickCreateButton(${data.code})">🔘 Button</button>
-          <span class="feed-time">${data.gateway || 'LAN'} • ${new Date().toLocaleTimeString()}</span>
-        </div>
-      `;
-      feed.prepend(item);
+      path.setAttribute('d', d);
     }
+  }
+  setInterval(updateMemorySparkline, 2500);
 
-    async function fetchStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        document.getElementById('m-bots').innerText = data.bots_online;
-        document.getElementById('m-sensors').innerText = data.sensor_count;
-        document.getElementById('m-rules').innerText = data.rule_count;
-        document.getElementById('m-buttons').innerText = data.button_count || 0;
-        document.getElementById('m-snoozes').innerText = data.active_snoozes || 0;
-        document.getElementById('hk-pin').innerText = data.homekit_pin;
+  /* ──────────────────────────────────────────
+     INTERACTIVE TILE STATE TOGGLE
+  ────────────────────────────────────────── */
+  window.toggleTileState = function(tile) {
+    if (!tile) return;
+    const isOn = tile.classList.contains('state-on');
+    tile.classList.toggle('state-on', !isOn);
+    tile.classList.toggle('state-off', isOn);
 
-        const botsRes = await fetch('/api/bots');
-        renderBots(await botsRes.json());
-
-        const rulesRes = await fetch('/api/rules');
-        renderRules(await rulesRes.json());
-
-        const btnsRes = await fetch('/api/buttons');
-        renderButtons(await btnsRes.json());
-
-        fetchSnoozes();
-      } catch (err) {
-        console.error('Status fetch failed:', err);
+    const sub = tile.querySelector('.tile-sub');
+    if (sub) {
+      if (!isOn) {
+        sub.textContent = sub.textContent.includes('%') ? '100 %' : 'På';
+      } else {
+        sub.textContent = 'Av';
       }
     }
+  };
 
-    async function fetchSnoozes() {
-      try {
-        const res = await fetch('/api/snooze');
-        const snoozes = await res.json();
-        const card = document.getElementById('snooze-card');
-        const list = document.getElementById('snooze-list');
+  window.turnOffAllTiles = function() {
+    document.querySelectorAll('.dash-tile.state-on').forEach(t => window.toggleTileState(t));
+  };
 
-        if (!snoozes || snoozes.length === 0) {
-          card.style.display = 'none';
-          document.getElementById('m-snoozes').innerText = '0';
-          return;
-        }
+  /* ──────────────────────────────────────────
+     LIGHT / DARK THEME TOGGLE
+  ────────────────────────────────────────── */
+  window.toggleTheme = function() {
+    const isDark = document.body.classList.toggle('theme-dark');
+    const txt = document.getElementById('theme-btn-text');
+    if (txt) txt.textContent = isDark ? 'Dark Mode' : 'Vivid Mode';
+    localStorage.setItem('fleethub-theme', isDark ? 'dark' : 'vivid');
+  };
 
-        card.style.display = 'block';
-        document.getElementById('m-snoozes').innerText = snoozes.length;
+  const savedTheme = localStorage.getItem('fleethub-theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('theme-dark');
+    const txt = document.getElementById('theme-btn-text');
+    if (txt) txt.textContent = 'Dark Mode';
+  }
 
-        list.innerHTML = snoozes.map(s => {
-          const mins = Math.floor(s.remaining_sec / 60);
-          const secs = s.remaining_sec % 60;
-          return `
-            <div style="background: rgba(0,0,0,0.3); padding: 0.6rem 0.8rem; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-              <div>
-                <div style="font-weight: 600; font-size: 0.88rem; color: #fff;">${s.rule_name}</div>
-                <div style="font-size: 0.75rem; color: var(--accent-amber);">Snoozed remaining: <strong>${mins}m ${secs}s</strong> (until ${new Date(s.snoozed_until).toLocaleTimeString()})</div>
-              </div>
-              <div style="display: flex; gap: 0.4rem;">
-                <button class="btn-sm btn-amber" onclick="extendSnooze('${s.rule_id}', 15)">+15m</button>
-                <button class="btn-sm btn-red" onclick="cancelSnooze('${s.rule_id}')">Cancel Snooze</button>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } catch (err) {
-        console.error('Failed to fetch snoozes:', err);
-      }
+  /* ──────────────────────────────────────────
+     ESP32-CAM NON-BLOCKING CANVAS RENDERER
+  ────────────────────────────────────────── */
+  const camCanvas = document.getElementById('esp32-cam-canvas');
+  let camCtx = camCanvas ? camCanvas.getContext('2d') : null;
+  let animCamFrameId;
+
+  function drawCamPlaceholder(t) {
+    if (!camCanvas || !camCtx) return;
+    const w = camCanvas.width = camCanvas.clientWidth || 300;
+    const h = camCanvas.height = camCanvas.clientHeight || 200;
+
+    // Draw tech background gradient
+    const grad = camCtx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#1e1b4b');
+    camCtx.fillStyle = grad;
+    camCtx.fillRect(0, 0, w, h);
+
+    // Draw animated grid lines
+    camCtx.strokeStyle = 'rgba(6, 186, 212, 0.15)';
+    camCtx.lineWidth = 1;
+    const gridStep = 30;
+    for (let x = 0; x < w; x += gridStep) {
+      camCtx.beginPath(); camCtx.moveTo(x, 0); camCtx.lineTo(x, h); camCtx.stroke();
+    }
+    for (let y = 0; y < h; y += gridStep) {
+      camCtx.beginPath(); camCtx.moveTo(0, y); camCtx.lineTo(w, y); camCtx.stroke();
     }
 
-    async function extendSnooze(ruleId, mins) {
-      await fetch('/api/snooze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rule_id: ruleId, duration_min: mins, action: 'set' })
-      });
-      fetchSnoozes();
-    }
+    // Reticle
+    const cx = w/2, cy = h/2;
+    camCtx.strokeStyle = '#06b6d4';
+    camCtx.lineWidth = 1.5;
+    camCtx.beginPath(); camCtx.arc(cx, cy, 35, 0, Math.PI*2); camCtx.stroke();
+    camCtx.beginPath(); camCtx.moveTo(cx-45, cy); camCtx.lineTo(cx+45, cy); camCtx.stroke();
+    camCtx.beginPath(); camCtx.moveTo(cx, cy-45); camCtx.lineTo(cx, cy+45); camCtx.stroke();
 
-    async function cancelSnooze(ruleId) {
-      await fetch('/api/snooze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rule_id: ruleId, action: 'cancel' })
-      });
-      fetchSnoozes();
-    }
+    animCamFrameId = requestAnimationFrame(drawCamPlaceholder);
+  }
+  if (camCanvas) drawCamPlaceholder(0);
 
-    function renderBots(bots) {
-      const container = document.getElementById('bot-list');
-      if (!bots || bots.length === 0) {
-        container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted);">No robots discovered yet via mDNS. Listening...</div>`;
-        return;
-      }
-      container.innerHTML = bots.map(b => `
-        <div class="bot-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 0.65rem;">
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div>
-              <div class="bot-name">${b.name}</div>
-              <div class="bot-type">${b.platform} ${b.role ? '• ' + b.role : ''}</div>
-            </div>
-            <div style="text-align: right;">
-              <span style="font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 12px; font-weight: 700; background: ${b.status === 'online' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color: ${b.status === 'online' ? 'var(--accent-green)' : '#ef4444'};">
-                ${b.status === 'online' ? 'ONLINE' : 'OFFLINE'}
-              </span>
-            </div>
-          </div>
+  window.snapCamFrame = function() {
+    alert('ESP32-CAM Snapshot saved to FleetHub gallery.');
+  };
+  window.switchCamStream = function(camId) {
+    console.log('Switched ESP32-CAM stream to:', camId);
+  };
 
-          <div style="font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 6px; display: flex; justify-content: space-between;">
-            <span>Host: ${b.hostname || b.ip}:${b.port || 80}</span>
-          </div>
+  /* ──────────────────────────────────────────
+     VIEW SWITCHING & API INTEGRATION
+  ────────────────────────────────────────── */
+  window.setView = function(view) {
+    const isPretty = view === 'pretty';
+    document.body.classList.toggle('pretty-mode', isPretty);
+    localStorage.setItem('fleethub-view', view);
+  };
+  if (localStorage.getItem('fleethub-view') === 'pretty') {
+    setView('pretty');
+  }
 
-          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--panel-border); padding-top: 0.5rem;">
-            <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
-              <input type="checkbox" ${b.homekit_enabled ? 'checked' : ''} onchange="toggleHomeKit('${b.id}', this.checked)">
-              <span> HomeKit</span>
-            </label>
-            <div style="display: flex; gap: 0.4rem;">
-              ${(b.actions || []).map((act, i) => `
-                <button class="btn-sm" onclick="triggerAction('${b.id}', ${i})">${act.name}</button>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
+  window.showAddDeviceModal = function(){ document.getElementById('add-device-modal').style.display = 'flex'; };
+  window.closeModal = function(id){ document.getElementById(id).style.display = 'none'; };
+  window.saveNewDevice = function(){ closeModal('add-device-modal'); };
+</script>
 
-    function renderButtons(buttons) {
-      const container = document.getElementById('button-list');
-      if (!buttons || buttons.length === 0) {
-        container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); grid-column: span 2;">No input buttons configured. Click 'Add Input Button' above.</div>`;
-        return;
-      }
-      container.innerHTML = buttons.map(btn => `
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); padding: 0.85rem; border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;">
-          <div>
-            <div style="font-weight: 600; font-size: 0.92rem; color: #fff;">${btn.name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
-              Code: <span style="color: var(--accent-cyan); font-family: monospace;">${btn.trigger_code}</span> • ${btn.minutes_per_click || 15}m / click
-            </div>
-            <div style="font-size: 0.72rem; color: var(--accent-indigo); margin-top: 0.1rem;">
-              Action: ${btn.action_type} ${btn.target_rule_id ? '-> ' + btn.target_rule_id : ''}
-            </div>
-          </div>
-          <div style="display: flex; gap: 0.4rem;">
-            <button class="btn-sm btn-amber" style="flex: 1;" onclick="pressButton('${btn.id}')">🔘 Press Button</button>
-            <button class="btn-sm btn-red" onclick="deleteButton('${btn.id}')">🗑️</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function renderRules(rules) {
-      const container = document.getElementById('rule-list');
-      if (!rules || rules.length === 0) {
-        container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted);">No active rules configured.</div>`;
-        return;
-      }
-      container.innerHTML = rules.map(r => `
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); padding: 0.85rem 1rem; border-radius: 10px; margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: space-between;">
-          <div>
-            <div style="font-weight: 600; font-size: 0.92rem;">${r.name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem;">
-              Trigger: <span style="color: var(--accent-cyan); font-family: monospace;">${r.trigger_code}</span> •
-              Cooldown: <span style="color: var(--accent-green); font-weight: 600;">⏱️ ${r.cooldown_sec || 10}s</span>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <button class="btn-sm btn-amber" onclick="extendSnooze('${r.id}', 15)">💤 Snooze 15m</button>
-            <button class="btn-sm btn-red" onclick="deleteRule('${r.id}')">🗑️</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function pressButton(id) {
-      try {
-        await fetch('/api/buttons/press', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
-        });
-        setTimeout(fetchSnoozes, 500);
-      } catch (err) {
-        console.error('Button press failed:', err);
-      }
-    }
-
-    async function deleteButton(id) {
-      if (!confirm('Delete this input button?')) return;
-      await fetch('/api/buttons?id=' + id, { method: 'DELETE' });
-      fetchStatus();
-    }
-
-    async function deleteRule(id) {
-      if (!confirm('Delete this rule?')) return;
-      await fetch('/api/rules?id=' + id, { method: 'DELETE' });
-      fetchStatus();
-    }
-
-    async function saveInputButton() {
-      const name = document.getElementById('btn-name').value;
-      const code = parseInt(document.getElementById('btn-code').value);
-      const action_type = document.getElementById('btn-action').value;
-      const target_rule_id = document.getElementById('btn-target-rule').value;
-      const minutes_per_click = parseInt(document.getElementById('btn-mins').value) || 15;
-      const feedback_target = document.getElementById('btn-feedback').value;
-
-      if (!name || isNaN(code)) {
-        alert('Please fill out name and valid 433 MHz trigger code.');
-        return;
-      }
-
-      await fetch('/api/buttons', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          trigger_code: code,
-          action_type,
-          target_rule_id,
-          minutes_per_click,
-          feedback_target
-        })
-      });
-      closeModal('add-button-modal');
-      fetchStatus();
-    }
-
-    async function saveRule() {
-      const name = document.getElementById('rule-name').value;
-      const code = parseInt(document.getElementById('rule-code').value);
-      const cooldown_sec = parseInt(document.getElementById('rule-cooldown').value) || 30;
-      const target = document.getElementById('rule-target').value;
-      const path = document.getElementById('rule-path').value;
-
-      if (!name || isNaN(code) || !target) {
-        alert('Please fill out rule name, code, and target host.');
-        return;
-      }
-
-      await fetch('/api/rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          enabled: true,
-          trigger_code: code,
-          cooldown_sec,
-          snoozeable: true,
-          actions: [{ type: 'http_get', target, path }]
-        })
-      });
-      closeModal('add-rule-modal');
-      fetchStatus();
-    }
-
-    function quickCreateRule(code) {
-      document.getElementById('rule-code').value = code;
-      showModal('add-rule-modal');
-    }
-
-    function quickCreateButton(code) {
-      document.getElementById('btn-code').value = code;
-      showModal('add-button-modal');
-    }
-
-    function showAddDeviceModal() { showModal('add-device-modal'); }
-    function showAddButtonModal() { showModal('add-button-modal'); }
-    function showAddRuleModal() { showModal('add-rule-modal'); }
-    function showModal(id) { document.getElementById(id).style.display = 'flex'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-    async function testRFTrigger() {
-      await fetch('/api/v1/rf_event?code=123456');
-    }
-
-    async function startPairing() {
-      document.getElementById('pair-result').innerText = 'Listening for RF signal...';
-      await fetch('/api/pair', { method: 'POST' });
-      let checks = 0;
-      const timer = setInterval(async () => {
-        checks++;
-        const res = await fetch('/api/pair');
-        const data = await res.json();
-        if (data.captured_code && data.captured_code > 0) {
-          clearInterval(timer);
-          document.getElementById('pair-result').innerText = `Captured: ${data.code_hex} (${data.captured_code})`;
-        }
-        if (checks >= 20) {
-          clearInterval(timer);
-          document.getElementById('pair-result').innerText = 'Pairing timed out.';
-        }
-      }, 1000);
-    }
-
-    window.onload = () => {
-      fetchStatus();
-      connectWS();
-      setInterval(fetchSnoozes, 5000);
-    };
-  </script>
 </body>
-
 </html>

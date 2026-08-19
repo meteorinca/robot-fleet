@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/listener"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/rfpoller"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rules"
 )
 
@@ -24,6 +26,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	cfg        *config.Config
 	engine     *rules.Engine
+	poller     *rfpoller.RFPoller
 	assets     fs.FS
 	clients    map[*websocket.Conn]bool
 	clientsMu  sync.Mutex
@@ -34,10 +37,11 @@ type Server struct {
 }
 
 // NewServer creates a new web API server.
-func NewServer(cfg *config.Config, engine *rules.Engine, assets fs.FS) *Server {
+func NewServer(cfg *config.Config, engine *rules.Engine, poller *rfpoller.RFPoller, assets fs.FS) *Server {
 	s := &Server{
 		cfg:       cfg,
 		engine:    engine,
+		poller:    poller,
 		assets:    assets,
 		clients:   make(map[*websocket.Conn]bool),
 		broadcast: make(chan interface{}, 100),
@@ -60,6 +64,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/buttons/press", s.handleButtonPress)
 	mux.HandleFunc("/api/snooze", s.handleSnooze)
 	mux.HandleFunc("/api/pair", s.handlePair)
+	mux.HandleFunc("/api/rfbots/listen", s.handleRFBotListen)
+	mux.HandleFunc("/api/rfbots/poll_status", s.handleRFPollStatus)
+	mux.HandleFunc("/api/outlet", s.handleDirectOutlet)
+	mux.HandleFunc("/api/outlet/", s.handleDirectOutlet)
+	mux.HandleFunc("/api/rf/send", s.handleMothershipRFSend)
+	mux.HandleFunc("/api/action", s.handleDirectAction)
 	mux.HandleFunc("/api/devices/homekit", s.handleToggleHomeKit)
 	mux.HandleFunc("/api/devices/control", s.handleDeviceControl)
 	mux.HandleFunc("/api/devices/add", s.handleAddDevice)
@@ -84,7 +94,7 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) BroadcastEvent(event rules.EventPayload, executed []string) {
 	s.pairMu.Lock()
-	if s.pairActive {
+	if s.pairActive && (event.Bits >= 20 || event.Bits == 0) {
 		s.pairCode = event.Code
 	}
 	s.pairMu.Unlock()
@@ -174,6 +184,43 @@ func (s *Server) handleBots(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSensors(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodPost {
+		var sensor config.RFSensor
+		if err := json.NewDecoder(r.Body).Decode(&sensor); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if sensor.Code == 0 {
+			http.Error(w, "Missing sensor RF code", http.StatusBadRequest)
+			return
+		}
+		s.cfg.UpsertSensor(sensor)
+		_ = s.cfg.Save()
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "saved", "sensor": sensor})
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		var code uint32
+		_, err := fmt.Sscanf(r.URL.Query().Get("code"), "%d", &code)
+		if err != nil || code == 0 {
+			var payload struct {
+				Code uint32 `json:"code"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			code = payload.Code
+		}
+		if code == 0 {
+			http.Error(w, "Missing or invalid sensor code", http.StatusBadRequest)
+			return
+		}
+		deleted := s.cfg.DeleteSensor(code)
+		_ = s.cfg.Save()
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "deleted", "code": code, "success": deleted})
+		return
+	}
+
 	_ = json.NewEncoder(w).Encode(s.cfg.Sensors)
 }
 
@@ -524,3 +571,303 @@ func (s *Server) handleAddDevice(w http.ResponseWriter, r *http.Request) {
 		"device": node,
 	})
 }
+
+func (s *Server) handleRFBotListen(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			BotID  string `json:"bot_id"`
+			Action string `json:"action"` // "start" or "stop"
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+
+		botID := req.BotID
+		if botID == "" {
+			// Find primary RX bot
+			for _, b := range s.cfg.Bots {
+				if b.Platform == config.PlatformRFBot && (strings.ToLower(b.Role) == "receiver" || strings.ToLower(b.Role) == "transceiver" || b.ID == "rfbot1") {
+					botID = b.ID
+					break
+				}
+			}
+		}
+
+		if botID == "" {
+			botID = "rfbot1"
+		}
+
+		enable := (req.Action == "start" || req.Action == "listen" || req.Action == "")
+		if s.poller != nil {
+			s.poller.SetBotListening(botID, enable)
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":    "ok",
+			"bot_id":    botID,
+			"listening": enable,
+		})
+		return
+	}
+
+	activeListeners := []string{}
+	if s.poller != nil {
+		activeListeners = s.poller.GetActiveListeners()
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"active_listeners": activeListeners,
+	})
+}
+
+func (s *Server) handleRFPollStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	activeListeners := []string{}
+	if s.poller != nil {
+		activeListeners = s.poller.GetActiveListeners()
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"active_listeners": activeListeners,
+		"poller_running":  s.poller != nil,
+	})
+}
+
+func (s *Server) findTXGatewayBot() config.RobotNode {
+	for _, b := range s.cfg.Bots {
+		roleLower := strings.ToLower(b.Role)
+		if b.Platform == config.PlatformRFBot && (roleLower == "transceiver" || roleLower == "transmitter" || b.ID == "rfbot6") {
+			return b
+		}
+	}
+	for _, b := range s.cfg.Bots {
+		if b.Platform == config.PlatformRFBot {
+			return b
+		}
+	}
+	return config.RobotNode{
+		ID:       "rfbot6",
+		Hostname: "rfbot6.local",
+		Platform: config.PlatformRFBot,
+		Port:     80,
+	}
+}
+
+func (s *Server) dispatchToBot(bot config.RobotNode, endpoint string) error {
+	targetHost := bot.Hostname
+	if targetHost == "" {
+		targetHost = bot.IP
+	}
+	if targetHost == "" {
+		targetHost = bot.FallbackIP
+	}
+	if targetHost == "" {
+		targetHost = "rfbot6.local"
+	}
+	port := bot.Port
+	if port == 0 || port == 4330 {
+		port = 80
+	}
+
+	url := fmt.Sprintf("http://%s:%d/%s", targetHost, port, strings.TrimLeft(endpoint, "/"))
+	client := &http.Client{Timeout: 3 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+	return nil
+}
+
+func (s *Server) handleDirectOutlet(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	path := strings.Trim(r.URL.Path, "/")
+	parts := strings.Split(path, "/")
+
+	name := r.URL.Query().Get("name")
+	state := r.URL.Query().Get("state")
+
+	if len(parts) >= 3 {
+		name = parts[2]
+		if len(parts) >= 4 {
+			state = parts[3]
+		}
+	}
+
+	nameLower := strings.ToLower(strings.TrimSpace(name))
+	stateLower := strings.ToLower(strings.TrimSpace(state))
+
+	if stateLower == "" || stateLower == "1" || stateLower == "true" {
+		stateLower = "on"
+	} else if stateLower == "0" || stateLower == "false" {
+		stateLower = "off"
+	}
+
+	outlets := map[string]map[string]uint32{
+		"alpha":   {"on": 5576451, "off": 5576460},
+		"bravo":   {"on": 5584131, "off": 5584140},
+		"charlie": {"on": 5576131, "off": 5576140},
+		"delta":   {"on": 5577987, "off": 5577996},
+		"echo":    {"on": 5575987, "off": 5575996},
+		"foxtrot": {"on": 1381827, "off": 1381836},
+		"golf":    {"on": 1382147, "off": 1382156},
+	}
+
+	codes, exists := outlets[nameLower]
+	if !exists {
+		http.Error(w, fmt.Sprintf("Unknown outlet name '%s'. Available: alpha, bravo, charlie, delta, echo, foxtrot, golf", name), http.StatusBadRequest)
+		return
+	}
+
+	code, validState := codes[stateLower]
+	if !validState {
+		http.Error(w, fmt.Sprintf("Invalid state '%s'. Use 'on' or 'off'.", state), http.StatusBadRequest)
+		return
+	}
+
+	bot := s.findTXGatewayBot()
+	endpoint := fmt.Sprintf("/rf/send?code=%d&bits=24&proto=1&pulse=185", code)
+	err := s.dispatchToBot(bot, endpoint)
+
+	dispatchStatus := "success"
+	if err != nil {
+		dispatchStatus = "dispatched_offline_sim"
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     dispatchStatus,
+		"outlet":     strings.Title(nameLower),
+		"state":      strings.ToUpper(stateLower),
+		"code":       code,
+		"code_hex":   fmt.Sprintf("0x%X", code),
+		"target_bot": bot.Hostname,
+		"error":      fmt.Sprintf("%v", err),
+	})
+}
+
+func (s *Server) handleMothershipRFSend(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	codeStr := r.URL.Query().Get("code")
+	if codeStr == "" {
+		http.Error(w, "Missing ?code= parameter", http.StatusBadRequest)
+		return
+	}
+
+	var code uint32
+	clean := strings.TrimSpace(codeStr)
+	if strings.HasPrefix(clean, "0x") || strings.HasPrefix(clean, "0X") {
+		if val, err := strconv.ParseUint(clean[2:], 16, 32); err == nil {
+			code = uint32(val)
+		}
+	}
+	if code == 0 {
+		if val, err := strconv.ParseUint(clean, 10, 32); err == nil {
+			code = uint32(val)
+		} else if val, err := strconv.ParseUint(clean, 16, 32); err == nil {
+			code = uint32(val)
+		}
+	}
+
+	if code == 0 {
+		http.Error(w, "Invalid code parameter", http.StatusBadRequest)
+		return
+	}
+
+	bits := 24
+	if b := r.URL.Query().Get("bits"); b != "" {
+		_, _ = fmt.Sscanf(b, "%d", &bits)
+	}
+
+	proto := 1
+	if p := r.URL.Query().Get("proto"); p != "" {
+		_, _ = fmt.Sscanf(p, "%d", &proto)
+	}
+
+	pulse := 185
+	if pu := r.URL.Query().Get("pulse"); pu != "" {
+		_, _ = fmt.Sscanf(pu, "%d", &pulse)
+	}
+
+	bot := s.findTXGatewayBot()
+	endpoint := fmt.Sprintf("/rf/send?code=%d&bits=%d&proto=%d&pulse=%d", code, bits, proto, pulse)
+	err := s.dispatchToBot(bot, endpoint)
+
+	dispatchStatus := "success"
+	if err != nil {
+		dispatchStatus = "dispatched_offline_sim"
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     dispatchStatus,
+		"code":       code,
+		"code_hex":   fmt.Sprintf("0x%X", code),
+		"bits":       bits,
+		"proto":      proto,
+		"pulse":      pulse,
+		"target_bot": bot.Hostname,
+		"error":      fmt.Sprintf("%v", err),
+	})
+}
+
+func (s *Server) handleDirectAction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	actionName := r.URL.Query().Get("name")
+	botID := r.URL.Query().Get("bot")
+
+	if actionName == "" {
+		http.Error(w, "Missing ?name= parameter (e.g. ?name=Alpha+ON)", http.StatusBadRequest)
+		return
+	}
+
+	var matchedBot *config.RobotNode
+	var matchedAct *config.DeviceAction
+
+	for i, b := range s.cfg.Bots {
+		if botID != "" && b.ID != botID && b.Hostname != botID {
+			continue
+		}
+		for j, a := range b.Actions {
+			if strings.EqualFold(a.Name, actionName) {
+				matchedBot = &s.cfg.Bots[i]
+				matchedAct = &b.Actions[j]
+				break
+			}
+		}
+		if matchedBot != nil {
+			break
+		}
+	}
+
+	if matchedBot == nil || matchedAct == nil {
+		http.Error(w, fmt.Sprintf("Action '%s' not found in fleet registry", actionName), http.StatusNotFound)
+		return
+	}
+
+	err := s.dispatchToBot(*matchedBot, matchedAct.Endpoint)
+
+	dispatchStatus := "success"
+	if err != nil {
+		dispatchStatus = "dispatched_offline_sim"
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     dispatchStatus,
+		"action":     matchedAct.Name,
+		"endpoint":   matchedAct.Endpoint,
+		"target_bot": matchedBot.Hostname,
+		"error":      fmt.Sprintf("%v", err),
+	})
+}
+
+

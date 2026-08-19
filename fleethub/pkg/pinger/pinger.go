@@ -45,6 +45,10 @@ func (p *Pinger) Start() {
 	}()
 }
 
+func isValidIP(ip string) bool {
+	return net.ParseIP(strings.TrimSpace(ip)) != nil
+}
+
 // PingAll iterates through configured bots and tests connectivity with fallback IP support.
 func (p *Pinger) PingAll() {
 	bots := p.cfg.Bots
@@ -54,21 +58,26 @@ func (p *Pinger) PingAll() {
 		wg.Add(1)
 		go func(b config.RobotNode) {
 			defer wg.Done()
-			latency, online := p.PingDevice(b)
+			latency, online, discoveredIP := p.PingDevice(b)
 			
 			status := "offline"
 			if online {
 				status = "online"
 			}
 
-			p.cfg.UpsertBot(config.RobotNode{
+			updatedBot := config.RobotNode{
 				ID:        b.ID,
 				Name:      b.Name,
 				Hostname:  b.Hostname,
 				Platform:  b.Platform,
 				Status:    status,
 				LatencyMs: latency,
-			})
+			}
+			if discoveredIP != "" && isValidIP(discoveredIP) {
+				updatedBot.IP = discoveredIP
+			}
+
+			p.cfg.UpsertBot(updatedBot)
 		}(bot)
 	}
 
@@ -76,43 +85,65 @@ func (p *Pinger) PingAll() {
 }
 
 // PingDevice attempts to connect to a bot using its hostname first, and falls back to fallback_ip if hostname fails or times out.
-func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool) {
+func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool, string) {
 	port := bot.Port
 	if port == 0 {
 		port = 80
 	}
 
-	targets := []string{}
+	// Try resolving hostname to IPv4 address via DNS/mDNS lookup
+	var resolvedIP string
 	if bot.Hostname != "" {
-		targets = append(targets, fmt.Sprintf("%s:%d", strings.TrimSuffix(bot.Hostname, ".local") + ".local", port))
-	} else if bot.IP != "" {
-		targets = append(targets, fmt.Sprintf("%s:%d", bot.IP, port))
+		cleanHost := strings.TrimSuffix(bot.Hostname, ".local")
+		if ips, err := net.LookupHost(cleanHost + ".local"); err == nil && len(ips) > 0 {
+			resolvedIP = ips[0]
+		} else if ips, err := net.LookupHost(cleanHost); err == nil && len(ips) > 0 {
+			resolvedIP = ips[0]
+		}
 	}
 
-	if bot.FallbackIP != "" && bot.FallbackIP != bot.Hostname && bot.FallbackIP != bot.IP {
-		targets = append(targets, fmt.Sprintf("%s:%d", bot.FallbackIP, port))
+	type targetItem struct {
+		addr string
+		ip   string
 	}
 
-	// Try each target in sequence (hostname primary, fallback_ip secondary)
+	targets := []targetItem{}
+
+	if resolvedIP != "" && isValidIP(resolvedIP) {
+		targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", resolvedIP, port), ip: resolvedIP})
+	}
+	if isValidIP(bot.IP) {
+		targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.IP, port), ip: bot.IP})
+	}
+	if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP && bot.FallbackIP != resolvedIP {
+		targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.FallbackIP, port), ip: bot.FallbackIP})
+	}
+	if bot.Hostname != "" {
+		hostAddr := fmt.Sprintf("%s:%d", strings.TrimSuffix(bot.Hostname, ".local")+".local", port)
+		targets = append(targets, targetItem{addr: hostAddr, ip: resolvedIP})
+	}
+
+	// Try each target in sequence
 	for _, target := range targets {
 		start := time.Now()
-		conn, err := net.DialTimeout("tcp", target, 1500*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", target.addr, 1200*time.Millisecond)
 		if err == nil {
 			latency := float64(time.Since(start).Microseconds()) / 1000.0 // ms
 			_ = conn.Close()
-			return latency, true
+			return latency, true, target.ip
 		}
 	}
 
 	// In local simulation mode, if host is localhost or 127.0.0.1, simulate responsive ping
 	if strings.Contains(bot.IP, "127.0.0.1") || strings.Contains(bot.Hostname, "localhost") {
-		return 0.8, true
+		return 0.8, true, "127.0.0.1"
 	}
 
-	return 0, false
+	return 0, false, resolvedIP
 }
 
 // Stop halts the pinger service.
 func (p *Pinger) Stop() {
 	close(p.stop)
 }
+

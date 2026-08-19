@@ -157,7 +157,20 @@ func DefaultConfig(path string) *Config {
 				HomeKitCategory: "switch",
 				PingEnabled:     true,
 				Actions: []DeviceAction{
-					{Name: "Send RF Code (123456)", Endpoint: "/rf/send?code=123456&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Alpha ON", Endpoint: "/rf/send?code=5576451&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Alpha OFF", Endpoint: "/rf/send?code=5576460&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Bravo ON", Endpoint: "/rf/send?code=5584131&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Bravo OFF", Endpoint: "/rf/send?code=5584140&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Charlie ON", Endpoint: "/rf/send?code=5576131&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Charlie OFF", Endpoint: "/rf/send?code=5576140&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Delta ON", Endpoint: "/rf/send?code=5577987&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Delta OFF", Endpoint: "/rf/send?code=5577996&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Echo ON", Endpoint: "/rf/send?code=5575987&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Echo OFF", Endpoint: "/rf/send?code=5575996&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Foxtrot ON", Endpoint: "/rf/send?code=1381827&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Foxtrot OFF", Endpoint: "/rf/send?code=1381836&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Golf ON", Endpoint: "/rf/send?code=1382147&bits=24&proto=1&pulse=185", Method: "GET"},
+					{Name: "Golf OFF", Endpoint: "/rf/send?code=1382156&bits=24&proto=1&pulse=185", Method: "GET"},
 				},
 			},
 			{
@@ -184,7 +197,7 @@ func DefaultConfig(path string) *Config {
 		Sensors: []RFSensor{
 			{
 				Code:          123456,
-				Name:          "Hallway Photodetector",
+				Name:          "Hallway Light Sensor",
 				AccessoryType: "light",
 				Room:          "Living Room",
 				LastTriggered: time.Now(),
@@ -200,7 +213,7 @@ func DefaultConfig(path string) *Config {
 		Rules: []AutomationRule{
 			{
 				ID:          "rule-1",
-				Name:        "Photodetector Chime Trigger",
+				Name:        "Light Sensor Chime Alert",
 				Enabled:     true,
 				TriggerCode: 123456,
 				CooldownSec: 30,
@@ -369,6 +382,21 @@ func (c *Config) UpsertSensor(sensor RFSensor) {
 		c.Sensors = append(c.Sensors, sensor)
 	}
 }
+
+// DeleteSensor removes a mapped RF sensor by code.
+func (c *Config) DeleteSensor(code uint32) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, s := range c.Sensors {
+		if s.Code == code {
+			c.Sensors = append(c.Sensors[:i], c.Sensors[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 
 // UpsertButton adds or updates an InputButton configuration.
 func (c *Config) UpsertButton(btn InputButton) {

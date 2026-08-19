@@ -16,6 +16,7 @@ import (
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/listener"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/mdns"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/pinger"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/rfpoller"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rules"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/webui"
 	"github.com/meteorinca/robot-fleet/fleethub/web"
@@ -65,17 +66,22 @@ func main() {
 		}
 	})
 
-	webServer = webui.NewServer(cfg, ruleEngine, assets)
+	// 4. Initialize & Start Active RF Poller
+	rfPoller := rfpoller.NewRFPoller(cfg, ruleEngine)
+	rfPoller.Start()
+	log.Printf("[FleetHub] Active HTTP RF Poller active (Polling RFBot receiver nodes every 800ms)")
 
-	// 4. Start UDP Listener
-	udpListener := listener.NewUDPListener(cfg.UDPPort, ruleEngine)
+	webServer = webui.NewServer(cfg, ruleEngine, rfPoller, assets)
+
+	// 5. Start UDP Listener
+	udpListener := listener.NewUDPListener(cfg, cfg.UDPPort, ruleEngine)
 	if err := udpListener.Start(); err != nil {
 		log.Printf("[FleetHub] Warning: UDP listener bind failed: %v", err)
 	} else {
 		log.Printf("[FleetHub] Sub-50ms UDP RF Ingest listener active on port %d", cfg.UDPPort)
 	}
 
-	// 5. Start mDNS Fleet Scanner & Health Pinger
+	// 6. Start mDNS Fleet Scanner & Health Pinger
 	scanner := mdns.NewScanner(cfg)
 	scanner.Start()
 	log.Printf("[FleetHub] Multi-Bot mDNS Scanner active (rfbot, speakerbot, dogbot_v1, simplebot)")
@@ -84,7 +90,7 @@ func main() {
 	devicePinger.Start()
 	log.Printf("[FleetHub] Device Health Pinger active (Probing with IP fallback)")
 
-	// 6. Start HomeKit HAP Server if enabled
+	// 7. Start HomeKit HAP Server if enabled
 	if *enableHomeKit {
 		dataDir := filepath.Join(filepath.Dir(*configPath), ".fleethub_hk")
 		_ = os.MkdirAll(dataDir, 0755)
@@ -100,7 +106,7 @@ func main() {
 		log.Printf("[FleetHub] HomeKit Bridge disabled (run with -homekit to enable on Linux/macOS)")
 	}
 
-	// 7. Start HTTP Server
+	// 8. Start HTTP Server
 	serverAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
 	server := &http.Server{
 		Addr:    serverAddr,
@@ -114,12 +120,13 @@ func main() {
 		}
 	}()
 
-	// 8. Graceful Shutdown Listener
+	// 9. Graceful Shutdown Listener
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, syscall.SIGINT, syscall.SIGTERM)
 	<-stopSig
 
 	log.Printf("[FleetHub] Shutting down Mothership Daemon cleanly...")
+	rfPoller.Stop()
 	udpListener.Stop()
 	scanner.Stop()
 	devicePinger.Stop()
