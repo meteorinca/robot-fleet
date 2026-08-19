@@ -1150,116 +1150,76 @@
   </div>
 </div><!-- /view-pretty -->
 
-<!-- ═══════════════════════════════════════════
-     THREE.JS MODULE & FULL FLEETHUB API ENGINE
-════════════════════════════════════════════ -->
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
-<script type="module">
-  import * as THREE from 'three';
-
-  let threeInited = false;
-  let hudBooted = false;
-
+<script>
   window._hudTargetEarthY = 0.0;
   window._hudTargetEarthZ = 0.0;
   window._hudTargetEarthRotX = 0.0;
+  window._threeInited = false;
+  window._hudBooted   = false;
 
-  /* ──────────────────────────────────────────
-     DYNAMIC NAV TABS FILTER ENGINE
-  ────────────────────────────────────────── */
   window.switchNavTab = function(tabName, el) {
-    document.querySelectorAll('.nav-tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-tab-item').forEach(function(t) { t.classList.remove('active'); });
     if (el) el.classList.add('active');
-
-    const tabs = ['home', 'entities', 'cameras', 'rfbots', 'bots'];
-    tabs.forEach(t => {
-      const sec = document.getElementById(`tab-sec-${t}`);
+    var tabs = ['home', 'entities', 'cameras', 'rfbots', 'bots'];
+    tabs.forEach(function(t) {
+      var sec = document.getElementById('tab-sec-' + t);
       if (sec) sec.style.display = (t === tabName) ? 'block' : 'none';
     });
   };
 
-  /* ──────────────────────────────────────────
-     EDIT MODE & INLINE TILE LABEL EDITING
-  ────────────────────────────────────────── */
-  let editModeActive = false;
+  var editModeActive = false;
   window.toggleEditMode = function() {
     editModeActive = !editModeActive;
     document.body.classList.toggle('edit-mode', editModeActive);
-    const btn = document.getElementById('edit-mode-btn');
-    const txt = document.getElementById('edit-mode-text');
+    var btn = document.getElementById('edit-mode-btn');
+    var txt = document.getElementById('edit-mode-text');
     if (btn) btn.classList.toggle('edit-active', editModeActive);
     if (txt) txt.textContent = editModeActive ? 'Done Editing' : 'Edit Mode';
   };
 
   window.editTileLabel = function(evt, handleEl) {
     evt.stopPropagation();
-    const tile = handleEl.closest('.dash-tile');
+    var tile = handleEl.closest('.dash-tile');
     if (!tile) return;
-    const titleEl = tile.querySelector('.tile-title');
+    var titleEl = tile.querySelector('.tile-title');
     if (!titleEl) return;
-
-    const currentName = titleEl.textContent;
-    const newName = prompt('Enter new label for this tile:', currentName);
+    var currentName = titleEl.textContent;
+    var newName = prompt('Enter new label for this tile:', currentName);
     if (newName && newName.trim() !== '') {
       titleEl.textContent = newName.trim();
-      // Save custom label in localStorage
-      const savedLabels = JSON.parse(localStorage.getItem('fleethub-custom-labels') || '{}');
+      var savedLabels = JSON.parse(localStorage.getItem('fleethub-custom-labels') || '{}');
       savedLabels[currentName] = newName.trim();
       localStorage.setItem('fleethub-custom-labels', JSON.stringify(savedLabels));
     }
   };
 
-  /* ──────────────────────────────────────────
-     INFO (i) MODAL FOR TECHNICAL DETAILS
-  ────────────────────────────────────────── */
   window.showTileInfo = function(evt, title, infoText) {
     evt.stopPropagation();
-    const titleEl = document.getElementById('info-modal-title');
-    const bodyEl = document.getElementById('info-modal-body');
+    var titleEl = document.getElementById('info-modal-title');
+    var bodyEl  = document.getElementById('info-modal-body');
     if (titleEl) titleEl.textContent = title;
-    if (bodyEl) bodyEl.textContent = infoText;
+    if (bodyEl)  bodyEl.textContent  = infoText;
     document.getElementById('info-modal').style.display = 'flex';
   };
 
-  /* ──────────────────────────────────────────
-     OUTLET ONE-TAP TOGGLE INTEGRATION
-  ────────────────────────────────────────── */
   window.toggleOutletTile = async function(deviceId, outletName, onCode, offCode, tileEl) {
-    const isOn = tileEl.classList.contains('state-on');
-    const newState = !isOn;
+    var isOn = tileEl.classList.contains('state-on');
+    var newState = !isOn;
     tileEl.classList.toggle('state-on', newState);
     tileEl.classList.toggle('state-off', !newState);
-
-    const sub = tileEl.querySelector('.tile-sub');
+    var sub = tileEl.querySelector('.tile-sub');
     if (sub) sub.textContent = newState ? 'On' : 'Off';
-
-    const actionName = `${outletName} ${newState ? 'ON' : 'OFF'}`;
-    const code = newState ? onCode : offCode;
-
+    var code = newState ? onCode : offCode;
     try {
       await fetch('/api/devices/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: deviceId,
-          endpoint: `/rf/send?code=${code}&bits=24&proto=1&pulse=185`,
-          method: 'GET'
-        })
+        body: JSON.stringify({ id: deviceId, endpoint: '/rf/send?code=' + code + '&bits=24&proto=1&pulse=185', method: 'GET' })
       });
     } catch(err) { console.error('Failed to toggle outlet:', err); }
   };
 
-  /* ──────────────────────────────────────────
-     CLOCK & SIDEBAR
-  ────────────────────────────────────────── */
   function updateSidebarClock() {
-    const now = new Date();
-    const pad = v => String(v).padStart(2, '0');
-    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months   = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    
-    const el = id => document.getElementById(id);
     if (el('clock-large')) el('clock-large').textContent = timeStr;
     if (el('date-weekday')) el('date-weekday').textContent = weekdays[now.getDay()];
     if (el('date-daymonth')) el('date-daymonth').textContent = `${months[now.getMonth()]} ${now.getDate()}`;
@@ -1290,28 +1250,29 @@
      VIEW SWITCHING
   ────────────────────────────────────────── */
   window.setView = function(view) {
-    const isPretty = view === 'pretty';
+    var isPretty = (view === 'pretty');
     document.body.classList.toggle('pretty-mode', isPretty);
     localStorage.setItem('fleethub-view', view);
-
-    if (isPretty && !hudBooted) {
-      initHUDThreeJS();
-      hudBooted = true;
+    if (isPretty && !window._hudBooted) {
+      if (typeof window._initHUDThreeJS === 'function') {
+        window._initHUDThreeJS();
+      }
+      window._hudBooted = true;
       setTimeout(initWallpaperState, 120);
     }
   };
 
-  const savedView = localStorage.getItem('fleethub-view');
-  if (savedView === 'pretty') { setView('pretty'); }
+  var savedView = localStorage.getItem('fleethub-view');
+  if (savedView === 'pretty') { window.setView('pretty'); }
 
   /* ──────────────────────────────────────────
      FLEETHUB REST API & WEBSOCKET ENGINE
   ────────────────────────────────────────── */
   async function fetchStatus() {
     try {
-      const res = await fetch('/api/status');
-      const data = await res.json();
-      const el = id => document.getElementById(id);
+      var res = await fetch('/api/status');
+      var data = await res.json();
+      var el = function(id) { return document.getElementById(id); };
       if (el('m-bots'))    el('m-bots').innerText    = data.bots_online;
       if (el('m-sensors')) el('m-sensors').innerText = data.sensor_count;
       if (el('m-rules'))   el('m-rules').innerText   = data.rule_count;
@@ -1523,103 +1484,24 @@
   fetchStatus();
   setInterval(fetchStatus, 8000);
 
-  /* ──────────────────────────────────────────
-     THREE.JS 3D GLOBE ENGINE
-  ────────────────────────────────────────── */
-  function initHUDThreeJS() {
-    if (threeInited) return;
-    threeInited = true;
-
-    const container = document.getElementById('hud-canvas');
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020810);
-
-    const W = window.innerWidth, H = window.innerHeight;
-    const camera = new THREE.PerspectiveCamera(42, W/H, 0.1, 1200);
-    camera.position.set(0, 4.5, 10.5);
-    camera.lookAt(0, -0.8, 0);
-
-    const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
-    renderer.setSize(W, H);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
-    container.appendChild(renderer.domElement);
-
-    const loader = new THREE.TextureLoader();
-    const BASE = 'https://threejs.org/examples/textures/planets/';
-
-    const earthGroup = new THREE.Group();
-    earthGroup.position.set(0, -2.8, 0);
-    scene.add(earthGroup);
-
-    const ER = 4.4;
-    const earthMat = new THREE.MeshPhongMaterial({
-      map: loader.load(BASE + 'earth_atmos_2048.jpg'),
-      bumpMap: loader.load(BASE + 'earth_normal_2048.jpg'), bumpScale: 0.05,
-      specularMap: loader.load(BASE + 'earth_specular_2048.jpg'), specular: new THREE.Color(0x444444), shininess: 8,
-    });
-    const earth = new THREE.Mesh(new THREE.SphereGeometry(ER, 96, 96), earthMat);
-    earthGroup.add(earth);
-
-    const clouds = new THREE.Mesh(new THREE.SphereGeometry(ER*1.012, 80, 80), new THREE.MeshPhongMaterial({
-      map: loader.load(BASE + 'earth_clouds_1024.png'), transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
-    }));
-    earthGroup.add(clouds);
-
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.8); sunLight.position.set(8, 6, 12); scene.add(sunLight);
-    scene.add(new THREE.AmbientLight(0x0a192f, 0.4));
-
-    let clock = new THREE.Clock();
-    let currentEarthY = -2.8, currentEarthZ = 0.0, currentEarthRotX = 0.0;
-
-    function animate() {
-      const dt = clock.getDelta();
-      earth.rotation.y += dt * 0.08;
-      clouds.rotation.y += dt * 0.11;
-
-      const targetY = window._hudTargetEarthY || 0.0;
-      const targetZ = window._hudTargetEarthZ || 0.0;
-      const targetRotX = window._hudTargetEarthRotX || 0.0;
-
-      currentEarthY += (targetY - currentEarthY) * 0.035;
-      currentEarthZ += (targetZ - currentEarthZ) * 0.035;
-      currentEarthRotX += (targetRotX - currentEarthRotX) * 0.035;
-
-      earthGroup.position.y = currentEarthY;
-      earthGroup.position.z = currentEarthZ;
-      earthGroup.rotation.x = currentEarthRotX;
-
-      renderer.render(scene, camera);
-      requestAnimationFrame(animate);
-    }
-
-    setTimeout(() => {
-      const ld = document.getElementById('hud-loading');
-      if (ld) ld.classList.add('hidden');
-      animate();
-    }, 800);
-  }
-
   window.toggleOverlay = function(forcedState) {
-    const container = document.getElementById('hud-wallpaper-container');
-    const btn = document.getElementById('hud-overlay-btn');
+    var container = document.getElementById('hud-wallpaper-container');
+    var btn = document.getElementById('hud-overlay-btn');
     if (!container) return;
-    const isHidden = container.classList.contains('wallpaper-hidden');
-    const enable = forcedState !== undefined ? Boolean(forcedState) : isHidden;
-
+    var isHidden = container.classList.contains('wallpaper-hidden');
+    var enable = (forcedState !== undefined) ? Boolean(forcedState) : isHidden;
     container.classList.toggle('wallpaper-hidden', !enable);
     if (btn) {
       btn.classList.toggle('active', enable);
       btn.textContent = enable ? 'HIDE OVERLAY' : 'SHOW OVERLAY';
     }
-    window._hudTargetEarthY = enable ? -3.6 : 0.0;
-    window._hudTargetEarthZ = enable ? 2.4 : 0.0;
+    window._hudTargetEarthY   = enable ? -3.6 : 0.0;
+    window._hudTargetEarthZ   = enable ? 2.4  : 0.0;
     window._hudTargetEarthRotX = enable ? -0.45 : 0.0;
   };
 
   window.toggleInteractiveSpin = function() {
-    const btn = document.getElementById('hud-interact-btn');
+    var btn = document.getElementById('hud-interact-btn');
     if (btn) btn.classList.toggle('active');
   };
 
@@ -1634,58 +1516,268 @@
   // Dashboard Utilities
   window.toggleTileState = function(tile) {
     if (!tile) return;
-    const isOn = tile.classList.contains('state-on');
+    var isOn = tile.classList.contains('state-on');
     tile.classList.toggle('state-on', !isOn);
     tile.classList.toggle('state-off', isOn);
-
-    const sub = tile.querySelector('.tile-sub');
+    var sub = tile.querySelector('.tile-sub');
     if (sub) sub.textContent = !isOn ? (sub.textContent.includes('%') ? '100 %' : 'On') : 'Off';
   };
 
   window.turnOffAllTiles = function() {
-    document.querySelectorAll('.dash-tile.state-on').forEach(t => window.toggleTileState(t));
+    document.querySelectorAll('.dash-tile.state-on').forEach(function(t) { window.toggleTileState(t); });
   };
 
   window.toggleTheme = function() {
-    const isDark = document.body.classList.toggle('theme-dark');
-    const txt = document.getElementById('theme-btn-text');
+    var isDark = document.body.classList.toggle('theme-dark');
+    var txt = document.getElementById('theme-btn-text');
     if (txt) txt.textContent = isDark ? 'Dark Mode' : 'Vivid Mode';
   };
 
-  const camCanvas = document.getElementById('esp32-cam-canvas');
-  const camCanvasTab = document.getElementById('esp32-cam-canvas-tab');
+  var camCanvas    = document.getElementById('esp32-cam-canvas');
+  var camCanvasTab = document.getElementById('esp32-cam-canvas-tab');
   
   function drawCamPlaceholder(canvas) {
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width = canvas.clientWidth || 300;
-    const h = canvas.height = canvas.clientHeight || 200;
-
-    const grad = ctx.createLinearGradient(0, 0, w, h);
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width  = canvas.clientWidth  || 300;
+    var h = canvas.height = canvas.clientHeight || 200;
+    var grad = ctx.createLinearGradient(0, 0, w, h);
     grad.addColorStop(0, '#0f172a'); grad.addColorStop(1, '#1e1b4b');
     ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
-
     ctx.strokeStyle = 'rgba(6, 186, 212, 0.15)'; ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-    for (let y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-
-    const cx = w/2, cy = h/2;
+    for (var x = 0; x < w; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (var y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    var cx = w/2, cy = h/2;
     ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(cx, cy, 35, 0, Math.PI*2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx-45, cy); ctx.lineTo(cx+45, cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, cy-45); ctx.lineTo(cx, cy+45); ctx.stroke();
-
-    requestAnimationFrame(() => drawCamPlaceholder(canvas));
+    requestAnimationFrame(function() { drawCamPlaceholder(canvas); });
   }
-  if (camCanvas) drawCamPlaceholder(camCanvas);
+  if (camCanvas)    drawCamPlaceholder(camCanvas);
   if (camCanvasTab) drawCamPlaceholder(camCanvasTab);
 
-  window.snapCamFrame = function() { alert('Snapshot saved to gallery.'); };
-  window.switchCamStream = function(c) { console.log('Switched camera stream:', c); };
-  window.showAddDeviceModal = function(){ document.getElementById('add-device-modal').style.display = 'flex'; };
-  window.showAddButtonModal = function(){ document.getElementById('add-button-modal').style.display = 'flex'; };
-  window.showAddRuleModal   = function(){ document.getElementById('add-rule-modal').style.display = 'flex'; };
-  window.closeModal = function(id){ document.getElementById(id).style.display = 'none'; };
+  window.snapCamFrame       = function() { alert('Snapshot saved to gallery.'); };
+  window.switchCamStream    = function(c) { console.log('Switched camera stream:', c); };
+  window.showAddDeviceModal = function() { document.getElementById('add-device-modal').style.display = 'flex'; };
+  window.showAddButtonModal = function() { document.getElementById('add-button-modal').style.display = 'flex'; };
+  window.showAddRuleModal   = function() { document.getElementById('add-rule-modal').style.display = 'flex'; };
+  window.closeModal         = function(id) { document.getElementById(id).style.display = 'none'; };
+</script>
+
+<!-- ═══════════════════════════════════════════
+     THREE.JS MODULE — 3D GLOBE ENGINE ONLY
+     Runs in ES-module scope; if CDN fails, buttons above still work.
+════════════════════════════════════════════ -->
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+  import * as THREE from 'three';
+
+  /* Build a procedural canvas Earth texture — works 100% offline */
+  function makeProceduralEarth(size) {
+    var c = document.createElement('canvas');
+    c.width = c.height = size;
+    var ctx = c.getContext('2d');
+    /* Ocean base */
+    var g = ctx.createRadialGradient(size*0.5, size*0.35, size*0.05, size*0.5, size*0.5, size*0.6);
+    g.addColorStop(0,   '#1a6ebd');
+    g.addColorStop(0.5, '#0d4f8a');
+    g.addColorStop(1,   '#072040');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    /* Rough continents */
+    ctx.fillStyle = '#2a7a3f';
+    var blobs = [
+      [0.28,0.40,0.18,0.22],[0.55,0.38,0.20,0.18],[0.72,0.52,0.14,0.16],
+      [0.20,0.62,0.12,0.14],[0.48,0.58,0.10,0.12],[0.82,0.34,0.08,0.10]
+    ];
+    blobs.forEach(function(b) {
+      ctx.beginPath();
+      ctx.ellipse(b[0]*size, b[1]*size, b[2]*size, b[3]*size, b[0]*2, 0, Math.PI*2);
+      ctx.fill();
+    });
+    /* Ice caps */
+    ctx.fillStyle = 'rgba(220,240,255,0.75)';
+    ctx.beginPath(); ctx.ellipse(size*0.5, 0, size*0.35, size*0.10, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(size*0.5, size, size*0.28, size*0.08, 0, 0, Math.PI*2); ctx.fill();
+    return new THREE.CanvasTexture(c);
+  }
+
+  function makeProceduralClouds(size) {
+    var c = document.createElement('canvas');
+    c.width = c.height = size;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    for (var i = 0; i < 40; i++) {
+      var rx = Math.random() * size, ry = Math.random() * size;
+      ctx.beginPath();
+      ctx.ellipse(rx, ry, 30+Math.random()*60, 12+Math.random()*20, Math.random()*Math.PI, 0, Math.PI*2);
+      ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  /* Register the 3D init function on window so the UI script can call it */
+  window._initHUDThreeJS = function initHUDThreeJS() {
+    if (window._threeInited) return;
+    window._threeInited = true;
+
+    var container = document.getElementById('hud-canvas');
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020810);
+
+    var W = window.innerWidth, H = window.innerHeight;
+    var camera = new THREE.PerspectiveCamera(42, W/H, 0.1, 1200);
+    camera.position.set(0, 4.5, 10.5);
+    camera.lookAt(0, -0.8, 0);
+
+    var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    var earthGroup = new THREE.Group();
+    earthGroup.position.set(0, -2.8, 0);
+    scene.add(earthGroup);
+
+    var ER = 4.4;
+
+    /* Try CDN textures; fall back to procedural instantly if offline */
+    var loader = new THREE.TextureLoader();
+    loader.crossOrigin = 'anonymous';
+    var BASE = 'https://threejs.org/examples/textures/planets/';
+
+    var earthTex   = makeProceduralEarth(512);
+    var cloudTex   = makeProceduralClouds(256);
+
+    var earthMat = new THREE.MeshPhongMaterial({
+      map: earthTex,
+      bumpScale: 0.04,
+      specular: new THREE.Color(0x333333),
+      shininess: 8
+    });
+    var earth = new THREE.Mesh(new THREE.SphereGeometry(ER, 64, 64), earthMat);
+    earthGroup.add(earth);
+
+    var cloudMat = new THREE.MeshPhongMaterial({
+      map: cloudTex, transparent: true, opacity: 0.35,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+    });
+    var clouds = new THREE.Mesh(new THREE.SphereGeometry(ER*1.012, 48, 48), cloudMat);
+    earthGroup.add(clouds);
+
+    /* Upgrade to CDN textures silently in background if online */
+    loader.load(BASE + 'earth_atmos_2048.jpg',  function(t) { earthMat.map = t; earthMat.needsUpdate = true; });
+    loader.load(BASE + 'earth_normal_2048.jpg',  function(t) { earthMat.bumpMap = t; earthMat.needsUpdate = true; });
+    loader.load(BASE + 'earth_specular_2048.jpg',function(t) { earthMat.specularMap = t; earthMat.needsUpdate = true; });
+    loader.load(BASE + 'earth_clouds_1024.png',  function(t) { cloudMat.map = t; cloudMat.needsUpdate = true; });
+
+    var sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    sunLight.position.set(8, 6, 12);
+    scene.add(sunLight);
+    scene.add(new THREE.AmbientLight(0x0a192f, 0.4));
+
+    /* ── Manual touch / mouse drag rotation ── */
+    var drag = { active: false, lastX: 0, lastY: 0, velX: 0, velY: 0 };
+    var DRAG_SENSITIVITY = 0.006;
+    var userRotX = 0, userRotY = 0;
+
+    function onPointerDown(e) {
+      drag.active = true;
+      drag.lastX = e.touches ? e.touches[0].clientX : e.clientX;
+      drag.lastY = e.touches ? e.touches[0].clientY : e.clientY;
+      drag.velX = 0; drag.velY = 0;
+      e.preventDefault();
+    }
+    function onPointerMove(e) {
+      if (!drag.active) return;
+      var cx = e.touches ? e.touches[0].clientX : e.clientX;
+      var cy = e.touches ? e.touches[0].clientY : e.clientY;
+      var dx = cx - drag.lastX;
+      var dy = cy - drag.lastY;
+      drag.lastX = cx; drag.lastY = cy;
+      drag.velX = dx; drag.velY = dy;
+      userRotY += dx * DRAG_SENSITIVITY;
+      userRotX += dy * DRAG_SENSITIVITY;
+      userRotX = Math.max(-1.2, Math.min(1.2, userRotX));
+      e.preventDefault();
+    }
+    function onPointerUp() {
+      drag.active = false;
+    }
+
+    /* Attach pointer + touch events to canvas container */
+    renderer.domElement.addEventListener('mousedown',  onPointerDown, { passive: false });
+    renderer.domElement.addEventListener('mousemove',  onPointerMove, { passive: false });
+    renderer.domElement.addEventListener('mouseup',    onPointerUp);
+    renderer.domElement.addEventListener('mouseleave', onPointerUp);
+    renderer.domElement.addEventListener('touchstart', onPointerDown, { passive: false });
+    renderer.domElement.addEventListener('touchmove',  onPointerMove, { passive: false });
+    renderer.domElement.addEventListener('touchend',   onPointerUp);
+    renderer.domElement.style.cursor = 'grab';
+
+    var clock = new THREE.Clock();
+    var currentEarthY = -2.8, currentEarthZ = 0.0, currentEarthPosX = 0.0;
+
+    function animate() {
+      var dt = clock.getDelta();
+
+      /* Auto-rotation — slows while dragging */
+      var autoSpeed = drag.active ? 0.01 : 0.08;
+      earth.rotation.y  += dt * autoSpeed;
+      clouds.rotation.y += dt * (autoSpeed * 1.35);
+
+      /* Apply manual drag rotation */
+      earth.rotation.y  += userRotY;
+      earth.rotation.x  += userRotX;
+      clouds.rotation.y += userRotY;
+      userRotY = 0; userRotX = 0;
+
+      /* Inertia from released drag */
+      if (!drag.active) {
+        drag.velX *= 0.88; drag.velY *= 0.88;
+        earth.rotation.y  += drag.velX * DRAG_SENSITIVITY;
+        earth.rotation.x  += drag.velY * DRAG_SENSITIVITY;
+        clouds.rotation.y += drag.velX * DRAG_SENSITIVITY;
+      }
+
+      /* Position lerp from overlay toggle */
+      var targetY    = window._hudTargetEarthY   || 0.0;
+      var targetZ    = window._hudTargetEarthZ   || 0.0;
+      var targetRotX = window._hudTargetEarthRotX || 0.0;
+      currentEarthY    += (targetY    - currentEarthY)    * 0.035;
+      currentEarthZ    += (targetZ    - currentEarthZ)    * 0.035;
+      currentEarthPosX += (targetRotX - currentEarthPosX) * 0.035;
+      earthGroup.position.y = currentEarthY;
+      earthGroup.position.z = currentEarthZ;
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+
+    /* Handle window resize */
+    window.addEventListener('resize', function() {
+      var nW = window.innerWidth, nH = window.innerHeight;
+      camera.aspect = nW / nH;
+      camera.updateProjectionMatrix();
+      renderer.setSize(nW, nH);
+    });
+
+    setTimeout(function() {
+      var ld = document.getElementById('hud-loading');
+      if (ld) ld.classList.add('hidden');
+      animate();
+    }, 500);
+  };
+
+  /* If setView('pretty') was already called before this module loaded, boot now */
+  if (window._hudBooted && !window._threeInited) {
+    window._initHUDThreeJS();
+  }
 </script>
 
 </body>

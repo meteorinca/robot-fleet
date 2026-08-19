@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -176,6 +177,11 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 var startTime = time.Now()
+
+// isValidIP returns true if the given string is a parseable IP address.
+func isValidIP(ip string) bool {
+	return ip != "" && net.ParseIP(strings.TrimSpace(ip)) != nil
+}
 
 func (s *Server) handleBots(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -489,19 +495,30 @@ func (s *Server) handleDeviceControl(w http.ResponseWriter, r *http.Request) {
 		port = 80
 	}
 
-	// Prepare list of host targets: Primary hostname/IP first, fallback_ip second
+	// Build target list. On Linux (Raspberry Pi), Go's pure-Go DNS resolver
+	// cannot resolve .local mDNS hostnames. So we prioritise the known IP and
+	// fallback_ip FIRST, then attempt the mDNS hostname as a last resort.
 	targets := []string{}
-	if bot.Hostname != "" {
-		targets = append(targets, fmt.Sprintf("%s:%d", bot.Hostname, port))
-	} else if bot.IP != "" {
+
+	// 1. Known resolved IP (fastest, always works on Pi)
+	if isValidIP(bot.IP) {
 		targets = append(targets, fmt.Sprintf("%s:%d", bot.IP, port))
 	}
-
-	if bot.FallbackIP != "" && bot.FallbackIP != bot.Hostname && bot.FallbackIP != bot.IP {
-		targets = append(targets, fmt.Sprintf("%s:%d", bot.FallbackIP, port))
+	// 2. Fallback static IP
+	if bot.FallbackIP != "" && bot.FallbackIP != bot.IP {
+		if isValidIP(bot.FallbackIP) {
+			targets = append(targets, fmt.Sprintf("%s:%d", bot.FallbackIP, port))
+		}
+	}
+	// 3. mDNS hostname — works on Windows/macOS, may fail on Pi without avahi
+	if bot.Hostname != "" {
+		targets = append(targets, fmt.Sprintf("%s:%d", bot.Hostname, port))
+	} else if bot.IP == "" && bot.FallbackIP == "" {
+		// Last resort: use raw bot name as host
+		targets = append(targets, fmt.Sprintf("%s:%d", bot.ID+".local", port))
 	}
 
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Second}
 	var lastErr error
 	var successTarget string
 
@@ -658,33 +675,50 @@ func (s *Server) findTXGatewayBot() config.RobotNode {
 }
 
 func (s *Server) dispatchToBot(bot config.RobotNode, endpoint string) error {
-	targetHost := bot.Hostname
-	if targetHost == "" {
-		targetHost = bot.IP
-	}
-	if targetHost == "" {
-		targetHost = bot.FallbackIP
-	}
-	if targetHost == "" {
-		targetHost = "rfbot6.local"
-	}
 	port := bot.Port
 	if port == 0 || port == 4330 {
 		port = 80
 	}
 
-	url := fmt.Sprintf("http://%s:%d/%s", targetHost, port, strings.TrimLeft(endpoint, "/"))
-	client := &http.Client{Timeout: 3 * time.Second}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
+	// Build ordered list of targets: IP-direct first (reliable on Pi),
+	// then mDNS hostname as fallback (works on Windows/macOS).
+	type candidate struct{ host string }
+	var candidates []candidate
+
+	if isValidIP(bot.IP) {
+		candidates = append(candidates, candidate{fmt.Sprintf("%s:%d", bot.IP, port)})
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
+	if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
+		candidates = append(candidates, candidate{fmt.Sprintf("%s:%d", bot.FallbackIP, port)})
 	}
-	_ = resp.Body.Close()
-	return nil
+	if bot.Hostname != "" {
+		candidates = append(candidates, candidate{fmt.Sprintf("%s:%d", bot.Hostname, port)})
+	}
+	if len(candidates) == 0 {
+		candidates = append(candidates, candidate{fmt.Sprintf("rfbot6.local:%d", port)})
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	var lastErr error
+	for _, c := range candidates {
+		host := c.host
+		if !strings.HasPrefix(host, "http") {
+			host = "http://" + host
+		}
+		fullURL := strings.TrimRight(host, "/") + "/" + strings.TrimLeft(endpoint, "/")
+		req, err := http.NewRequest("GET", fullURL, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		resp, err := client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			return nil // success
+		}
+		lastErr = err
+	}
+	return lastErr
 }
 
 func (s *Server) handleDirectOutlet(w http.ResponseWriter, r *http.Request) {

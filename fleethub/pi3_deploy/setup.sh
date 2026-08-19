@@ -1,11 +1,13 @@
 #!/bin/bash
 set -e
 
+VERSION="1.2.0"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 RUN_USER="$(whoami)"
 
 echo "========================================================"
 echo "   FleetHub Mothership — Raspberry Pi 3 Installer"
+echo "   Version: $VERSION"
 echo "========================================================"
 
 # Determine architecture
