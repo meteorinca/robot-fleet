@@ -10,18 +10,19 @@ echo "   FleetHub Mothership — Raspberry Pi 3 Installer"
 echo "   Version: $VERSION"
 echo "========================================================"
 
-# Determine architecture
+# Determine architecture & userland bitness
 ARCH=$(uname -m)
-echo "--> Detected System Architecture: $ARCH"
+BITNESS=$(getconf LONG_BIT 2>/dev/null || echo "32")
+echo "--> Detected System Architecture: $ARCH ($BITNESS-bit userland)"
 echo "--> Installation Directory: $SCRIPT_DIR"
 
-if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "x86_64" ]; then
+chmod +x "$SCRIPT_DIR/fleethub-pi" "$SCRIPT_DIR/fleethub-pi-32bit" 2>/dev/null || true
+
+if [ "$BITNESS" = "64" ] && [ "$ARCH" = "aarch64" ]; then
     echo "--> Using 64-bit binary (fleethub-pi)"
-    chmod +x "$SCRIPT_DIR/fleethub-pi"
     cp "$SCRIPT_DIR/fleethub-pi" "$SCRIPT_DIR/fleethub-bin"
 else
     echo "--> Using 32-bit binary (fleethub-pi-32bit)"
-    chmod +x "$SCRIPT_DIR/fleethub-pi-32bit"
     cp "$SCRIPT_DIR/fleethub-pi-32bit" "$SCRIPT_DIR/fleethub-bin"
 fi
 
