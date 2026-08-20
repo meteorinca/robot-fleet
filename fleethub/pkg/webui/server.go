@@ -79,10 +79,15 @@ func (s *Server) Handler() http.Handler {
 	// WebSocket Endpoint
 	mux.HandleFunc("/ws/traffic", s.handleWebSocket)
 
-	// Embedded Static File Server
+	// Embedded Static File Server (no-cache headers prevent stale browser disk caching on Pi)
 	if s.assets != nil {
 		fileServer := http.FileServer(http.FS(s.assets))
-		mux.Handle("/", fileServer)
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+			fileServer.ServeHTTP(w, r)
+		})
 	} else {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
