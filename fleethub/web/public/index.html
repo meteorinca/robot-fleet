@@ -85,11 +85,32 @@
     }
 
     /* ─── VIEW SWITCHING ───────────────────────── */
-    #view-list  { display: flex; min-height: 100vh; background: var(--bg-gradient); background-attachment: fixed; }
+    #view-list  { display: flex; min-height: 100vh; background: var(--bg-gradient); background-attachment: scroll; }
     #view-pretty { display: none; }
     body.pretty-mode #view-list   { display: none; }
     body.pretty-mode #view-pretty { display: block; }
     body.pretty-mode { overflow: hidden; }
+
+    /* Low-power / Pi 3 performance mode (removes GPU-heavy backdrop blur filters) */
+    body.low-power #sidebar,
+    body.low-power .dash-tile.state-off,
+    body.low-power .media-card-wide,
+    body.low-power .card,
+    body.low-power .metric-box,
+    body.low-power .bot-card,
+    body.low-power .hpill,
+    body.low-power .hclock-pill,
+    body.low-power .hglass,
+    body.low-power .ctrl-pill-btn,
+    body.low-power .hud-ctrl-btn,
+    body.low-power #hud-bottom {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    body.low-power #sidebar { background: rgba(10, 15, 30, 0.96); }
+    body.low-power .dash-tile.state-off { background: rgba(30, 20, 50, 0.85); }
+    body.low-power.edit-mode .dash-tile { animation: edit-pulse 0.6s ease-in-out infinite alternate; }
+    @keyframes edit-pulse { from { border-color: rgba(245,158,11,0.4); } to { border-color: rgba(245,158,11,0.9); } }
 
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.15); }
@@ -1267,10 +1288,18 @@
     } catch(err) { console.error('Failed to toggle outlet:', err); }
   };
 
+  var IS_LOW_POWER = (navigator.hardwareConcurrency <= 4 && (window.devicePixelRatio || 1) <= 1.25) || navigator.userAgent.includes('Arm') || navigator.userAgent.includes('Linux arm');
+  if (IS_LOW_POWER) { document.body.classList.add('low-power'); }
+
   function updateSidebarClock() {
-    if (el('clock-large')) el('clock-large').textContent = timeStr;
-    if (el('date-weekday')) el('date-weekday').textContent = weekdays[now.getDay()];
-    if (el('date-daymonth')) el('date-daymonth').textContent = `${months[now.getMonth()]} ${now.getDate()}`;
+    var now = new Date();
+    var weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    var getEl = function(id) { return document.getElementById(id); };
+    if (getEl('clock-large')) getEl('clock-large').textContent = timeStr;
+    if (getEl('date-weekday')) getEl('date-weekday').textContent = weekdays[now.getDay()];
+    if (getEl('date-daymonth')) getEl('date-daymonth').textContent = months[now.getMonth()] + ' ' + now.getDate();
   }
   setInterval(updateSidebarClock, 1000);
   updateSidebarClock();
@@ -1328,17 +1357,17 @@
       if (el('m-snoozes')) el('m-snoozes').innerText = data.active_snoozes || 0;
       if (el('hk-pin'))    el('hk-pin').innerText    = data.homekit_pin;
 
-      const botsRes = await fetch('/api/bots');
-      renderBots(await botsRes.json());
+      const [botsRes, senRes, rulesRes, btnsRes] = await Promise.all([
+        fetch('/api/bots').catch(()=>null),
+        fetch('/api/sensors').catch(()=>null),
+        fetch('/api/rules').catch(()=>null),
+        fetch('/api/buttons').catch(()=>null)
+      ]);
 
-      const senRes = await fetch('/api/sensors');
-      renderSensors(await senRes.json());
-
-      const rulesRes = await fetch('/api/rules');
-      renderRules(await rulesRes.json());
-
-      const btnsRes = await fetch('/api/buttons');
-      renderButtons(await btnsRes.json());
+      if (botsRes && botsRes.ok) renderBots(await botsRes.json());
+      if (senRes && senRes.ok) renderSensors(await senRes.json());
+      if (rulesRes && rulesRes.ok) renderRules(await rulesRes.json());
+      if (btnsRes && btnsRes.ok) renderButtons(await btnsRes.json());
 
       fetchSnoozes();
     } catch (err) { console.error('Status fetch error:', err); }
@@ -1600,7 +1629,6 @@
     ctx.beginPath(); ctx.arc(cx, cy, 35, 0, Math.PI*2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx-45, cy); ctx.lineTo(cx+45, cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, cy-45); ctx.lineTo(cx, cy+45); ctx.stroke();
-    requestAnimationFrame(function() { drawCamPlaceholder(canvas); });
   }
   if (camCanvas)    drawCamPlaceholder(camCanvas);
   if (camCanvasTab) drawCamPlaceholder(camCanvasTab);
@@ -1658,11 +1686,13 @@
 <script type="module">
   import * as THREE from 'three';
 
-  /* Build a high-definition procedural Earth texture canvas (2048x1024) */
+  const IS_LOW_POWER = (navigator.hardwareConcurrency <= 4 && (window.devicePixelRatio || 1) <= 1.25) || navigator.userAgent.includes('Arm') || navigator.userAgent.includes('Linux arm');
+
+  /* Build a high-definition procedural Earth texture canvas */
   function makeProceduralEarth(w, h) {
     var c = document.createElement('canvas');
-    c.width = w || 2048;
-    c.height = h || 1024;
+    c.width = w || (IS_LOW_POWER ? 512 : 2048);
+    c.height = h || (IS_LOW_POWER ? 256 : 1024);
     var ctx = c.getContext('2d');
 
     /* Deep Ocean Base */
@@ -1690,7 +1720,7 @@
 
     /* Coastal glow */
     ctx.strokeStyle = 'rgba(40, 180, 200, 0.4)';
-    ctx.lineWidth = 14;
+    ctx.lineWidth = IS_LOW_POWER ? 6 : 14;
     blobs.forEach(function(b) {
       ctx.beginPath();
       ctx.ellipse(b[0]*c.width, b[1]*c.height, (b[2]+0.012)*c.width, (b[3]+0.012)*c.height, b[0]*3, 0, Math.PI*2);
@@ -1711,15 +1741,16 @@
 
   function makeProceduralClouds(w, h) {
     var c = document.createElement('canvas');
-    c.width = w || 1024;
-    c.height = h || 512;
+    c.width = w || (IS_LOW_POWER ? 256 : 1024);
+    c.height = h || (IS_LOW_POWER ? 128 : 512);
     var ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    for (var i = 0; i < 60; i++) {
+    var cloudCount = IS_LOW_POWER ? 20 : 60;
+    for (var i = 0; i < cloudCount; i++) {
       var rx = Math.random() * c.width, ry = Math.random() * c.height;
       ctx.beginPath();
-      ctx.ellipse(rx, ry, 40+Math.random()*80, 16+Math.random()*28, Math.random()*Math.PI, 0, Math.PI*2);
+      ctx.ellipse(rx, ry, 20+Math.random()*40, 8+Math.random()*14, Math.random()*Math.PI, 0, Math.PI*2);
       ctx.fill();
     }
     var tex = new THREE.CanvasTexture(c);
@@ -1742,11 +1773,13 @@
     camera.position.set(0, 4.5, 10.5);
     camera.lookAt(0, -0.8, 0);
 
-    var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    var renderer = new THREE.WebGLRenderer({ antialias: !IS_LOW_POWER, powerPreference: 'high-performance' });
     renderer.setSize(W, H);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.setPixelRatio(IS_LOW_POWER ? 1.0 : Math.min(window.devicePixelRatio, 2));
+    if (!IS_LOW_POWER) {
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+    }
     container.appendChild(renderer.domElement);
 
     var earthGroup = new THREE.Group();
@@ -1755,35 +1788,38 @@
 
     var ER = 4.4;
 
-    /* Try CDN textures; fall back to procedural instantly if offline */
     var loader = new THREE.TextureLoader();
     loader.crossOrigin = 'anonymous';
     var BASE = 'https://threejs.org/examples/textures/planets/';
 
-    var earthTex   = makeProceduralEarth(512);
-    var cloudTex   = makeProceduralClouds(256);
+    var earthTex   = makeProceduralEarth();
+    var cloudTex   = makeProceduralClouds();
 
-    var earthMat = new THREE.MeshPhongMaterial({
+    var MatClass = IS_LOW_POWER ? THREE.MeshLambertMaterial : THREE.MeshPhongMaterial;
+
+    var earthMat = new MatClass({
       map: earthTex,
-      bumpScale: 0.04,
-      specular: new THREE.Color(0x333333),
-      shininess: 8
+      ...(IS_LOW_POWER ? {} : { bumpScale: 0.04, specular: new THREE.Color(0x333333), shininess: 8 })
     });
-    var earth = new THREE.Mesh(new THREE.SphereGeometry(ER, 64, 64), earthMat);
+    var earthSegments = IS_LOW_POWER ? 32 : 64;
+    var earth = new THREE.Mesh(new THREE.SphereGeometry(ER, earthSegments, earthSegments), earthMat);
     earthGroup.add(earth);
 
-    var cloudMat = new THREE.MeshPhongMaterial({
+    var cloudMat = new MatClass({
       map: cloudTex, transparent: true, opacity: 0.35,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
     });
-    var clouds = new THREE.Mesh(new THREE.SphereGeometry(ER*1.012, 48, 48), cloudMat);
+    var cloudSegments = IS_LOW_POWER ? 24 : 48;
+    var clouds = new THREE.Mesh(new THREE.SphereGeometry(ER*1.012, cloudSegments, cloudSegments), cloudMat);
     earthGroup.add(clouds);
 
-    /* Upgrade to CDN textures silently in background if online */
-    loader.load(BASE + 'earth_atmos_2048.jpg',  function(t) { earthMat.map = t; earthMat.needsUpdate = true; });
-    loader.load(BASE + 'earth_normal_2048.jpg',  function(t) { earthMat.bumpMap = t; earthMat.needsUpdate = true; });
-    loader.load(BASE + 'earth_specular_2048.jpg',function(t) { earthMat.specularMap = t; earthMat.needsUpdate = true; });
-    loader.load(BASE + 'earth_clouds_1024.png',  function(t) { cloudMat.map = t; cloudMat.needsUpdate = true; });
+    /* Upgrade to CDN textures silently in background if online and not low power */
+    if (!IS_LOW_POWER) {
+      loader.load(BASE + 'earth_atmos_2048.jpg',  function(t) { earthMat.map = t; earthMat.needsUpdate = true; });
+      loader.load(BASE + 'earth_normal_2048.jpg',  function(t) { earthMat.bumpMap = t; earthMat.needsUpdate = true; });
+      loader.load(BASE + 'earth_specular_2048.jpg',function(t) { earthMat.specularMap = t; earthMat.needsUpdate = true; });
+      loader.load(BASE + 'earth_clouds_1024.png',  function(t) { cloudMat.map = t; cloudMat.needsUpdate = true; });
+    }
 
     var sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
     sunLight.position.set(8, 6, 12);
@@ -1833,6 +1869,11 @@
     var currentEarthY = -2.8, currentEarthZ = 0.0, currentEarthPosX = 0.0;
 
     function animate() {
+      requestAnimationFrame(animate);
+
+      /* Pause rendering when 3D view is hidden to save GPU/CPU cycles */
+      if (!document.body.classList.contains('pretty-mode')) return;
+
       var dt = clock.getDelta();
 
       /* Auto-rotation — slows while dragging */
@@ -1865,7 +1906,6 @@
       earthGroup.position.z = currentEarthZ;
 
       renderer.render(scene, camera);
-      requestAnimationFrame(animate);
     }
 
     /* Handle window resize */
