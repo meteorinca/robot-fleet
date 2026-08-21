@@ -66,12 +66,14 @@
       --bg-gradient: radial-gradient(ellipse at 20% 10%, rgba(30, 20, 60, 0.9) 0%, transparent 60%), #070913;
       --sidebar-bg: rgba(10, 15, 30, 0.85);
       --sidebar-border: rgba(255, 255, 255, 0.08);
-      --tile-active-bg: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(99, 102, 241, 0.2));
-      --tile-active-text: #ffffff;
-      --tile-active-sub: #06b6d4;
-      --tile-inactive-bg: rgba(255, 255, 255, 0.04);
-      --tile-inactive-text: #e2e8f0;
+      --tile-active-bg: #ffffff;
+      --tile-active-text: #0f172a;
+      --tile-active-sub: #334155;
+      --tile-inactive-bg: rgba(255, 255, 255, 0.05);
+      --tile-inactive-hover: rgba(255, 255, 255, 0.10);
+      --tile-inactive-text: #f8fafc;
       --tile-inactive-sub: #94a3b8;
+      --tile-inactive-border: rgba(255, 255, 255, 0.12);
     }
 
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -223,15 +225,33 @@
     .dash-tile:active { transform: translateY(0) scale(0.98); }
 
     .dash-tile.state-on {
-      background: var(--tile-active-bg); color: var(--tile-active-text);
-      box-shadow: var(--tile-active-shadow); border: 1px solid rgba(255,255,255,0.9);
+      background: #ffffff !important;
+      color: #0f172a !important;
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35), 0 10px 25px rgba(0, 0, 0, 0.25) !important;
+      border: 1px solid rgba(255,255,255,0.95) !important;
     }
-    .dash-tile.state-on .tile-title { color: #0f172a; font-weight: 700; }
-    .dash-tile.state-on .tile-sub   { color: #475569; font-weight: 600; }
-    .dash-tile.state-on .tile-icon-badge { background: #f1f5f9; color: #0f172a; fill: #0f172a; stroke: #0f172a; }
-    .dash-tile.state-on .tile-icon-badge.accent-amber { background: #fef3c7; color: #d97706; fill: #d97706; stroke: #d97706; }
-    .dash-tile.state-on .tile-icon-badge.accent-cyan  { background: #e0f2fe; color: #0284c7; fill: #0284c7; stroke: #0284c7; }
-    .dash-tile.state-on .tile-icon-badge.accent-green { background: #dcfce7; color: #15803d; fill: #15803d; stroke: #15803d; }
+    .dash-tile.state-on .tile-title { color: #0f172a !important; font-weight: 800 !important; text-shadow: none !important; }
+    .dash-tile.state-on .tile-sub   { color: #334155 !important; font-weight: 600 !important; }
+    .dash-tile.state-on .tile-icon-badge { background: #f1f5f9 !important; color: #0f172a !important; fill: #0f172a !important; stroke: #0f172a !important; }
+    .dash-tile.state-on .tile-icon-badge.accent-amber  { background: #fef3c7 !important; color: #d97706 !important; fill: #d97706 !important; stroke: #d97706 !important; }
+    .dash-tile.state-on .tile-icon-badge.accent-cyan   { background: #e0f2fe !important; color: #0284c7 !important; fill: #0284c7 !important; stroke: #0284c7 !important; }
+    .dash-tile.state-on .tile-icon-badge.accent-green  { background: #dcfce7 !important; color: #15803d !important; fill: #15803d !important; stroke: #15803d !important; }
+    .dash-tile.state-on .tile-icon-badge.accent-purple { background: #f3e8ff !important; color: #7e22ce !important; fill: #7e22ce !important; stroke: #7e22ce !important; }
+
+    body.theme-dark .dash-tile.state-on {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.45), 0 8px 30px rgba(0, 0, 0, 0.5) !important;
+      border: 1px solid rgba(255,255,255,0.95) !important;
+    }
+    body.theme-dark .dash-tile.state-on .tile-title {
+      color: #0f172a !important;
+      font-weight: 800 !important;
+    }
+    body.theme-dark .dash-tile.state-on .tile-sub {
+      color: #334155 !important;
+      font-weight: 600 !important;
+    }
 
     .dash-tile.state-off {
       background: var(--tile-inactive-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -241,6 +261,39 @@
     .dash-tile.state-off .tile-title { color: #fff; font-weight: 600; }
     .dash-tile.state-off .tile-sub   { color: var(--tile-inactive-sub); font-weight: 500; }
     .dash-tile.state-off .tile-icon-badge { background: rgba(255, 255, 255, 0.14); color: #fff; fill: #fff; stroke: #fff; }
+
+    /* Sub-action micro buttons on tiles */
+    .tile-sub-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin-top: 3px;
+    }
+    .btn-micro {
+      padding: 2px 7px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.24);
+      color: #fff;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.15s;
+    }
+    .btn-micro:hover {
+      background: rgba(6, 186, 212, 0.4);
+      border-color: var(--accent-cyan);
+      transform: scale(1.06);
+    }
+    .dash-tile.state-on .btn-micro {
+      background: rgba(15, 23, 42, 0.08) !important;
+      border-color: rgba(15, 23, 42, 0.2) !important;
+      color: #0f172a !important;
+    }
+    .dash-tile.state-on .btn-micro:hover {
+      background: rgba(15, 23, 42, 0.18) !important;
+    }
 
     /* Info (i) Button on Tiles — Perfect Circle Guaranteed */
     .tile-info-btn {
@@ -259,7 +312,7 @@
       cursor: pointer; position: absolute; top: 8px; right: 8px; transition: all 0.2s; z-index: 10;
     }
     .dash-tile.state-on .tile-info-btn {
-      background: #e2e8f0; border-color: #cbd5e1; color: #475569;
+      background: #e2e8f0 !important; border-color: #cbd5e1 !important; color: #334155 !important;
     }
     .tile-info-btn:hover { transform: scale(1.15); background: rgba(255,255,255,0.45); }
 
@@ -298,6 +351,45 @@
 
     .person-tile { background: #fff; color: #0f172a; border-radius: 16px; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 0.75rem; box-shadow: 0 8px 25px rgba(0,0,0,0.2); }
     .person-avatar { width: 42px; height: 42px; border-radius: 50%; background: #38bdf8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800; font-size: 1rem; color: #fff; }
+
+    /* Vehicle Fleet & Garage Cards */
+    .vehicles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.1rem; }
+    .vehicle-card {
+      background: rgba(15, 23, 42, 0.65); border: 1px solid var(--panel-border);
+      border-radius: 20px; padding: 1.25rem 1.4rem; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      display: flex; flex-direction: column; gap: 0.9rem; transition: all 0.25s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      position: relative; overflow: hidden;
+    }
+    .vehicle-card:hover { border-color: rgba(255, 255, 255, 0.28); transform: translateY(-2px); }
+    .vehicle-card.tesla-card { background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%); border-top: 3px solid #ffffff; }
+    .vehicle-card.taycan-card { background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%); border-top: 3px solid #38bdf8; }
+    .vehicle-card.rivian-card { background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%); border-top: 3px solid #10b981; }
+
+    .vehicle-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .vehicle-title-wrap { display: flex; align-items: center; gap: 0.75rem; }
+    .vehicle-badge-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.16); flex-shrink: 0; }
+    .vehicle-name { font-size: 1.05rem; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+    .vehicle-sub { font-size: 0.74rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    
+    .battery-pill { display: flex; align-items: center; gap: 0.4rem; padding: 0.32rem 0.75rem; border-radius: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.4); }
+    .battery-pill.charging { animation: list-pulse 2s infinite; background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); border-color: rgba(6, 182, 212, 0.5); }
+
+    .vehicle-metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
+    .veh-metric-item { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 0.5rem 0.65rem; display: flex; flex-direction: column; gap: 1px; }
+    .veh-metric-label { font-size: 0.66rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; }
+    .veh-metric-val { font-size: 0.88rem; font-weight: 700; color: #fff; font-family: 'JetBrains Mono', monospace; }
+
+    .vehicle-actions-bar { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .veh-action-btn { padding: 0.38rem 0.75rem; font-size: 0.74rem; font-weight: 600; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.18s; }
+    .veh-action-btn:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); transform: scale(1.03); }
+    .veh-action-btn.active { background: rgba(6, 182, 212, 0.25); border-color: var(--accent-cyan); color: var(--accent-cyan); box-shadow: 0 0 10px rgba(6, 182, 212, 0.3); }
+
+    .veh-maint-panel { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.6rem 0.8rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .veh-maint-header { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; display: flex; justify-content: space-between; }
+    .veh-maint-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; }
+    .veh-maint-col { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1px; }
+    .veh-maint-col span:first-child { font-size: 0.64rem; color: var(--text-muted); text-transform: uppercase; }
+    .veh-maint-col span:last-child { font-size: 0.78rem; font-weight: 700; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; }
 
     .card {
       background: rgba(20, 10, 40, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -393,7 +485,7 @@
     #hud-left .hp { flex: 0 1 auto; max-height: 44vh; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; }
     #hud-left .hb { padding: 6px 10px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 
-    #hud-top { position: fixed; top: 10px; left: calc(24vw + 20px); right: calc(24vw + 20px); z-index: 6; height: 17.5vh; min-height: 145px; display: flex; gap: 8px; align-items: stretch; pointer-events: auto; }
+    #hud-top { position: fixed; top: 48px; left: calc(24vw + 20px); right: calc(24vw + 20px); z-index: 6; height: 16vh; min-height: 135px; display: flex; gap: 8px; align-items: stretch; pointer-events: auto; }
     .htop-mon { flex: 1; min-width: 0; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; }
     .htop-mon .hbody { flex: 1; min-height: 0; padding: 6px 10px 8px; overflow: hidden; display: flex; flex-direction: column; }
 
@@ -419,16 +511,75 @@
     #hud-wallpaper-container.wallpaper-hidden { transform: translateY(-50px) scale(1.06); opacity: 0; pointer-events: none; }
     #hud-wallpaper-img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; user-select: none; }
 
-    .hud-controls-group { position: fixed; top: 12px; right: calc(24vw + 24px); z-index: 9; display: flex; align-items: center; gap: 8px; }
-    .hud-ctrl-btn { height: 32px; padding: 0 14px; background: var(--hglass); border: 1px solid var(--hgb); border-radius: 16px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; color: var(--htext); backdrop-filter: blur(16px); font-family: var(--hui); letter-spacing: 1.2px; text-transform: uppercase; transition: all .2s; }
-    .hud-ctrl-btn:hover { color: var(--hc); border-color: var(--hc); box-shadow: 0 0 16px rgba(0,212,255,0.4); }
-    .hud-ctrl-btn.active { color: var(--hgreen); border-color: var(--hgreen); background: rgba(0,255,136,0.16); box-shadow: 0 0 14px rgba(0,255,136,0.3); }
+    /* Minimalist Top Control Dock (Non-overlapping & Stable) */
+    .hud-controls-group { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 8px; }
+    .hud-ctrl-btn { width: 34px; height: 34px; border-radius: 17px; background: rgba(3, 11, 26, 0.85); border: 1px solid var(--hgb); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--htext); backdrop-filter: blur(16px); transition: all .2s; }
+    .hud-ctrl-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .hud-ctrl-btn:hover { color: var(--hc); border-color: var(--hc); box-shadow: 0 0 14px rgba(0,212,255,0.4); transform: translateY(-1px); }
+    .hud-ctrl-btn.active { color: var(--hgreen); border-color: var(--hgreen); background: rgba(0,255,136,0.18); box-shadow: 0 0 12px rgba(0,255,136,0.35); }
 
-    body.hud-hidden #hud-left, body.hud-hidden #hud-top, body.hud-hidden #hud-right, body.hud-hidden #hud-bottom, body.hud-hidden .hud-reticle, body.hud-hidden .hud-scanlines, body.hud-hidden .hud-vignette, body.hud-hidden .hud-controls-group { opacity: 0 !important; pointer-events: none !important; transform: scale(0.97); }
-    #hud-left, #hud-top, #hud-right, #hud-bottom, .hud-reticle, .hud-scanlines, .hud-vignette, .hud-controls-group { transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); transform: scale(1); }
-    #hud-restore-btn { position: fixed; top: 14px; right: 20px; z-index: 100; display: none; height: 34px; padding: 0 16px; background: rgba(3,11,26,0.9); border: 1px solid var(--hc); border-radius: 17px; color: var(--hc); font-size: 11px; font-weight: 700; font-family: var(--hui); letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; backdrop-filter: blur(16px); box-shadow: 0 0 18px rgba(0,212,255,0.4); }
-    #hud-restore-btn:hover { background: var(--hc); color: #000; box-shadow: 0 0 24px rgba(0,212,255,0.7); }
-    body.hud-hidden #hud-restore-btn { display: flex; align-items: center; justify-content: center; }
+    body.hud-hidden #hud-left, body.hud-hidden #hud-top, body.hud-hidden #hud-right, body.hud-hidden #hud-bottom, body.hud-hidden .hud-reticle, body.hud-hidden .hud-scanlines, body.hud-hidden .hud-vignette { opacity: 0 !important; pointer-events: none !important; transform: scale(0.97); }
+    #hud-left, #hud-top, #hud-right, #hud-bottom, .hud-reticle, .hud-scanlines, .hud-vignette { transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); transform: scale(1); }
+
+    /* Lateral Floating UI Zoom Widget */
+    .side-zoom-dock { position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 4px; background: rgba(3, 11, 26, 0.88); border: 1px solid rgba(0, 212, 255, 0.28); border-radius: 20px; padding: 6px 4px; backdrop-filter: blur(16px); box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 16px rgba(0,212,255,0.15); user-select: none; }
+    .side-zoom-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; font-weight: 700; line-height: 1; transition: all 0.2s ease; }
+    .side-zoom-btn:hover { background: rgba(0, 212, 255, 0.25); border-color: #00d4ff; color: #00d4ff; box-shadow: 0 0 10px rgba(0, 212, 255, 0.4); transform: scale(1.08); }
+    .side-zoom-btn:active { transform: scale(0.92); }
+    .side-zoom-val { font-family: var(--hmono, 'JetBrains Mono', monospace); font-size: 8.5px; font-weight: 700; color: rgba(255,255,255,0.85); padding: 2px; text-align: center; cursor: pointer; }
+    .side-zoom-val:hover { color: #00d4ff; }
+
+    /* 3D HUD Panels Header & Layout Elements */
+    .hph { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 3px; border-bottom: 1px solid rgba(0,200,255,0.14); flex-shrink: 0; }
+    .hph-title { font-size: 10px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; color: var(--hc); display: flex; align-items: center; gap: 6px; }
+    .hph-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hc); box-shadow: 0 0 7px var(--hc); animation: hblink 2.4s ease-in-out infinite; flex-shrink: 0; }
+    .hph-tag { font-size: 8.5px; font-family: var(--hmono); color: var(--hdim); letter-spacing: 1px; font-weight: 600; }
+    .hglass { background: var(--hglass); backdrop-filter: blur(20px); border: 1px solid var(--hgb); border-radius: 10px; box-shadow: 0 6px 30px rgba(0,0,0,0.8); position: relative; }
+    .hglass::before { content: ''; position: absolute; top: 0; left: 0; width: 12px; height: 12px; border-top: 1px solid rgba(0,212,255,0.4); border-left: 1px solid rgba(0,212,255,0.4); border-radius: 10px 0 0 0; pointer-events: none; z-index: 1; }
+
+    /* HUD Node Ping Grid */
+    .hnode-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; flex: 1; min-height: 0; align-items: center; }
+    .hnode-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: rgba(0,170,255,0.05); border: 1px solid rgba(0,170,255,0.15); border-radius: 6px; padding: 3px 2px; }
+    .hnc-name { font-size: 8.5px; color: var(--hdim); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+    .hnc-rssi { font-size: 12px; font-family: var(--hmono); font-weight: 800; }
+    .hnc-ip   { font-size: 8px; font-family: var(--hmono); color: var(--hdim); font-weight: 600; }
+    .hnc-ok   { color: var(--hgreen); text-shadow: 0 0 6px rgba(0,255,136,0.4); }
+    .hnc-warn { color: var(--horange); }
+    .hnc-off  { color: rgba(255,68,90,0.85); }
+
+    /* HUD Camera Feed */
+    .hcam-wrap { position: relative; flex-shrink: 0; width: 100%; }
+    canvas.hcam { width: 100%; display: block; border-radius: 6px; border: 1px solid rgba(0,200,255,0.25); }
+    .hcam-rec { position: absolute; top: 4px; left: 6px; background: rgba(220,30,30,0.9); color: #fff; font-size: 7.5px; font-weight: 800; letter-spacing: 1.2px; padding: 1px 5px; border-radius: 3px; animation: hblink 1.4s infinite; }
+    .hcam-ts  { position: absolute; bottom: 4px; left: 6px; font-size: 8px; font-family: var(--hmono); color: rgba(0,255,160,0.95); font-weight: 700; }
+    .hcam-name { position: absolute; bottom: 4px; right: 6px; font-size: 8px; color: rgba(0,200,255,0.95); letter-spacing: 1px; text-transform: uppercase; font-weight: 800; }
+    .hcam-sw  { display: flex; gap: 3px; flex-shrink: 0; margin-top: 2px; }
+    .hcam-btn { flex: 1; padding: 3px 2px; background: rgba(0,180,255,0.06); border: 1px solid rgba(0,180,255,0.16); border-radius: 5px; font-size: 8.5px; color: var(--hdim); text-align: center; cursor: pointer; transition: all .2s; text-transform: uppercase; letter-spacing: .8px; font-weight: 700; }
+    .hcam-btn:hover, .hcam-btn.active { background: rgba(0,212,255,0.25); border-color: var(--hc); color: var(--hc); box-shadow: 0 0 8px rgba(0,212,255,0.3); }
+
+    /* HUD Relay Switches & Automations */
+    .hrelay-list, .hauto-list { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; }
+    .hrelay-item { display: flex; align-items: center; justify-content: space-between; background: rgba(0,170,255,0.05); border: 1px solid rgba(0,170,255,0.12); border-radius: 6px; padding: 4px 7px; cursor: pointer; transition: all .2s; }
+    .hrelay-item:hover { background: rgba(0,180,255,0.15); }
+    .hrelay-item.on { background: rgba(0,210,255,0.12); border-color: rgba(0,210,255,0.4); box-shadow: inset 0 0 10px rgba(0,180,255,0.15); }
+    .hrelay-name { font-size: 10.5px; font-weight: 700; color: #fff; }
+    .hrelay-id   { font-size: 8px; font-family: var(--hmono); color: var(--hdim); font-weight: 600; }
+    .hrelay-tog  { width: 30px; height: 15px; background: rgba(0,0,0,0.45); border-radius: 8px; position: relative; flex-shrink: 0; transition: background .3s; border: 1px solid rgba(0,180,255,0.25); }
+    .hrelay-tog::after { content: ''; position: absolute; top: 1px; left: 1px; width: 11px; height: 11px; border-radius: 50%; background: rgba(140,190,255,0.45); transition: all .3s; }
+    .hrelay-item.on .hrelay-tog { background: rgba(0,210,255,0.35); border-color: var(--hc); }
+    .hrelay-item.on .hrelay-tog::after { left: 16px; background: var(--hc); box-shadow: 0 0 8px var(--hc); }
+
+    /* HUD Environmental Grid & Climate Dials */
+    .henv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; flex-shrink: 0; }
+    .hsi { display: flex; flex-direction: column; gap: 1px; background: rgba(0,170,255,0.04); border: 1px solid rgba(0,170,255,0.1); border-radius: 5px; padding: 3px 5px; }
+    .hsi-label { font-size: 7.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--hdim); }
+    .hsi-val   { font-size: 13px; font-weight: 800; font-family: var(--hmono); color: #fff; }
+    .hdial-row { display: flex; gap: 3px; flex-shrink: 0; margin-top: 2px; }
+    .hdial { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; background: rgba(0,170,255,0.04); border: 1px solid rgba(0,170,255,0.1); border-radius: 6px; padding: 3px 2px; gap: 1px; }
+    .hdial-lbl { font-size: 7.5px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--hdim); font-weight: 700; }
+    .hdial-val { font-size: 13px; font-family: var(--hmono); color: #fff; font-weight: 800; }
+    .hdial-bar { width: 100%; height: 3px; background: rgba(0,170,255,0.12); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+    .hdial-fill { height: 100%; background: linear-gradient(to right, var(--hc), var(--hgreen)); border-radius: 2px; transition: width 1s ease; }
 
     #hud-loading { position: fixed; inset: 0; z-index: 100; background: #020810; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; transition: opacity 1.2s ease; }
     #hud-loading.hidden { opacity: 0; pointer-events: none; }
@@ -692,100 +843,348 @@
         </div>
       </section>
 
-      <!-- 433 MHz RF OUTLETS INTEGRATED AS FIRST-CLASS APPLE TILES (NO RAW CODE NUMBERS ON FACE) -->
+      <!-- 433 MHz RF RELAYS & NODES (NO RAW CODE NUMBERS ON FACE) -->
       <section class="dashboard-section">
-        <div class="section-title">433 MHz RF Outlets (RFBot 6 TX)</div>
+        <div class="section-title">433 MHz RF Relays (RFBot 6 TX)</div>
         <div class="tiles-grid" id="grid-outlets">
 
-          <!-- Alpha Outlet -->
+          <!-- Alpha Unit -->
           <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Alpha', 5576451, 5576460, this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-green">
               <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
             </div>
             <div class="tile-info">
-              <div class="tile-title">Alpha Outlet</div>
+              <div class="tile-title">Alpha Unit</div>
               <div class="tile-sub">Off</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Alpha Outlet', 'Target: RFBot 6 Gateway\nProtocol: 1 (24-bit, 185µs pulse)\nFrequency: 433.92 MHz\nON Code: 5576451\nOFF Code: 5576460')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Alpha Unit', 'Target: RFBot 6 Gateway\nProtocol: 1 (24-bit, 185µs pulse)\nFrequency: 433.92 MHz\nON Code: 5576451\nOFF Code: 5576460')"><i>i</i></button>
           </div>
 
-          <!-- Bravo Outlet -->
+          <!-- Bravo Unit -->
           <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Bravo', 5584131, 5584140, this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-green">
               <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
             </div>
             <div class="tile-info">
-              <div class="tile-title">Bravo Outlet</div>
+              <div class="tile-title">Bravo Unit</div>
               <div class="tile-sub">Off</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Bravo Outlet', 'Target: RFBot 6 Gateway\nON Code: 5584131\nOFF Code: 5584140')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Bravo Unit', 'Target: RFBot 6 Gateway\nON Code: 5584131\nOFF Code: 5584140')"><i>i</i></button>
           </div>
 
-          <!-- Charlie Outlet -->
+          <!-- Charlie Unit -->
           <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Charlie', 5576131, 5576140, this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-green">
               <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
             </div>
             <div class="tile-info">
-              <div class="tile-title">Charlie Outlet</div>
+              <div class="tile-title">Charlie Unit</div>
               <div class="tile-sub">Off</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Charlie Outlet', 'Target: RFBot 6 Gateway\nON Code: 5576131\nOFF Code: 5576140')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Charlie Unit', 'Target: RFBot 6 Gateway\nON Code: 5576131\nOFF Code: 5576140')"><i>i</i></button>
           </div>
 
-          <!-- Delta Outlet -->
+          <!-- Delta Unit -->
           <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Delta', 5577987, 5577996, this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-green">
               <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
             </div>
             <div class="tile-info">
-              <div class="tile-title">Delta Outlet</div>
+              <div class="tile-title">Delta Unit</div>
               <div class="tile-sub">Off</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Delta Outlet', 'Target: RFBot 6 Gateway\nON Code: 5577987\nOFF Code: 5577996')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Delta Unit', 'Target: RFBot 6 Gateway\nON Code: 5577987\nOFF Code: 5577996')"><i>i</i></button>
           </div>
 
-          <!-- Echo Outlet -->
+          <!-- Echo Unit -->
           <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Echo', 5575987, 5575996, this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-green">
               <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
             </div>
             <div class="tile-info">
-              <div class="tile-title">Echo Outlet</div>
+              <div class="tile-title">Echo Unit</div>
               <div class="tile-sub">Off</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Echo Outlet', 'Target: RFBot 6 Gateway\nON Code: 5575987\nOFF Code: 5575996')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Echo Unit', 'Target: RFBot 6 Gateway\nON Code: 5575987\nOFF Code: 5575996')"><i>i</i></button>
           </div>
 
-          <!-- Foxtrot Outlet -->
+          <!-- Foxtrot Unit -->
           <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Foxtrot', 1381827, 1381836, this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-green">
               <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
             </div>
             <div class="tile-info">
-              <div class="tile-title">Foxtrot Outlet</div>
+              <div class="tile-title">Foxtrot Unit</div>
               <div class="tile-sub">Off</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Foxtrot Outlet', 'Target: RFBot 6 Gateway\nON Code: 1381827\nOFF Code: 1381836')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Foxtrot Unit', 'Target: RFBot 6 Gateway\nON Code: 1381827\nOFF Code: 1381836')"><i>i</i></button>
           </div>
 
-          <!-- Golf Outlet -->
+          <!-- Golf Unit -->
           <div class="dash-tile state-off" onclick="toggleOutletTile('rfbot6', 'Golf', 1382147, 1382156, this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-green">
               <svg class="tile-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="15" y1="12" x2="15" y2="12.01"/></svg>
             </div>
             <div class="tile-info">
-              <div class="tile-title">Golf Outlet</div>
+              <div class="tile-title">Golf Unit</div>
               <div class="tile-sub">Off</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Golf Outlet', 'Target: RFBot 6 Gateway\nON Code: 1382147\nOFF Code: 1382156')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Golf Unit', 'Target: RFBot 6 Gateway\nON Code: 1382147\nOFF Code: 1382156')"><i>i</i></button>
+          </div>
+
+          <!-- Test Button: RF 123456 (SpeakerBot Audio Alert) -->
+          <div class="dash-tile state-off" id="tile-test-choola" onclick="sendTestChoolaRF(this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-purple">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Test RF Signal (123456)</div>
+              <div class="tile-sub">Send 123456 RF</div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Test RF 123456', 'Transmits 433 MHz RF Code 123456 via RFBot 6 Gateway.\nTriggers Rule #1 to play audio alert (/choola) on SpeakerBot 1.\nProtocol: 1 (24-bit, 185µs pulse)')"><i>i</i></button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Light Switches & Actuators (SimpleBot 1 Gateway) -->
+      <section class="dashboard-section">
+        <div class="section-title">Light Switches &amp; Actuators</div>
+        <div class="tiles-grid" id="grid-switches">
+
+          <!-- Kitchen Switch (SimpleBot Servo 1) -->
+          <div class="dash-tile state-off" onclick="toggleSimpleBotTile('simplebot1', 'Kitchen', '/s1on', '/s1off', this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-cyan">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Kitchen</div>
+              <div class="tile-sub">Off</div>
+              <div class="tile-sub-actions" onclick="event.stopPropagation()">
+                <button class="btn-micro" onclick="triggerSimpleBotDirect('simplebot1', '/s1on', this.closest('.dash-tile'), true, event)">ON</button>
+                <button class="btn-micro" onclick="triggerSimpleBotDirect('simplebot1', '/s1off', this.closest('.dash-tile'), false, event)">OFF</button>
+              </div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Kitchen Switch', 'Target: simplebot1.local (10.0.0.28:80)\nPlatform: simplebot\nON Endpoint: /s1on\nOFF Endpoint: /s1off\nRole: Kitchen Light Switch 1')"><i>i</i></button>
+          </div>
+
+          <!-- Hallway Switch (SimpleBot Servo 2) -->
+          <div class="dash-tile state-off" onclick="toggleSimpleBotTile('simplebot1', 'Hallway', '/s2on', '/s2off', this)">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-amber">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">Hallway</div>
+              <div class="tile-sub">Off</div>
+              <div class="tile-sub-actions" onclick="event.stopPropagation()">
+                <button class="btn-micro" onclick="triggerSimpleBotDirect('simplebot1', '/s2on', this.closest('.dash-tile'), true, event)">ON</button>
+                <button class="btn-micro" onclick="triggerSimpleBotDirect('simplebot1', '/s2off', this.closest('.dash-tile'), false, event)">OFF</button>
+              </div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Hallway Switch', 'Target: simplebot1.local (10.0.0.28:80)\nPlatform: simplebot\nON Endpoint: /s2on\nOFF Endpoint: /s2off\nRole: Hallway Light Switch 2')"><i>i</i></button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Garage & Connected Vehicle Fleet -->
+      <section class="dashboard-section">
+        <div class="section-title">Garage &amp; Connected Vehicle Fleet</div>
+        <div class="vehicles-grid">
+
+          <!-- Tesla Model Y Performance (Pearl White Multi-Coat) -->
+          <div class="vehicle-card tesla-card">
+            <div class="vehicle-header">
+              <div class="vehicle-title-wrap">
+                <div class="vehicle-badge-icon" style="background:#ffffff; color:#0f172a; box-shadow:0 0 14px rgba(255,255,255,0.4);">
+                  <svg style="width:24px;height:24px;fill:#0f172a;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c2.5 0 4.7 1 6.3 2.6L12 9.5 5.7 7.6C7.3 6 9.5 5 12 5zm0 14c-3.87 0-7-3.13-7-7 0-.77.13-1.51.36-2.2l6.64 2 6.64-2c.23.69.36 1.43.36 2.2 0 3.87-3.13 7-7 7z"/></svg>
+                </div>
+                <div>
+                  <div class="vehicle-name">Tesla Model Y Performance</div>
+                  <div class="vehicle-sub" style="color:rgba(255,255,255,0.85); font-weight:600;">Pearl White Multi-Coat &bull; Dual Motor AWD</div>
+                </div>
+              </div>
+              <div class="battery-pill charging">
+                <svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>84% &bull; 282 mi</span>
+              </div>
+            </div>
+
+            <div class="vehicle-metrics-row">
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Charge Rate</span>
+                <span class="veh-metric-val" style="color:var(--accent-cyan);">48A · 11.5 kW</span>
+                <span style="font-size:0.68rem;color:var(--accent-green);font-family:'JetBrains Mono',monospace;">+38 mi/hr &bull; 240V</span>
+              </div>
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Charge Limit</span>
+                <span class="veh-metric-val">90% Target</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">~24 mins left</span>
+              </div>
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Climate</span>
+                <span class="veh-metric-val" style="color:var(--accent-green);">21°C Active</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">Preconditioned</span>
+              </div>
+            </div>
+
+            <div class="vehicle-actions-bar">
+              <button class="veh-action-btn active" onclick="toggleVehicleAction(this, 'Tesla Doors Locked')">🔒 Doors Locked</button>
+              <button class="veh-action-btn active" onclick="toggleVehicleAction(this, 'Tesla Climate 21°C')">❄️ Climate 21°C</button>
+              <button class="veh-action-btn active" onclick="toggleVehicleAction(this, 'Tesla Sentry Mode')">🛡️ Sentry Active</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Tesla Front Trunk')">📦 Frunk</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Tesla Rear Trunk')">🚗 Trunk</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Tesla Defrost Max')">♨️ Defrost</button>
+            </div>
+
+            <!-- Maintenance & Health Monitor -->
+            <div class="veh-maint-panel">
+              <div class="veh-maint-header">
+                <span>Fleet Maintenance &amp; Telemetry</span>
+                <span style="color:var(--accent-green);">14,820 mi &bull; All Systems Optimal</span>
+              </div>
+              <div class="veh-maint-grid">
+                <div class="veh-maint-col">
+                  <span>Front Left</span>
+                  <span>42 PSI</span>
+                </div>
+                <div class="veh-maint-col">
+                  <span>Front Right</span>
+                  <span>42 PSI</span>
+                </div>
+                <div class="veh-maint-col">
+                  <span>Rear Left</span>
+                  <span>42 PSI</span>
+                </div>
+                <div class="veh-maint-col">
+                  <span>Rear Right</span>
+                  <span>42 PSI</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.06);">
+                <span>HEPA Filter: <strong style="color:#fff;">94% Life</strong></span>
+                <span>Brake Fluid: <strong style="color:var(--accent-green);">100% OK</strong></span>
+                <span>12V Li-ion: <strong style="color:var(--accent-green);">Healthy</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Porsche Taycan 4S (Frozen Blue Metallic) -->
+          <div class="vehicle-card taycan-card">
+            <div class="vehicle-header">
+              <div class="vehicle-title-wrap">
+                <div class="vehicle-badge-icon" style="background:#0284c7; color:#fff;">
+                  <svg style="width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>
+                </div>
+                <div>
+                  <div class="vehicle-name">Porsche Taycan 4S</div>
+                  <div class="vehicle-sub">Frozen Blue Metallic &bull; Performance Plus</div>
+                </div>
+              </div>
+              <div class="battery-pill">
+                <svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>91% &bull; 265 mi</span>
+              </div>
+            </div>
+
+            <div class="vehicle-metrics-row">
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Status</span>
+                <span class="veh-metric-val" style="color:var(--accent-green);">Standby</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">Wallbox Connected</span>
+              </div>
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Power</span>
+                <span class="veh-metric-val">522 HP</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">Launch Control Ready</span>
+              </div>
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Cabin Temp</span>
+                <span class="veh-metric-val">19.5°C</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">Pre-cool Scheduled</span>
+              </div>
+            </div>
+
+            <div class="vehicle-actions-bar">
+              <button class="veh-action-btn active" onclick="toggleVehicleAction(this, 'Porsche Doors Locked')">🔒 Locked</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Porsche Pre-Heat')">♨️ Pre-Heat</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Porsche Charge Port')">⚡ Port Open</button>
+              <button class="veh-action-btn active" onclick="toggleVehicleAction(this, 'Porsche Sport Plus')">🏁 Sport Plus</button>
+            </div>
+
+            <div class="veh-maint-panel">
+              <div class="veh-maint-header">
+                <span>Porsche Diagnostics</span>
+                <span style="color:var(--accent-green);">9,410 mi &bull; TPMS: 38 PSI (Normal)</span>
+              </div>
+              <div style="font-size:0.72rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+                High-Voltage 93.4 kWh Pack: <strong style="color:var(--accent-green);">99.2% Health Optimal</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rivian R1T Quad-Motor (Forest Green) -->
+          <div class="vehicle-card rivian-card">
+            <div class="vehicle-header">
+              <div class="vehicle-title-wrap">
+                <div class="vehicle-badge-icon" style="background:#15803d; color:#fff;">
+                  <svg style="width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;" viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                </div>
+                <div>
+                  <div class="vehicle-name">Rivian R1T Adventure</div>
+                  <div class="vehicle-sub">Forest Green &bull; Quad-Motor AWD</div>
+                </div>
+              </div>
+              <div class="battery-pill">
+                <svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>72% &bull; 230 mi</span>
+              </div>
+            </div>
+
+            <div class="vehicle-metrics-row">
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Suspension</span>
+                <span class="veh-metric-val">11.5" Normal</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">All-Purpose Mode</span>
+              </div>
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Gear Guard</span>
+                <span class="veh-metric-val" style="color:var(--accent-green);">Active</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">5 Cameras Live</span>
+              </div>
+              <div class="veh-metric-item">
+                <span class="veh-metric-label">Air Compressor</span>
+                <span class="veh-metric-val" style="color:var(--accent-cyan);">Ready</span>
+                <span style="font-size:0.68rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">150 PSI Max</span>
+              </div>
+            </div>
+
+            <div class="vehicle-actions-bar">
+              <button class="veh-action-btn active" onclick="toggleVehicleAction(this, 'Rivian Gear Guard')">🛡️ Gear Guard</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Rivian Gear Tunnel')">🚪 Gear Tunnel</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Rivian Powered Tailgate')">🚙 Tailgate</button>
+              <button class="veh-action-btn" onclick="toggleVehicleAction(this, 'Rivian Off-Road Air')">💨 Air Level</button>
+            </div>
+
+            <div class="veh-maint-panel">
+              <div class="veh-maint-header">
+                <span>Rivian Telemetry</span>
+                <span style="color:var(--accent-green);">18,250 mi &bull; TPMS: 48 PSI (Normal)</span>
+              </div>
+              <div style="font-size:0.72rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+                Large 135 kWh Pack &bull; Quad-Motor Inverters: <strong style="color:var(--accent-green);">Nominal</strong>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -831,18 +1230,6 @@
             <button class="tile-info-btn" onclick="showTileInfo(event, 'Closet', 'Closet Door Motion Sensor Light\nState: Off')"><i>i</i></button>
           </div>
 
-          <div class="dash-tile state-off" onclick="toggleTileState(this)">
-            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
-            <div class="tile-icon-badge">
-              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
-            </div>
-            <div class="tile-info">
-              <div class="tile-title">Hallway</div>
-              <div class="tile-sub">Off</div>
-            </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Hallway', 'Hallway Light Dimmer\nState: Off')"><i>i</i></button>
-          </div>
-
           <div class="dash-tile state-on" onclick="toggleTileState(this)">
             <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
             <div class="tile-icon-badge accent-amber">
@@ -876,7 +1263,7 @@
               <div class="tile-title">Playstation</div>
               <div class="tile-sub">On</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Playstation', 'Console Power Outlet Relay\nState: Power On')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Playstation', 'Console Power Relay\nState: Power On')"><i>i</i></button>
           </div>
 
           <div class="dash-tile state-on" onclick="toggleTileState(this)">
@@ -888,7 +1275,7 @@
               <div class="tile-title">Tv²</div>
               <div class="tile-sub">On</div>
             </div>
-            <button class="tile-info-btn" onclick="showTileInfo(event, 'Tv²', 'Bedroom TV Outlet\nState: Power On')"><i>i</i></button>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'Tv²', 'Bedroom TV Relay\nState: Power On')"><i>i</i></button>
           </div>
         </div>
       </section>
@@ -898,18 +1285,26 @@
         <div class="section-title">Home Presence</div>
         <div class="tiles-grid" id="grid-hemma">
           <div class="person-tile">
-            <div class="person-avatar" style="background:#06b6d4;">M</div>
+            <div class="person-avatar" style="background:#ec4899;">A</div>
             <div class="tile-info">
-              <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Matte</div>
-              <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Home</div>
+              <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Anna</div>
+              <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Home &bull; Living Room</div>
             </div>
           </div>
 
           <div class="person-tile">
-            <div class="person-avatar" style="background:#ec4899;">S</div>
+            <div class="person-avatar" style="background:#06b6d4;">M</div>
             <div class="tile-info">
-              <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Sanja</div>
-              <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Home</div>
+              <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Moe</div>
+              <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Home &bull; Studio</div>
+            </div>
+          </div>
+
+          <div class="person-tile">
+            <div class="person-avatar" style="background:#a855f7;">R</div>
+            <div class="tile-info">
+              <div style="font-weight:700;font-size:0.92rem;color:#0f172a;">Ruby</div>
+              <div style="font-size:0.78rem;color:#64748b;font-weight:600;">Home &bull; Kitchen</div>
             </div>
           </div>
 
@@ -919,7 +1314,7 @@
             </div>
             <div class="tile-info">
               <div class="tile-title">Turn Off All</div>
-              <div class="tile-sub">Action</div>
+              <div class="tile-sub">Master Action</div>
             </div>
           </div>
         </div>
@@ -1102,22 +1497,35 @@
     <img id="hud-wallpaper-img" src="futuristic_cockpit_frame.png" alt="Cockpit View" />
   </div>
 
-  <div class="hud-controls-group">
-    <button id="hud-overlay-btn" class="hud-ctrl-btn" onclick="toggleOverlay()">SHOW OVERLAY</button>
-    <button id="hud-interact-btn" class="hud-ctrl-btn" onclick="toggleInteractiveSpin()">SPIN: OFF</button>
-    <button id="hud-hide-ui-btn" class="hud-ctrl-btn" onclick="toggleHUD(false)">HIDE UI</button>
-    <button id="hud-switch-btn" class="hud-ctrl-btn" onclick="setView('list')">DASHBOARD</button>
+  <!-- Floating Side UI Zoom Widget -->
+  <div class="side-zoom-dock" id="side-zoom-dock" title="UI Zoom Control">
+    <button class="side-zoom-btn" onclick="zoomUIIn()" title="Zoom In (+)" aria-label="Zoom In">+</button>
+    <div class="side-zoom-val" id="side-zoom-val" onclick="resetUIZoom()" title="Click to Reset (100%)">100%</div>
+    <button class="side-zoom-btn" onclick="zoomUIOut()" title="Zoom Out (−)" aria-label="Zoom Out">−</button>
   </div>
 
-  <button id="hud-restore-btn" onclick="toggleHUD(true)">SHOW UI</button>
+  <div class="hud-controls-group">
+    <button id="hud-overlay-btn" class="hud-ctrl-btn" onclick="toggleOverlay()" title="Toggle Cockpit Overlay Frame" aria-label="Toggle Cockpit Overlay">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </button>
+    <button id="hud-interact-btn" class="hud-ctrl-btn" onclick="toggleInteractiveSpin()" title="Toggle Auto / Manual Rotation" aria-label="Toggle Rotation">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+    </button>
+    <button id="hud-hide-ui-btn" class="hud-ctrl-btn" onclick="toggleHUD()" title="Toggle HUD Display" aria-label="Toggle HUD">
+      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <button id="hud-switch-btn" class="hud-ctrl-btn" onclick="setView('list')" title="Switch to 2D Dashboard View" aria-label="Dashboard View">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    </button>
+  </div>
 
   <div id="hud-top">
     <div class="htop-mon hglass">
       <div class="hph">
-        <div class="hph-title"><div class="hph-dot"></div>Fleet Status</div>
-        <div class="hph-tag" id="hud-online-tag">— NODES</div>
+        <div class="hph-title"><div class="hph-dot"></div>Fleet Ping &amp; Network Nodes</div>
+        <div class="hph-tag" id="hud-online-tag">— NODES ONLINE</div>
       </div>
-      <div class="hbody"><div class="hstat-grid" id="hud-stat-grid"></div></div>
+      <div class="hbody"><div class="hnode-grid" id="hud-stat-grid"></div></div>
     </div>
 
     <div class="htop-mon hglass">
@@ -1141,36 +1549,81 @@
   </div>
 
   <div id="hud-left">
+    <!-- Panel A: Security Cams -->
     <div class="hp hglass">
       <div class="hph">
-        <div class="hph-title"><div class="hph-dot"></div>Fleet Bots</div>
-        <div class="hph-tag" id="hud-bot-tag">— BOTS</div>
+        <div class="hph-title"><div class="hph-dot" style="background:var(--hred);box-shadow:0 0 7px var(--hred)"></div>Security Cams</div>
+        <div class="hph-tag">LIVE ●</div>
       </div>
-      <div class="hb"><div class="hbot-list" id="hud-bot-list"></div></div>
+      <div class="hb">
+        <div class="hcam-wrap">
+          <canvas class="hcam" id="hud-cam-canvas" height="110"></canvas>
+          <div class="hcam-rec">● REC</div>
+          <div class="hcam-ts" id="hud-cam-ts">--:--:--</div>
+          <div class="hcam-name" id="hud-cam-name">FRONT GATE</div>
+        </div>
+        <div class="hcam-sw">
+          <button class="hcam-btn active" data-hcam="0" onclick="switchHudCam(0, this)">Front</button>
+          <button class="hcam-btn" data-hcam="1" onclick="switchHudCam(1, this)">Drive</button>
+          <button class="hcam-btn" data-hcam="2" onclick="switchHudCam(2, this)">Back</button>
+          <button class="hcam-btn" data-hcam="3" onclick="switchHudCam(3, this)">Garage</button>
+        </div>
+      </div>
     </div>
 
+    <!-- Panel B: Environment Sensors -->
     <div class="hp hglass">
       <div class="hph">
-        <div class="hph-title"><div class="hph-dot" style="background:var(--hpurple)"></div>Mapped Sensors</div>
-        <div class="hph-tag" id="hud-sensor-tag">RF SENSORS</div>
+        <div class="hph-title"><div class="hph-dot"></div>Environmental Sensors</div>
+        <div class="hph-tag">RF / ZIGBEE</div>
       </div>
-      <div class="hb"><div class="hsen-list" id="hud-sensor-list"></div></div>
+      <div class="hb">
+        <div class="henv-grid" id="hud-env-grid"></div>
+        <div class="hdial-row" id="hud-dial-row"></div>
+      </div>
+    </div>
+
+    <!-- Panel C: System Energy & Sparkline -->
+    <div class="hp hglass">
+      <div class="hph">
+        <div class="hph-title"><div class="hph-dot" style="background:var(--hyellow)"></div>System Power Monitor</div>
+        <div class="hph-tag">POWER GRAPH</div>
+      </div>
+      <div class="hb">
+        <div style="position:relative;width:100%;">
+          <div style="font-size:7px;color:var(--hdim);letter-spacing:1px;text-transform:uppercase;">Mains Power</div>
+          <div id="hud-power-val" style="position:absolute;right:0;top:0;font-size:9px;font-family:var(--hmono);color:var(--hc);font-weight:700;">245 W</div>
+          <canvas id="hud-power-spark" height="42" style="width:100%;display:block;border-radius:5px;background:rgba(0,160,255,0.03);border:1px solid rgba(0,160,255,0.1);margin-top:2px;"></canvas>
+        </div>
+        <div id="hud-energy-bars" style="display:flex;flex-direction:column;gap:3px;margin-top:4px;"></div>
+      </div>
     </div>
   </div>
 
   <div id="hud-right">
+    <!-- Panel D: Relays & Device Controllers -->
     <div class="hp hglass">
       <div class="hph">
-        <div class="hph-title"><div class="hph-dot" style="background:var(--hgreen)"></div>Automations</div>
-        <div class="hph-tag" id="hud-rule-tag">COOLDOWN ENGINE</div>
+        <div class="hph-title"><div class="hph-dot" style="background:var(--horange)"></div>Relays &amp; Power Relays</div>
+        <div class="hph-tag">RELAY UNITS</div>
+      </div>
+      <div class="hb"><div class="hrelay-list" id="hud-relay-list"></div></div>
+    </div>
+
+    <!-- Panel E: Automations -->
+    <div class="hp hglass">
+      <div class="hph">
+        <div class="hph-title"><div class="hph-dot" style="background:var(--hgreen)"></div>Automations Engine</div>
+        <div class="hph-tag" id="hud-rule-tag">SCHEDULER</div>
       </div>
       <div class="hb"><div class="hrule-list" id="hud-rule-list"></div></div>
     </div>
 
+    <!-- Panel F: Live API & RF Feed -->
     <div class="hp hglass">
       <div class="hph">
-        <div class="hph-title"><div class="hph-dot" style="background:var(--hred)"></div>RF Traffic</div>
-        <div class="hph-tag">LIVE</div>
+        <div class="hph-title"><div class="hph-dot" style="background:var(--hred)"></div>API &amp; RF Traffic Log</div>
+        <div class="hph-tag">LIVE FEED</div>
       </div>
       <div class="hb"><div class="hrf-feed" id="hud-rf-feed"></div></div>
     </div>
@@ -1288,21 +1741,177 @@
     } catch(err) { console.error('Failed to toggle outlet:', err); }
   };
 
+  window.toggleSimpleBotTile = async function(deviceId, servoName, onEndpoint, offEndpoint, tileEl) {
+    var isOn = tileEl.classList.contains('state-on');
+    var newState = !isOn;
+    tileEl.classList.toggle('state-on', newState);
+    tileEl.classList.toggle('state-off', !newState);
+    var sub = tileEl.querySelector('.tile-sub');
+    if (sub) sub.textContent = newState ? 'On' : 'Off';
+    var endpoint = newState ? onEndpoint : offEndpoint;
+    try {
+      await fetch('/api/devices/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deviceId, endpoint: endpoint, method: 'GET' })
+      });
+    } catch(err) { console.error('Failed to toggle switch:', err); }
+  };
+
+  window.triggerSimpleBotDirect = async function(deviceId, endpoint, tileEl, stateOn, evt) {
+    if (evt) evt.stopPropagation();
+    if (tileEl) {
+      tileEl.classList.toggle('state-on', stateOn);
+      tileEl.classList.toggle('state-off', !stateOn);
+      var sub = tileEl.querySelector('.tile-sub');
+      if (sub) sub.textContent = stateOn ? 'On' : 'Off';
+    }
+    try {
+      await fetch('/api/devices/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deviceId, endpoint: endpoint, method: 'GET' })
+      });
+    } catch(err) { console.error('Failed to trigger direct switch:', err); }
+  };
+
+  window.sendTestChoolaRF = async function(tileEl) {
+    if (tileEl) {
+      tileEl.classList.add('state-on');
+      tileEl.classList.remove('state-off');
+      var sub = tileEl.querySelector('.tile-sub');
+      var origSub = sub ? sub.textContent : 'Send 123456 RF';
+      if (sub) sub.textContent = 'Alert Sent! 📡';
+      setTimeout(function() {
+        tileEl.classList.remove('state-on');
+        tileEl.classList.add('state-off');
+        if (sub) sub.textContent = origSub;
+      }, 1500);
+    }
+    try {
+      // 1. Dispatch RF code 123456 via TX Gateway
+      await fetch('/api/rf/send?code=123456&bits=24&proto=1&pulse=185', { method: 'GET' });
+      // 2. Direct RF ingest to guarantee SpeakerBot triggers /choola
+      await fetch('/api/v1/rf_event?code=123456', { method: 'GET' });
+      window.showTileInfo(null, 'Test RF Signal (123456)', 'Dispatched RF Code 123456 via RFBot 6 Gateway (433.92 MHz).\nSpeakerBot 1 audio alert (/choola) triggered.');
+      fetchStatus();
+    } catch(err) { console.error('Failed to dispatch test RF 123456:', err); }
+  };
+
+  window.toggleVehicleAction = function(btn, label) {
+    var active = btn.classList.toggle('active');
+    window.showTileInfo(null, label, active ? 'Status: ONLINE &bull; Command executed successfully.' : 'Status: STANDBY');
+  };
+
+  /* ──────────────────────────────────────────
+     UI ZOOM CONTROL (SIDEBAR / FLOATING WIDGET)
+  ────────────────────────────────────────── */
+  var ZOOM_LEVELS = [0.75, 0.85, 0.90, 1.0, 1.10, 1.25, 1.5, 1.75];
+
+  window.setUIZoom = function(scale) {
+    var z = Math.max(0.6, Math.min(2.0, parseFloat(scale) || 1.0));
+    document.body.style.zoom = z;
+    var valEl = document.getElementById('side-zoom-val');
+    if (valEl) valEl.textContent = Math.round(z * 100) + '%';
+    localStorage.setItem('fleethub-ui-zoom', z.toFixed(2));
+  };
+
+  window.zoomUIIn = function() {
+    var cur = parseFloat(localStorage.getItem('fleethub-ui-zoom') || '1');
+    var next = ZOOM_LEVELS.find(function(lvl) { return lvl > cur + 0.04; }) || (cur + 0.15);
+    window.setUIZoom(next);
+  };
+
+  window.zoomUIOut = function() {
+    var cur = parseFloat(localStorage.getItem('fleethub-ui-zoom') || '1');
+    var prev = ZOOM_LEVELS.slice().reverse().find(function(lvl) { return lvl < cur - 0.04; }) || (cur - 0.15);
+    window.setUIZoom(prev);
+  };
+
+  window.resetUIZoom = function() {
+    window.setUIZoom(1.0);
+  };
+
+  // Restore saved zoom
+  try {
+    var savedZoom = parseFloat(localStorage.getItem('fleethub-ui-zoom') || '1');
+    if (!isNaN(savedZoom) && savedZoom !== 1) {
+      window.setUIZoom(savedZoom);
+    }
+  } catch(e){}
+
   var IS_LOW_POWER = (navigator.hardwareConcurrency <= 4 && (window.devicePixelRatio || 1) <= 1.25) || navigator.userAgent.includes('Arm') || navigator.userAgent.includes('Linux arm');
   if (IS_LOW_POWER) { document.body.classList.add('low-power'); }
 
-  function updateSidebarClock() {
+  /* ──────────────────────────────────────────
+     ROCK-SOLID CLOCK & DATE ENGINE (Pi 3 & 3D HUD READY)
+  ────────────────────────────────────────── */
+  function pad2(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
+  function getISOWeek(d) {
+    var target = new Date(d.valueOf());
+    var dayNr = (d.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    var firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) {
+      target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+    }
+    return 1 + Math.ceil((firstThursday - target) / 604800000);
+  }
+
+  function updateAllClocks() {
     var now = new Date();
     var weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    var timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    var localHours = pad2(now.getHours());
+    var localMinutes = pad2(now.getMinutes());
+    var localSeconds = pad2(now.getSeconds());
+    var localTimeHM = localHours + ':' + localMinutes;
+    var localTimeHMS = localHours + ':' + localMinutes + ':' + localSeconds;
+
+    var utcHours = pad2(now.getUTCHours());
+    var utcMinutes = pad2(now.getUTCMinutes());
+    var utcSeconds = pad2(now.getUTCSeconds());
+    var utcTimeHMS = utcHours + ':' + utcMinutes + ':' + utcSeconds;
+    var utcDateStr = now.getUTCFullYear() + '-' + pad2(now.getUTCMonth() + 1) + '-' + pad2(now.getUTCDate());
+
     var getEl = function(id) { return document.getElementById(id); };
-    if (getEl('clock-large')) getEl('clock-large').textContent = timeStr;
-    if (getEl('date-weekday')) getEl('date-weekday').textContent = weekdays[now.getDay()];
-    if (getEl('date-daymonth')) getEl('date-daymonth').textContent = months[now.getMonth()] + ' ' + now.getDate();
+
+    // 1. Sidebar Clock (2D Dashboard)
+    var clkLg = getEl('clock-large');
+    if (clkLg) clkLg.textContent = localTimeHM;
+
+    var dWk = getEl('date-weekday');
+    if (dWk) dWk.textContent = weekdays[now.getDay()];
+
+    var dDm = getEl('date-daymonth');
+    if (dDm) dDm.textContent = months[now.getMonth()] + ' ' + now.getDate();
+
+    var dWkNum = getEl('date-week');
+    if (dWkNum) dWkNum.textContent = 'Week ' + getISOWeek(now);
+
+    // 2. 3D HUD Top Clock (UTC Command Clock)
+    var hudUtc = getEl('hud-utc-clock');
+    if (hudUtc) hudUtc.textContent = utcTimeHMS;
+
+    var hudUtcDate = getEl('hud-utc-date');
+    if (hudUtcDate) hudUtcDate.textContent = utcDateStr;
+
+    // 3. 3D HUD Bottom Clock (Local Fleet Clock)
+    var hudMain = getEl('hud-main-clock');
+    if (hudMain) hudMain.textContent = localTimeHMS;
+
+    // 4. 3D HUD Security Cam Timestamp
+    var hudCamTs = getEl('hud-cam-ts');
+    if (hudCamTs) hudCamTs.textContent = localTimeHMS;
   }
-  setInterval(updateSidebarClock, 1000);
-  updateSidebarClock();
+
+  setInterval(updateAllClocks, 1000);
+  updateAllClocks();
 
   let memPts = [25, 10, 30, 20, 35, 15, 28, 18, 22, 30, 14, 25];
   function updateMemorySparkline() {
@@ -1376,12 +1985,36 @@
 
   function renderBots(bots) {
     const container = document.getElementById('bot-list');
-    if (!container) return;
+    const hudGrid = document.getElementById('hud-stat-grid');
+    const hudTag = document.getElementById('hud-online-tag');
+    const hudActivePill = document.getElementById('hud-active-pill');
+
     if (!bots || bots.length === 0) {
-      container.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:1rem 0;">No robots discovered yet via mDNS.</div>`;
+      if (container) container.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:1rem 0;">No robots discovered yet via mDNS.</div>`;
+      if (hudGrid) hudGrid.innerHTML = `<div style="font-size:0.75rem;color:var(--hdim);padding:0.5rem 0;">No nodes discovered.</div>`;
       return;
     }
 
+    const onlineCt = bots.filter(b => b.status === 'online').length;
+    if (hudTag) hudTag.textContent = `${onlineCt}/${bots.length} ONLINE`;
+    if (hudActivePill) hudActivePill.innerHTML = `<div class="hdot hdot-o"></div>${onlineCt} Nodes Active`;
+
+    /* Render Node Ping & Network status grid in 3D HUD (Top Left) */
+    if (hudGrid) {
+      hudGrid.innerHTML = bots.map(b => {
+        const isOk = b.status === 'online';
+        const cls = isOk ? 'hnc-ok' : 'hnc-off';
+        const ipStr = b.ip ? (b.ip.length > 15 ? b.ip.slice(0, 15) : b.ip) : (b.fallback_ip || b.hostname || 'local');
+        return `
+          <div class="hnode-card">
+            <div class="hnc-name">${b.name}</div>
+            <div class="hnc-rssi ${cls}">${isOk ? (b.latency_ms ? b.latency_ms.toFixed(0)+'ms' : 'ONLINE') : 'OFFLINE'}</div>
+            <div class="hnc-ip">${ipStr}</div>
+          </div>`;
+      }).join('');
+    }
+
+    if (!container) return;
     const groups = {};
     bots.forEach(b => {
       const key = b.platform || 'other';
@@ -1391,9 +2024,9 @@
 
     let html = '';
     for (const [platform, botGroup] of Object.entries(groups)) {
-      const onlineCt = botGroup.filter(b => b.status === 'online').length;
+      const groupOnline = botGroup.filter(b => b.status === 'online').length;
       html += `
-        <div class="bot-section-header">${platform.toUpperCase()} DEVICES (${onlineCt}/${botGroup.length} online)</div>
+        <div class="bot-section-header">${platform.toUpperCase()} DEVICES (${groupOnline}/${botGroup.length} online)</div>
         <div class="bot-grid">
           ${botGroup.map(b => `
             <div class="bot-card platform-${b.platform} status-${b.status}">
@@ -1405,8 +2038,8 @@
                 <span class="bot-status-pill ${b.status}">${b.status==='online'?'ONLINE':'OFFLINE'}</span>
               </div>
               <div class="bot-meta-box">
-                <span>Host: ${b.hostname||b.ip}:${b.port||80}</span>
-                ${b.latency_ms ? `<span>Ping: ${b.latency_ms.toFixed(0)}ms</span>` : ''}
+                <span>IP: ${b.ip || b.fallback_ip || b.hostname}:${b.port||80}</span>
+                ${b.latency_ms ? `<span style="color:var(--accent-green);">Ping: ${b.latency_ms.toFixed(1)}ms</span>` : ''}
               </div>
               <div class="bot-card-actions">
                 <label style="font-size:0.75rem;display:flex;align-items:center;gap:0.4rem;cursor:pointer;color:var(--text-muted);">
@@ -1445,11 +2078,27 @@
 
   function renderRules(rules) {
     const container = document.getElementById('rule-list');
-    if (!container) return;
+    const hudContainer = document.getElementById('hud-rule-list');
     if (!rules || rules.length === 0) {
-      container.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No active rules configured.</div>`;
+      if (container) container.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No active rules configured.</div>`;
+      if (hudContainer) hudContainer.innerHTML = `<div style="font-size:0.75rem;color:var(--hdim);padding:0.5rem 0;">No rules.</div>`;
       return;
     }
+
+    if (hudContainer) {
+      hudContainer.innerHTML = rules.map(r => `
+        <div style="background:rgba(0,170,255,0.04);border:1px solid rgba(0,170,255,0.12);border-radius:6px;padding:4px 7px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:8.5px;font-weight:600;color:#fff;">${r.name}</div>
+            <div style="font-size:7px;font-family:var(--hmono);color:var(--hdim);">Code: ${r.trigger_code}</div>
+          </div>
+          <div style="display:flex;gap:3px;">
+            <button class="hcam-btn" style="padding:2px 5px;" onclick="extendSnooze('${r.id}',15)">Snooze</button>
+          </div>
+        </div>`).join('');
+    }
+
+    if (!container) return;
     container.innerHTML = rules.map(r => `
       <div style="background:rgba(255,255,255,0.035);border:1px solid var(--panel-border);border-left:4px solid var(--accent-green);padding:0.9rem 1.1rem;border-radius:12px;margin-bottom:0.65rem;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(12px);">
         <div>
@@ -1464,6 +2113,122 @@
         </div>
       </div>`).join('');
   }
+
+  /* Live HUD Camera & Sensor Data Synchronization */
+  let currentHudCam = 0;
+  const HUD_CAM_NAMES = ['FRONT GATE', 'DRIVEWAY', 'BACK YARD', 'GARAGE'];
+
+  window.switchHudCam = function(idx, el) {
+    currentHudCam = idx;
+    document.querySelectorAll('.hcam-btn').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    const label = document.getElementById('hud-cam-name');
+    if (label) label.textContent = HUD_CAM_NAMES[idx] || 'CAMERA';
+  };
+
+  function renderHudSensorsAndRelays() {
+    const envGrid = document.getElementById('hud-env-grid');
+    const dialRow = document.getElementById('hud-dial-row');
+    const relayList = document.getElementById('hud-relay-list');
+
+    if (envGrid) {
+      envGrid.innerHTML = `
+        <div class="hsi"><div class="hsi-label">Temp In</div><div class="hsi-val" style="color:var(--hc);">22.4<span style="font-size:7px;color:var(--hdim);"> °C</span></div></div>
+        <div class="hsi"><div class="hsi-label">Outdoor</div><div class="hsi-val">14.2<span style="font-size:7px;color:var(--hdim);"> °C</span></div></div>
+        <div class="hsi"><div class="hsi-label">Humidity</div><div class="hsi-val">58<span style="font-size:7px;color:var(--hdim);"> %</span></div></div>
+        <div class="hsi"><div class="hsi-label">CO₂</div><div class="hsi-val">612<span style="font-size:7px;color:var(--hdim);"> ppm</span></div></div>`;
+    }
+
+    if (dialRow) {
+      dialRow.innerHTML = `
+        <div class="hdial"><div class="hdial-lbl">Indoor</div><div class="hdial-val">22.4</div><div class="hdial-bar"><div class="hdial-fill" style="width:65%;"></div></div></div>
+        <div class="hdial"><div class="hdial-lbl">Humidity</div><div class="hdial-val">58%</div><div class="hdial-bar"><div class="hdial-fill" style="width:58%;"></div></div></div>
+        <div class="hdial"><div class="hdial-lbl">CO₂</div><div class="hdial-val">612</div><div class="hdial-bar"><div class="hdial-fill" style="width:42%;"></div></div></div>`;
+    }
+
+    if (relayList) {
+      const outlets = [
+        { name: 'Alpha Unit', devId: 'rfbot6', tag: 'Alpha', onCode: 5576451, offCode: 5576460, type: 'outlet' },
+        { name: 'Bravo Unit', devId: 'rfbot6', tag: 'Bravo', onCode: 5584131, offCode: 5584140, type: 'outlet' },
+        { name: 'Charlie Unit', devId: 'rfbot6', tag: 'Charlie', onCode: 5576131, offCode: 5576140, type: 'outlet' },
+        { name: 'Delta Unit', devId: 'rfbot6', tag: 'Delta', onCode: 5577987, offCode: 5577996, type: 'outlet' },
+        { name: 'Echo Unit', devId: 'rfbot6', tag: 'Echo', onCode: 5575987, offCode: 5575996, type: 'outlet' },
+        { name: 'Foxtrot Unit', devId: 'rfbot6', tag: 'Foxtrot', onCode: 1381827, offCode: 1381836, type: 'outlet' },
+        { name: 'Golf Unit', devId: 'rfbot6', tag: 'Golf', onCode: 1382147, offCode: 1382156, type: 'outlet' },
+        { name: 'Kitchen Switch', devId: 'simplebot1', tag: 'Kitchen', onEndpoint: '/s1on', offEndpoint: '/s1off', type: 'simplebot' },
+        { name: 'Hallway Switch', devId: 'simplebot1', tag: 'Hallway', onEndpoint: '/s2on', offEndpoint: '/s2off', type: 'simplebot' },
+        { name: 'Test RF Signal (123456)', devId: 'rfbot6', tag: 'Test', type: 'test' },
+      ];
+      relayList.innerHTML = outlets.map((item, i) => {
+        let isOn = false;
+        let idStr = item.onCode ? `RF 433MHz &bull; ${item.onCode}` : (item.onEndpoint || 'RF Code 123456');
+        if (item.type === 'outlet') {
+          const tiles = Array.from(document.querySelectorAll('#grid-outlets .dash-tile'));
+          const t = tiles[i];
+          if (t) isOn = t.classList.contains('state-on');
+        } else if (item.type === 'simplebot') {
+          const switchTiles = Array.from(document.querySelectorAll('#grid-switches .dash-tile'));
+          const idx = item.tag === 'Kitchen' ? 0 : 1;
+          const t = switchTiles[idx];
+          if (t) isOn = t.classList.contains('state-on');
+        }
+        return `
+          <div class="hrelay-item ${isOn ? 'on' : ''}" onclick="triggerHudOutlet(${i});">
+            <div>
+              <div class="hrelay-name">${item.name}</div>
+              <div class="hrelay-id">${idStr}</div>
+            </div>
+            <div class="hrelay-tog"></div>
+          </div>`;
+      }).join('');
+    }
+  }
+
+  window.triggerHudOutlet = function(idx) {
+    const outlets = [
+      { devId: 'rfbot6', tag: 'Alpha', onCode: 5576451, offCode: 5576460, type: 'outlet', tileIdx: 0 },
+      { devId: 'rfbot6', tag: 'Bravo', onCode: 5584131, offCode: 5584140, type: 'outlet', tileIdx: 1 },
+      { devId: 'rfbot6', tag: 'Charlie', onCode: 5576131, offCode: 5576140, type: 'outlet', tileIdx: 2 },
+      { devId: 'rfbot6', tag: 'Delta', onCode: 5577987, offCode: 5577996, type: 'outlet', tileIdx: 3 },
+      { devId: 'rfbot6', tag: 'Echo', onCode: 5575987, offCode: 5575996, type: 'outlet', tileIdx: 4 },
+      { devId: 'rfbot6', tag: 'Foxtrot', onCode: 1381827, offCode: 1381836, type: 'outlet', tileIdx: 5 },
+      { devId: 'rfbot6', tag: 'Golf', onCode: 1382147, offCode: 1382156, type: 'outlet', tileIdx: 6 },
+      { devId: 'simplebot1', tag: 'Kitchen', onEndpoint: '/s1on', offEndpoint: '/s1off', type: 'simplebot', tileIdx: 0 },
+      { devId: 'simplebot1', tag: 'Hallway', onEndpoint: '/s2on', offEndpoint: '/s2off', type: 'simplebot', tileIdx: 1 },
+      { devId: 'rfbot6', tag: 'Test', type: 'test' },
+    ];
+    const item = outlets[idx];
+    if (!item) return;
+    if (item.type === 'outlet') {
+      const outletTiles = Array.from(document.querySelectorAll('#grid-outlets .dash-tile'));
+      const tile = outletTiles[item.tileIdx];
+      if (tile) toggleOutletTile(item.devId, item.tag, item.onCode, item.offCode, tile);
+    } else if (item.type === 'simplebot') {
+      const switchTiles = Array.from(document.querySelectorAll('#grid-switches .dash-tile'));
+      const tile = switchTiles[item.tileIdx];
+      if (tile) toggleSimpleBotTile(item.devId, item.tag, item.onEndpoint, item.offEndpoint, tile);
+    } else if (item.type === 'test') {
+      const testTile = document.getElementById('tile-test-choola');
+      sendTestChoolaRF(testTile);
+    }
+    setTimeout(renderHudSensorsAndRelays, 150);
+  };
+
+  function renderHudEnergyBars() {
+    const barsContainer = document.getElementById('hud-energy-bars');
+    if (!barsContainer) return;
+    barsContainer.innerHTML = `
+      <div style="font-size:7px;color:var(--hdim);display:flex;justify-content:space-between;"><span>Mains</span><span style="color:#fff;font-family:var(--hmono);">245W</span></div>
+      <div style="height:3px;background:rgba(0,160,255,0.1);border-radius:2px;overflow:hidden;"><div style="height:100%;width:55%;background:var(--hc);"></div></div>
+      <div style="font-size:7px;color:var(--hdim);display:flex;justify-content:space-between;margin-top:2px;"><span>Solar</span><span style="color:#fff;font-family:var(--hmono);">180W</span></div>
+      <div style="height:3px;background:rgba(0,160,255,0.1);border-radius:2px;overflow:hidden;"><div style="height:100%;width:45%;background:var(--hyellow);"></div></div>
+      <div style="font-size:7px;color:var(--hdim);display:flex;justify-content:space-between;margin-top:2px;"><span>Battery</span><span style="color:#fff;font-family:var(--hmono);">76%</span></div>
+      <div style="height:3px;background:rgba(0,160,255,0.1);border-radius:2px;overflow:hidden;"><div style="height:100%;width:76%;background:var(--hgreen);"></div></div>`;
+  }
+
+  setInterval(renderHudSensorsAndRelays, 4000);
+  setTimeout(renderHudSensorsAndRelays, 800);
+  setTimeout(renderHudEnergyBars, 800);
 
   function renderSensors(sensors) {
     const container = document.getElementById('sensor-list');
@@ -1570,7 +2335,6 @@
     container.classList.toggle('wallpaper-hidden', !enable);
     if (btn) {
       btn.classList.toggle('active', enable);
-      btn.textContent = enable ? 'HIDE OVERLAY' : 'SHOW OVERLAY';
     }
     window._hudTargetEarthY   = enable ? -3.6 : 0.0;
     window._hudTargetEarthZ   = enable ? 2.4  : 0.0;
@@ -1582,8 +2346,14 @@
     if (btn) btn.classList.toggle('active');
   };
 
-  window.toggleHUD = function(show) {
-    document.body.classList.toggle('hud-hidden', !show);
+  window.toggleHUD = function(forceState) {
+    var isHidden = document.body.classList.contains('hud-hidden');
+    var shouldHide = (forceState !== undefined) ? !forceState : !isHidden;
+    document.body.classList.toggle('hud-hidden', shouldHide);
+    var btn = document.getElementById('hud-hide-ui-btn');
+    if (btn) {
+      btn.classList.toggle('active', shouldHide);
+    }
   };
 
   function initWallpaperState() {
@@ -1630,8 +2400,34 @@
     ctx.beginPath(); ctx.moveTo(cx-45, cy); ctx.lineTo(cx+45, cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, cy-45); ctx.lineTo(cx, cy+45); ctx.stroke();
   }
+  var hudCamCanvas = document.getElementById('hud-cam-canvas');
   if (camCanvas)    drawCamPlaceholder(camCanvas);
   if (camCanvasTab) drawCamPlaceholder(camCanvasTab);
+  if (hudCamCanvas) drawCamPlaceholder(hudCamCanvas);
+
+  function drawHudPowerSpark() {
+    var cv = document.getElementById('hud-power-spark');
+    if (!cv) return;
+    var ctx = cv.getContext('2d');
+    var W = cv.width = cv.clientWidth || 260;
+    var H = cv.height = cv.clientHeight || 42;
+    ctx.clearRect(0, 0, W, H);
+    var points = [110, 140, 125, 170, 160, 210, 195, 245, 230, 245];
+    var lo = 80, hi = 280;
+    var grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, 'rgba(0,212,255,0.35)');
+    grd.addColorStop(1, 'rgba(0,212,255,0)');
+    ctx.beginPath();
+    points.forEach(function(v, i) {
+      var x = (i / (points.length - 1)) * W;
+      var y = H - ((v - lo) / (hi - lo)) * (H - 6) - 3;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    ctx.fillStyle = grd; ctx.fill();
+  }
+  setTimeout(drawHudPowerSpark, 900);
 
   window.snapCamFrame       = function() { alert('Snapshot saved to gallery.'); };
   window.switchCamStream    = function(c) { console.log('Switched camera stream:', c); };

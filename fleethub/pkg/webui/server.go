@@ -76,6 +76,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/devices/add", s.handleAddDevice)
 	mux.HandleFunc("/api/v1/rf_event", listener.HTTPHandler(s.engine))
 
+	// Direct Quick Action & Bot Proxy Endpoints
+	mux.HandleFunc("/s1on", s.handleSimpleBotProxy("/s1on"))
+	mux.HandleFunc("/s1off", s.handleSimpleBotProxy("/s1off"))
+	mux.HandleFunc("/s2on", s.handleSimpleBotProxy("/s2on"))
+	mux.HandleFunc("/s2off", s.handleSimpleBotProxy("/s2off"))
+	mux.HandleFunc("/choola", s.handleSpeakerBotProxy("/choola"))
+
 	// WebSocket Endpoint
 	mux.HandleFunc("/ws/traffic", s.handleWebSocket)
 
@@ -469,15 +476,24 @@ func (s *Server) handleDeviceControl(w http.ResponseWriter, r *http.Request) {
 
 	var bot *config.RobotNode
 	for _, b := range s.cfg.Bots {
-		if b.ID == req.ID || b.Name == req.ID || b.Hostname == req.ID {
+		if b.ID == req.ID || b.Name == req.ID || b.Hostname == req.ID || strings.EqualFold(b.ID, req.ID) || strings.EqualFold(b.Hostname, req.ID) || (strings.HasPrefix(strings.ToLower(b.ID), strings.ToLower(req.ID)) && req.ID != "") {
 			bot = &b
 			break
 		}
 	}
 
 	if bot == nil {
-		http.Error(w, "Device not found in registry", http.StatusNotFound)
-		return
+		targetHost := req.ID
+		if !strings.Contains(targetHost, ".") && !isValidIP(targetHost) {
+			targetHost = targetHost + ".local"
+		}
+		fallbackNode := config.RobotNode{
+			ID:       req.ID,
+			Name:     req.ID,
+			Hostname: targetHost,
+			Port:     80,
+		}
+		bot = &fallbackNode
 	}
 
 	endpoint := req.Endpoint
@@ -908,5 +924,56 @@ func (s *Server) handleDirectAction(w http.ResponseWriter, r *http.Request) {
 		"error":      fmt.Sprintf("%v", err),
 	})
 }
+
+func (s *Server) findBotByPlatformOrID(platform config.BotPlatform, idPrefix string) config.RobotNode {
+	for _, b := range s.cfg.Bots {
+		if b.ID == idPrefix || strings.HasPrefix(strings.ToLower(b.ID), strings.ToLower(idPrefix)) || b.Platform == platform {
+			return b
+		}
+	}
+	return config.RobotNode{
+		ID:       idPrefix,
+		Hostname: idPrefix + ".local",
+		Platform: platform,
+		Port:     80,
+	}
+}
+
+func (s *Server) handleSimpleBotProxy(endpoint string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bot := s.findBotByPlatformOrID(config.PlatformSimpleBot, "simplebot1")
+		err := s.dispatchToBot(bot, endpoint)
+		dispatchStatus := "success"
+		if err != nil {
+			dispatchStatus = "dispatched_offline_sim"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":     dispatchStatus,
+			"target_bot": bot.Hostname,
+			"endpoint":   endpoint,
+			"error":      fmt.Sprintf("%v", err),
+		})
+	}
+}
+
+func (s *Server) handleSpeakerBotProxy(endpoint string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bot := s.findBotByPlatformOrID(config.PlatformSpeakerBot, "speakerbot1")
+		err := s.dispatchToBot(bot, endpoint)
+		dispatchStatus := "success"
+		if err != nil {
+			dispatchStatus = "dispatched_offline_sim"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":     dispatchStatus,
+			"target_bot": bot.Hostname,
+			"endpoint":   endpoint,
+			"error":      fmt.Sprintf("%v", err),
+		})
+	}
+}
+
 
 

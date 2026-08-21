@@ -22,7 +22,7 @@
     },
     {
       "id": "speakerbot1",
-      "name": "SpeakerBot 1 (Audio Chime)",
+      "name": "SpeakerBot 1 (Audio Output)",
       "hostname": "speakerbot1.local",
       "fallback_ip": "192.168.1.102",
       "platform": "speakerbot",
@@ -30,14 +30,14 @@
       "port": 80,
       "last_seen": "2026-08-19T01:00:00.0175456-04:00",
       "status": "online",
-      "role": "audio_chime",
+      "role": "audio_output",
       "homekit_enabled": true,
       "homekit_category": "speaker",
       "ping_enabled": true,
       "latency_ms": 32.568,
       "actions": [
         {
-          "name": "Play Chime Sound",
+          "name": "Play Audio Tone",
           "endpoint": "/choola",
           "method": "GET"
         }
@@ -126,7 +126,7 @@
   "rules": [
     {
       "id": "rule-1",
-      "name": "Light Sensor Chime Alert",
+      "name": "Light Sensor Audio Alert",
       "enabled": true,
       "trigger_code": 123456,
       "snoozeable": false,

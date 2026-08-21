@@ -129,7 +129,7 @@ func DefaultConfig(path string) *Config {
 			},
 			{
 				ID:              "speakerbot1",
-				Name:            "SpeakerBot 1 (Audio Chime)",
+				Name:            "SpeakerBot 1 (Audio Output)",
 				Hostname:        "speakerbot1.local",
 				FallbackIP:      "192.168.1.102",
 				Platform:        PlatformSpeakerBot,
@@ -140,7 +140,7 @@ func DefaultConfig(path string) *Config {
 				HomeKitCategory: "speaker",
 				PingEnabled:     true,
 				Actions: []DeviceAction{
-					{Name: "Play Chime Sound", Endpoint: "/choola", Method: "GET"},
+					{Name: "Play Audio Tone", Endpoint: "/choola", Method: "GET"},
 				},
 			},
 			{
@@ -213,7 +213,7 @@ func DefaultConfig(path string) *Config {
 		Rules: []AutomationRule{
 			{
 				ID:          "rule-1",
-				Name:        "Light Sensor Chime Alert",
+				Name:        "Light Sensor Audio Alert",
 				Enabled:     true,
 				TriggerCode: 123456,
 				CooldownSec: 30,
