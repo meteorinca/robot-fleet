@@ -2004,12 +2004,16 @@
       hudGrid.innerHTML = bots.map(b => {
         const isOk = b.status === 'online';
         const cls = isOk ? 'hnc-ok' : 'hnc-off';
+        const host = b.hostname || (b.id ? b.id + '.local' : '');
+        const ip = b.ip || b.fallback_ip || '';
+        const portSuffix = (b.port && b.port !== 80) ? (':' + b.port) : '';
+        const targetUrl = ip ? ('http://' + ip + portSuffix) : (host ? ('http://' + host + portSuffix) : '#');
         const ipStr = b.ip ? (b.ip.length > 15 ? b.ip.slice(0, 15) : b.ip) : (b.fallback_ip || b.hostname || 'local');
         return `
           <div class="hnode-card">
             <div class="hnc-name">${b.name}</div>
             <div class="hnc-rssi ${cls}">${isOk ? (b.latency_ms ? b.latency_ms.toFixed(0)+'ms' : 'ONLINE') : 'OFFLINE'}</div>
-            <div class="hnc-ip">${ipStr}</div>
+            <div class="hnc-ip"><a href="${targetUrl}" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;" onclick="event.stopPropagation()">${ipStr} ↗</a></div>
           </div>`;
       }).join('');
     }
@@ -2028,7 +2032,13 @@
       html += `
         <div class="bot-section-header">${platform.toUpperCase()} DEVICES (${groupOnline}/${botGroup.length} online)</div>
         <div class="bot-grid">
-          ${botGroup.map(b => `
+          ${botGroup.map(b => {
+            const host = b.hostname || (b.id ? b.id + '.local' : '');
+            const portSuffix = (b.port && b.port !== 80) ? (':' + b.port) : '';
+            const hostUrl = host ? ('http://' + host + portSuffix) : '#';
+            const ip = b.ip || b.fallback_ip || '';
+            const ipUrl = ip ? ('http://' + ip + portSuffix) : '#';
+            return `
             <div class="bot-card platform-${b.platform} status-${b.status}">
               <div class="bot-card-top">
                 <div>
@@ -2037,9 +2047,20 @@
                 </div>
                 <span class="bot-status-pill ${b.status}">${b.status==='online'?'ONLINE':'OFFLINE'}</span>
               </div>
-              <div class="bot-meta-box">
-                <span>IP: ${b.ip || b.fallback_ip || b.hostname}:${b.port||80}</span>
-                ${b.latency_ms ? `<span style="color:var(--accent-green);">Ping: ${b.latency_ms.toFixed(1)}ms</span>` : ''}
+              <div class="bot-meta-box" style="flex-direction:column; align-items:flex-start; gap:0.35rem;">
+                <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                  <span style="display:flex; align-items:center; gap:0.35rem;">
+                    <span style="color:var(--text-muted); font-size:0.7rem;">mDNS:</span>
+                    ${host ? `<a href="${hostUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-cyan); text-decoration:underline; font-weight:600;" onclick="event.stopPropagation()">${host} ↗</a>` : '<span style="color:var(--text-muted);">—</span>'}
+                  </span>
+                  ${b.latency_ms ? `<span style="color:var(--accent-green); font-size:0.7rem;">Ping: ${b.latency_ms.toFixed(1)}ms</span>` : ''}
+                </div>
+                <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                  <span style="display:flex; align-items:center; gap:0.35rem;">
+                    <span style="color:var(--text-muted); font-size:0.7rem;">IP:</span>
+                    ${ip ? `<a href="${ipUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-green); text-decoration:underline; font-weight:600;" onclick="event.stopPropagation()">${ip}${portSuffix} ↗</a>` : '<span style="color:var(--text-muted);">—</span>'}
+                  </span>
+                </div>
               </div>
               <div class="bot-card-actions">
                 <label style="font-size:0.75rem;display:flex;align-items:center;gap:0.4rem;cursor:pointer;color:var(--text-muted);">
@@ -2050,7 +2071,8 @@
                   ${(b.actions||[]).map((act,i)=>`<button class="btn-sm" onclick="triggerAction('${b.id}',${i})">${act.name}</button>`).join('')}
                 </div>
               </div>
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>`;
     }
     container.innerHTML = html;

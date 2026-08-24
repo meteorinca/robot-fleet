@@ -1,17 +1,44 @@
 # ESP-IDF & Firmware build artifacts
 build/
+**/build/
 managed_components/
+**/managed_components/
 sdkconfig.old
+**/sdkconfig.old
 dependencies.lock
+**/dependencies.lock
 secrets.h
 **/secrets.h
 *.elf
 *.bin
 *.map
 *.hex
+device_bins/
+**/device_bins/
+
+# Go & Executable Binaries
+*.exe
+*.exe.test
+*.test
+*.out
+fleethub/fleethub
+fleethub-fleet/fleethub
+fleethub-fleet/fleethub-fleet
+**/fleethub-pi
+**/fleethub-pi-32bit
+
+# SQLite Databases & Runtime Data
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+.fleethub_hk/
+**/.fleethub_hk/
 
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -26,11 +53,14 @@ ENV/
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
-*/.ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
 # Node.js / JavaScript
 node_modules/
+**/node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # IDEs & Editors
 .vscode/
@@ -41,7 +71,7 @@ npm-debug.log*
 *~
 *.code-workspace
 
-# OS Generated Files
+# OS & Temporary / Log Files
 .DS_Store
 .DS_Store?
 ._*
@@ -50,6 +80,11 @@ npm-debug.log*
 ehthumbs.db
 Thumbs.db
 desktop.ini
+TEMPCHECK.html
+**/TEMPCHECK.html
+*.tmp
+*.temp
+*.log
 
 # Secrets & Environment variables
 .env
