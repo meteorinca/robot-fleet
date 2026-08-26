@@ -5,346 +5,1050 @@
   "mode": "robot_fleet",
   "bots": [
     {
-      "id": "paulbot1",
-      "name": "PaulBot 1 (DogBot Quad)",
-      "hostname": "paulbot1.local",
-      "fallback_ip": "192.168.4.101",
+      "id": "paulbot12",
+      "name": "PaulBot 12 (DogBot Quad)",
+      "hostname": "paulbot12.local",
+      "fallback_ip": "192.168.4.112",
       "platform": "dogbot_v1",
-      "ip": "paulbot1.local",
+      "ip": "paulbot12.local",
       "port": 80,
-      "status": "online",
+      "last_seen": "2026-08-25T19:22:56.819233-05:00",
+      "status": "offline",
       "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 3.4,
+      "latency_ms": 3.2,
       "actions": [
-        { "name": "Stand", "endpoint": "/stand", "method": "GET" },
-        { "name": "Wave Hi", "endpoint": "/hi", "method": "GET" },
-        { "name": "Wiggle Dance", "endpoint": "/wiggle", "method": "GET" },
-        { "name": "Bark", "endpoint": "/bark", "method": "GET" },
-        { "name": "Bow", "endpoint": "/bow", "method": "GET" },
-        { "name": "Lie Down", "endpoint": "/lay", "method": "GET" },
-        { "name": "Jump Forward", "endpoint": "/jump_fwd", "method": "GET" },
-        { "name": "Walk Forward", "endpoint": "/walk_fwd", "method": "GET" },
-        { "name": "Walk Backward", "endpoint": "/walk_bwd", "method": "GET" },
-        { "name": "Happy Eyes", "endpoint": "/eye_mood?val=0", "method": "GET" },
-        { "name": "Fireworks OLED", "endpoint": "/anim_fireworks", "method": "GET" },
-        { "name": "Matrix Rain OLED", "endpoint": "/anim_matrix", "method": "GET" },
-        { "name": "Sound: Huh?", "endpoint": "/huh", "method": "GET" },
-        { "name": "LED Toggle", "endpoint": "/toggle", "method": "GET" }
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Wiggle Dance",
+          "endpoint": "/wiggle",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        },
+        {
+          "name": "Bow",
+          "endpoint": "/bow",
+          "method": "GET"
+        },
+        {
+          "name": "Lie Down",
+          "endpoint": "/lay",
+          "method": "GET"
+        },
+        {
+          "name": "Jump Forward",
+          "endpoint": "/jump_fwd",
+          "method": "GET"
+        },
+        {
+          "name": "Walk Forward",
+          "endpoint": "/walk_fwd",
+          "method": "GET"
+        },
+        {
+          "name": "Walk Backward",
+          "endpoint": "/walk_bwd",
+          "method": "GET"
+        },
+        {
+          "name": "Happy Eyes",
+          "endpoint": "/eye_mood?val=0",
+          "method": "GET"
+        },
+        {
+          "name": "Fireworks OLED",
+          "endpoint": "/anim_fireworks",
+          "method": "GET"
+        },
+        {
+          "name": "Matrix Rain OLED",
+          "endpoint": "/anim_matrix",
+          "method": "GET"
+        },
+        {
+          "name": "Sound: Huh?",
+          "endpoint": "/huh",
+          "method": "GET"
+        },
+        {
+          "name": "LED Toggle",
+          "endpoint": "/toggle",
+          "method": "GET"
+        }
       ]
     },
     {
-      "id": "paulbot2",
-      "name": "PaulBot 2 (DogBot Quad)",
-      "hostname": "paulbot2.local",
-      "fallback_ip": "192.168.4.102",
+      "id": "paulbot13",
+      "name": "PaulBot 13 (DogBot Quad)",
+      "hostname": "paulbot13.local",
+      "fallback_ip": "192.168.4.113",
       "platform": "dogbot_v1",
-      "ip": "paulbot2.local",
+      "ip": "paulbot13.local",
       "port": 80,
-      "status": "online",
+      "last_seen": "2026-08-25T19:22:56.47742-05:00",
+      "status": "offline",
       "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 4.1,
+      "latency_ms": 3.8,
       "actions": [
-        { "name": "Stand", "endpoint": "/stand", "method": "GET" },
-        { "name": "Wave Hi", "endpoint": "/hi", "method": "GET" },
-        { "name": "Wiggle Dance", "endpoint": "/wiggle", "method": "GET" },
-        { "name": "Bark", "endpoint": "/bark", "method": "GET" },
-        { "name": "Bow", "endpoint": "/bow", "method": "GET" },
-        { "name": "Lie Down", "endpoint": "/lay", "method": "GET" },
-        { "name": "Jump Forward", "endpoint": "/jump_fwd", "method": "GET" },
-        { "name": "Walk Forward", "endpoint": "/walk_fwd", "method": "GET" },
-        { "name": "Walk Backward", "endpoint": "/walk_bwd", "method": "GET" },
-        { "name": "Happy Eyes", "endpoint": "/eye_mood?val=0", "method": "GET" },
-        { "name": "Fireworks OLED", "endpoint": "/anim_fireworks", "method": "GET" },
-        { "name": "LED Toggle", "endpoint": "/toggle", "method": "GET" }
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Wiggle Dance",
+          "endpoint": "/wiggle",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        },
+        {
+          "name": "Bow",
+          "endpoint": "/bow",
+          "method": "GET"
+        },
+        {
+          "name": "Lie Down",
+          "endpoint": "/lay",
+          "method": "GET"
+        },
+        {
+          "name": "Jump Forward",
+          "endpoint": "/jump_fwd",
+          "method": "GET"
+        },
+        {
+          "name": "Walk Forward",
+          "endpoint": "/walk_fwd",
+          "method": "GET"
+        },
+        {
+          "name": "Walk Backward",
+          "endpoint": "/walk_bwd",
+          "method": "GET"
+        },
+        {
+          "name": "Fireworks OLED",
+          "endpoint": "/anim_fireworks",
+          "method": "GET"
+        },
+        {
+          "name": "LED Toggle",
+          "endpoint": "/toggle",
+          "method": "GET"
+        }
       ]
     },
     {
-      "id": "paulbot3",
-      "name": "PaulBot 3 (DogBot Quad)",
-      "hostname": "paulbot3.local",
-      "fallback_ip": "192.168.4.103",
+      "id": "paulbot14",
+      "name": "PaulBot 14 (DogBot Quad)",
+      "hostname": "paulbot14.local",
+      "fallback_ip": "192.168.4.114",
       "platform": "dogbot_v1",
-      "ip": "paulbot3.local",
+      "ip": "paulbot14.local",
       "port": 80,
-      "status": "online",
+      "last_seen": "2026-08-25T19:22:56.482647-05:00",
+      "status": "offline",
       "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 2.8,
-      "actions": [
-        { "name": "Stand", "endpoint": "/stand", "method": "GET" },
-        { "name": "Wave Hi", "endpoint": "/hi", "method": "GET" },
-        { "name": "Wiggle Dance", "endpoint": "/wiggle", "method": "GET" },
-        { "name": "Bark", "endpoint": "/bark", "method": "GET" },
-        { "name": "Bow", "endpoint": "/bow", "method": "GET" },
-        { "name": "Lie Down", "endpoint": "/lay", "method": "GET" },
-        { "name": "Walk Forward", "endpoint": "/walk_fwd", "method": "GET" },
-        { "name": "LED Toggle", "endpoint": "/toggle", "method": "GET" }
-      ]
-    },
-    {
-      "id": "paulbot4",
-      "name": "PaulBot 4 (DogBot Quad)",
-      "hostname": "paulbot4.local",
-      "fallback_ip": "192.168.4.104",
-      "platform": "dogbot_v1",
-      "ip": "paulbot4.local",
-      "port": 80,
-      "status": "online",
-      "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 5.2,
-      "actions": [
-        { "name": "Stand", "endpoint": "/stand", "method": "GET" },
-        { "name": "Wave Hi", "endpoint": "/hi", "method": "GET" },
-        { "name": "Wiggle Dance", "endpoint": "/wiggle", "method": "GET" },
-        { "name": "Bark", "endpoint": "/bark", "method": "GET" },
-        { "name": "Bow", "endpoint": "/bow", "method": "GET" },
-        { "name": "LED Toggle", "endpoint": "/toggle", "method": "GET" }
-      ]
-    },
-    {
-      "id": "paulbot5",
-      "name": "PaulBot 5 (DogBot Quad)",
-      "hostname": "paulbot5.local",
-      "fallback_ip": "192.168.4.105",
-      "platform": "dogbot_v1",
-      "ip": "paulbot5.local",
-      "port": 80,
-      "status": "online",
-      "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 3.9
-    },
-    {
-      "id": "paulbot6",
-      "name": "PaulBot 6 (DogBot Quad)",
-      "hostname": "paulbot6.local",
-      "fallback_ip": "192.168.4.106",
-      "platform": "dogbot_v1",
-      "ip": "paulbot6.local",
-      "port": 80,
-      "status": "online",
-      "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 4.5
-    },
-    {
-      "id": "paulbot7",
-      "name": "PaulBot 7 (DogBot Quad)",
-      "hostname": "paulbot7.local",
-      "fallback_ip": "192.168.4.107",
-      "platform": "dogbot_v1",
-      "ip": "paulbot7.local",
-      "port": 80,
-      "status": "online",
-      "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 3.1
-    },
-    {
-      "id": "paulbot8",
-      "name": "PaulBot 8 (DogBot Quad)",
-      "hostname": "paulbot8.local",
-      "fallback_ip": "192.168.4.108",
-      "platform": "dogbot_v1",
-      "ip": "paulbot8.local",
-      "port": 80,
-      "status": "online",
-      "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 4.8
-    },
-    {
-      "id": "paulbot9",
-      "name": "PaulBot 9 (DogBot Quad)",
-      "hostname": "paulbot9.local",
-      "fallback_ip": "192.168.4.109",
-      "platform": "dogbot_v1",
-      "ip": "paulbot9.local",
-      "port": 80,
-      "status": "online",
-      "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 3.7
-    },
-    {
-      "id": "paulbot10",
-      "name": "PaulBot 10 (DogBot Quad)",
-      "hostname": "paulbot10.local",
-      "fallback_ip": "192.168.4.110",
-      "platform": "dogbot_v1",
-      "ip": "paulbot10.local",
-      "port": 80,
-      "status": "online",
-      "role": "quadruped_dogbot",
-      "ping_enabled": true,
-      "latency_ms": 4.2
-    },
-    {
-      "id": "mybot1",
-      "name": "MyBot 1 (Breadboard Bot)",
-      "hostname": "mybot1.local",
-      "fallback_ip": "192.168.4.201",
-      "platform": "mybot",
-      "ip": "mybot1.local",
-      "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
-      "ping_enabled": true,
-      "latency_ms": 2.1,
-      "actions": [
-        { "name": "Servo 1 ON", "endpoint": "/s1on", "method": "GET" },
-        { "name": "Servo 1 OFF", "endpoint": "/s1off", "method": "GET" },
-        { "name": "Servo 2 ON", "endpoint": "/s2on", "method": "GET" },
-        { "name": "Servo 2 OFF", "endpoint": "/s2off", "method": "GET" },
-        { "name": "Random Look ON", "endpoint": "/random_look?on=1", "method": "GET" },
-        { "name": "Mario Melody", "endpoint": "/demo?type=mario", "method": "GET" },
-        { "name": "Coin SFX", "endpoint": "/demo?type=coin", "method": "GET" },
-        { "name": "Mario Dance OLED", "endpoint": "/anim_mario", "method": "GET" },
-        { "name": "Space Invaders OLED", "endpoint": "/anim_invader", "method": "GET" },
-        { "name": "Big Yawn OLED", "endpoint": "/big_yawn", "method": "GET" },
-        { "name": "Green LED ON", "endpoint": "/grnon", "method": "GET" },
-        { "name": "Red LED ON", "endpoint": "/redon", "method": "GET" },
-        { "name": "Board LED Tog", "endpoint": "/toggle", "method": "GET" }
-      ]
-    },
-    {
-      "id": "mybot2",
-      "name": "MyBot 2 (Breadboard Bot)",
-      "hostname": "mybot2.local",
-      "fallback_ip": "192.168.4.202",
-      "platform": "mybot",
-      "ip": "mybot2.local",
-      "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
-      "ping_enabled": true,
-      "latency_ms": 3.6,
-      "actions": [
-        { "name": "Servo 1 ON", "endpoint": "/s1on", "method": "GET" },
-        { "name": "Servo 1 OFF", "endpoint": "/s1off", "method": "GET" },
-        { "name": "Mario Melody", "endpoint": "/demo?type=mario", "method": "GET" },
-        { "name": "Coin SFX", "endpoint": "/demo?type=coin", "method": "GET" },
-        { "name": "Mario Dance OLED", "endpoint": "/anim_mario", "method": "GET" },
-        { "name": "Big Yawn OLED", "endpoint": "/big_yawn", "method": "GET" },
-        { "name": "Green LED ON", "endpoint": "/grnon", "method": "GET" },
-        { "name": "Red LED ON", "endpoint": "/redon", "method": "GET" }
-      ]
-    },
-    {
-      "id": "mybot3",
-      "name": "MyBot 3 (Breadboard Bot)",
-      "hostname": "mybot3.local",
-      "fallback_ip": "192.168.4.203",
-      "platform": "mybot",
-      "ip": "mybot3.local",
-      "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "homekit_enabled": false,
       "ping_enabled": true,
       "latency_ms": 2.9,
       "actions": [
-        { "name": "Servo 1 ON", "endpoint": "/s1on", "method": "GET" },
-        { "name": "Servo 1 OFF", "endpoint": "/s1off", "method": "GET" },
-        { "name": "Mario Melody", "endpoint": "/demo?type=mario", "method": "GET" },
-        { "name": "Coin SFX", "endpoint": "/demo?type=coin", "method": "GET" },
-        { "name": "Mario Dance OLED", "endpoint": "/anim_mario", "method": "GET" },
-        { "name": "Green LED ON", "endpoint": "/grnon", "method": "GET" },
-        { "name": "Red LED ON", "endpoint": "/redon", "method": "GET" }
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Wiggle Dance",
+          "endpoint": "/wiggle",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        },
+        {
+          "name": "Bow",
+          "endpoint": "/bow",
+          "method": "GET"
+        },
+        {
+          "name": "Lie Down",
+          "endpoint": "/lay",
+          "method": "GET"
+        },
+        {
+          "name": "Walk Forward",
+          "endpoint": "/walk_fwd",
+          "method": "GET"
+        },
+        {
+          "name": "LED Toggle",
+          "endpoint": "/toggle",
+          "method": "GET"
+        }
       ]
     },
     {
-      "id": "mybot4",
-      "name": "MyBot 4 (Breadboard Bot)",
-      "hostname": "mybot4.local",
-      "fallback_ip": "192.168.4.204",
-      "platform": "mybot",
-      "ip": "mybot4.local",
+      "id": "paulbot15",
+      "name": "PaulBot 15 (DogBot Quad)",
+      "hostname": "paulbot15.local",
+      "fallback_ip": "192.168.4.115",
+      "platform": "dogbot_v1",
+      "ip": "paulbot15.local",
       "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "last_seen": "2026-08-25T19:22:56.507854-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 4.1
+      "latency_ms": 4.1,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Wiggle Dance",
+          "endpoint": "/wiggle",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        },
+        {
+          "name": "Bow",
+          "endpoint": "/bow",
+          "method": "GET"
+        },
+        {
+          "name": "LED Toggle",
+          "endpoint": "/toggle",
+          "method": "GET"
+        }
+      ]
     },
     {
-      "id": "mybot5",
-      "name": "MyBot 5 (Breadboard Bot)",
-      "hostname": "mybot5.local",
-      "fallback_ip": "192.168.4.205",
-      "platform": "mybot",
-      "ip": "mybot5.local",
+      "id": "paulbot16",
+      "name": "PaulBot 16 (DogBot Quad)",
+      "hostname": "paulbot16.local",
+      "fallback_ip": "192.168.4.116",
+      "platform": "dogbot_v1",
+      "ip": "paulbot16.local",
       "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "last_seen": "2026-08-25T19:22:56.655047-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 1.9
+      "latency_ms": 3.5,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        },
+        {
+          "name": "LED Toggle",
+          "endpoint": "/toggle",
+          "method": "GET"
+        }
+      ]
     },
     {
-      "id": "mybot6",
-      "name": "MyBot 6 (Breadboard Bot)",
-      "hostname": "mybot6.local",
-      "fallback_ip": "192.168.4.206",
-      "platform": "mybot",
-      "ip": "mybot6.local",
+      "id": "paulbot17",
+      "name": "PaulBot 17 (DogBot Quad)",
+      "hostname": "paulbot17.local",
+      "fallback_ip": "192.168.4.117",
+      "platform": "dogbot_v1",
+      "ip": "paulbot17.local",
       "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "last_seen": "2026-08-25T19:22:56.551806-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 3.8
+      "latency_ms": 4,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Wiggle Dance",
+          "endpoint": "/wiggle",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        }
+      ]
     },
     {
-      "id": "mybot7",
-      "name": "MyBot 7 (Breadboard Bot)",
-      "hostname": "mybot7.local",
-      "fallback_ip": "192.168.4.207",
-      "platform": "mybot",
-      "ip": "mybot7.local",
+      "id": "paulbot18",
+      "name": "PaulBot 18 (DogBot Quad)",
+      "hostname": "paulbot18.local",
+      "fallback_ip": "192.168.4.118",
+      "platform": "dogbot_v1",
+      "ip": "paulbot18.local",
       "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "last_seen": "2026-08-25T19:22:56.641739-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 5.0
+      "latency_ms": 3.1,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        }
+      ]
     },
     {
-      "id": "mybot8",
-      "name": "MyBot 8 (Breadboard Bot)",
-      "hostname": "mybot8.local",
-      "fallback_ip": "192.168.4.208",
-      "platform": "mybot",
-      "ip": "mybot8.local",
+      "id": "paulbot19",
+      "name": "PaulBot 19 (DogBot Quad)",
+      "hostname": "paulbot19.local",
+      "fallback_ip": "192.168.4.119",
+      "platform": "dogbot_v1",
+      "ip": "paulbot19.local",
       "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "last_seen": "2026-08-25T19:22:56.50854-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 3.2
+      "latency_ms": 4.6,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        }
+      ]
     },
     {
-      "id": "mybot9",
-      "name": "MyBot 9 (Breadboard Bot)",
-      "hostname": "mybot9.local",
-      "fallback_ip": "192.168.4.209",
-      "platform": "mybot",
-      "ip": "mybot9.local",
+      "id": "paulbot20",
+      "name": "PaulBot 20 (DogBot Quad)",
+      "hostname": "paulbot20.local",
+      "fallback_ip": "192.168.4.120",
+      "platform": "dogbot_v1",
+      "ip": "paulbot20.local",
       "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "last_seen": "2026-08-25T19:22:56.829612-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 4.6
+      "latency_ms": 3.7,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        }
+      ]
     },
     {
-      "id": "mybot10",
-      "name": "MyBot 10 (Breadboard Bot)",
-      "hostname": "mybot10.local",
-      "fallback_ip": "192.168.4.210",
-      "platform": "mybot",
-      "ip": "mybot10.local",
+      "id": "paulbot21",
+      "name": "PaulBot 21 (DogBot Quad)",
+      "hostname": "paulbot21.local",
+      "fallback_ip": "192.168.4.121",
+      "platform": "dogbot_v1",
+      "ip": "paulbot21.local",
       "port": 80,
-      "status": "online",
-      "role": "breadboard_bot",
+      "last_seen": "2026-08-25T19:22:56.614302-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
       "ping_enabled": true,
-      "latency_ms": 3.5
+      "latency_ms": 4.2,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "paulbot22",
+      "name": "PaulBot 22 (DogBot Quad)",
+      "hostname": "paulbot22.local",
+      "fallback_ip": "192.168.4.122",
+      "platform": "dogbot_v1",
+      "ip": "paulbot22.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:56.550822-05:00",
+      "status": "offline",
+      "role": "quadruped_dogbot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 3.9,
+      "actions": [
+        {
+          "name": "Stand",
+          "endpoint": "/stand",
+          "method": "GET"
+        },
+        {
+          "name": "Wave Hi",
+          "endpoint": "/hi",
+          "method": "GET"
+        },
+        {
+          "name": "Wiggle Dance",
+          "endpoint": "/wiggle",
+          "method": "GET"
+        },
+        {
+          "name": "Bark",
+          "endpoint": "/bark",
+          "method": "GET"
+        },
+        {
+          "name": "Bow",
+          "endpoint": "/bow",
+          "method": "GET"
+        },
+        {
+          "name": "Lie Down",
+          "endpoint": "/lay",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot57",
+      "name": "MyBot 57 (Breadboard Bot)",
+      "hostname": "mybot57.local",
+      "fallback_ip": "192.168.4.257",
+      "platform": "mybot",
+      "ip": "mybot57.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.345707-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 2.1,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 2 ON",
+          "endpoint": "/s2on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 2 OFF",
+          "endpoint": "/s2off",
+          "method": "GET"
+        },
+        {
+          "name": "Random Look ON",
+          "endpoint": "/random_look?on=1",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Melody",
+          "endpoint": "/demo?type=mario",
+          "method": "GET"
+        },
+        {
+          "name": "Coin SFX",
+          "endpoint": "/demo?type=coin",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Dance OLED",
+          "endpoint": "/anim_mario",
+          "method": "GET"
+        },
+        {
+          "name": "Space Invaders OLED",
+          "endpoint": "/anim_invader",
+          "method": "GET"
+        },
+        {
+          "name": "Big Yawn OLED",
+          "endpoint": "/big_yawn",
+          "method": "GET"
+        },
+        {
+          "name": "Green LED ON",
+          "endpoint": "/grnon",
+          "method": "GET"
+        },
+        {
+          "name": "Red LED ON",
+          "endpoint": "/redon",
+          "method": "GET"
+        },
+        {
+          "name": "Board LED Tog",
+          "endpoint": "/toggle",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot58",
+      "name": "MyBot 58 (Breadboard Bot)",
+      "hostname": "mybot58.local",
+      "fallback_ip": "192.168.4.258",
+      "platform": "mybot",
+      "ip": "mybot58.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.413316-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 3.6,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Melody",
+          "endpoint": "/demo?type=mario",
+          "method": "GET"
+        },
+        {
+          "name": "Coin SFX",
+          "endpoint": "/demo?type=coin",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Dance OLED",
+          "endpoint": "/anim_mario",
+          "method": "GET"
+        },
+        {
+          "name": "Big Yawn OLED",
+          "endpoint": "/big_yawn",
+          "method": "GET"
+        },
+        {
+          "name": "Green LED ON",
+          "endpoint": "/grnon",
+          "method": "GET"
+        },
+        {
+          "name": "Red LED ON",
+          "endpoint": "/redon",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot59",
+      "name": "MyBot 59 (Breadboard Bot)",
+      "hostname": "mybot59.local",
+      "fallback_ip": "192.168.4.259",
+      "platform": "mybot",
+      "ip": "mybot59.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.442978-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 2.9,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Melody",
+          "endpoint": "/demo?type=mario",
+          "method": "GET"
+        },
+        {
+          "name": "Coin SFX",
+          "endpoint": "/demo?type=coin",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Dance OLED",
+          "endpoint": "/anim_mario",
+          "method": "GET"
+        },
+        {
+          "name": "Green LED ON",
+          "endpoint": "/grnon",
+          "method": "GET"
+        },
+        {
+          "name": "Red LED ON",
+          "endpoint": "/redon",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot60",
+      "name": "MyBot 60 (Breadboard Bot)",
+      "hostname": "mybot60.local",
+      "fallback_ip": "192.168.4.260",
+      "platform": "mybot",
+      "ip": "mybot60.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.439569-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 4.1,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Melody",
+          "endpoint": "/demo?type=mario",
+          "method": "GET"
+        },
+        {
+          "name": "Coin SFX",
+          "endpoint": "/demo?type=coin",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot61",
+      "name": "MyBot 61 (Breadboard Bot)",
+      "hostname": "mybot61.local",
+      "fallback_ip": "192.168.4.261",
+      "platform": "mybot",
+      "ip": "mybot61.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.306809-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 1.9,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Melody",
+          "endpoint": "/demo?type=mario",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot62",
+      "name": "MyBot 62 (Breadboard Bot)",
+      "hostname": "mybot62.local",
+      "fallback_ip": "192.168.4.262",
+      "platform": "mybot",
+      "ip": "mybot62.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.411321-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 3.8,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Green LED ON",
+          "endpoint": "/grnon",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot63",
+      "name": "MyBot 63 (Breadboard Bot)",
+      "hostname": "mybot63.local",
+      "fallback_ip": "192.168.4.263",
+      "platform": "mybot",
+      "ip": "mybot63.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.250362-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 5,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Red LED ON",
+          "endpoint": "/redon",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot64",
+      "name": "MyBot 64 (Breadboard Bot)",
+      "hostname": "mybot64.local",
+      "fallback_ip": "192.168.4.264",
+      "platform": "mybot",
+      "ip": "mybot64.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.388498-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 3.2,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot65",
+      "name": "MyBot 65 (Breadboard Bot)",
+      "hostname": "mybot65.local",
+      "fallback_ip": "192.168.4.265",
+      "platform": "mybot",
+      "ip": "mybot65.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.434109-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 4.6,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot66",
+      "name": "MyBot 66 (Breadboard Bot)",
+      "hostname": "mybot66.local",
+      "fallback_ip": "192.168.4.266",
+      "platform": "mybot",
+      "ip": "mybot66.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.59035-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 3.5,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "mybot67",
+      "name": "MyBot 67 (Breadboard Bot)",
+      "hostname": "mybot67.local",
+      "fallback_ip": "192.168.4.267",
+      "platform": "mybot",
+      "ip": "mybot67.local",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:55.24817-05:00",
+      "status": "offline",
+      "role": "breadboard_bot",
+      "homekit_enabled": false,
+      "ping_enabled": true,
+      "latency_ms": 4,
+      "actions": [
+        {
+          "name": "Servo 1 ON",
+          "endpoint": "/s1on",
+          "method": "GET"
+        },
+        {
+          "name": "Servo 1 OFF",
+          "endpoint": "/s1off",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Melody",
+          "endpoint": "/demo?type=mario",
+          "method": "GET"
+        },
+        {
+          "name": "Coin SFX",
+          "endpoint": "/demo?type=coin",
+          "method": "GET"
+        },
+        {
+          "name": "Mario Dance OLED",
+          "endpoint": "/anim_mario",
+          "method": "GET"
+        },
+        {
+          "name": "Big Yawn OLED",
+          "endpoint": "/big_yawn",
+          "method": "GET"
+        },
+        {
+          "name": "Green LED ON",
+          "endpoint": "/grnon",
+          "method": "GET"
+        },
+        {
+          "name": "Red LED ON",
+          "endpoint": "/redon",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "id": "OctoPrint\\ instance\\ on\\ octopi",
+      "name": "OctoPrint\\ instance\\ on\\ octopi",
+      "hostname": "octopi.local",
+      "platform": "dogbot_v1",
+      "ip": "10.0.0.52",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:56.784309-05:00",
+      "status": "online",
+      "homekit_enabled": false,
+      "ping_enabled": false
+    },
+    {
+      "id": "SimpleBot\\ v1",
+      "name": "SimpleBot\\ v1",
+      "hostname": "simplebot1.local",
+      "platform": "simplebot",
+      "ip": "10.0.0.28",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:56.889222-05:00",
+      "status": "online",
+      "homekit_enabled": false,
+      "ping_enabled": false,
+      "latency_ms": 92.783
+    },
+    {
+      "id": "RFBot\\ v6",
+      "name": "RFBot\\ v6",
+      "hostname": "rfbot6.local",
+      "platform": "rfbot",
+      "ip": "10.0.0.46",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:56.888663-05:00",
+      "status": "online",
+      "homekit_enabled": false,
+      "ping_enabled": false,
+      "latency_ms": 110.645
+    },
+    {
+      "id": "RFBot\\ v1",
+      "name": "RFBot\\ v1",
+      "hostname": "rfbot1.local",
+      "platform": "rfbot",
+      "ip": "10.0.0.42",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:52.314431-05:00",
+      "status": "online",
+      "homekit_enabled": false,
+      "ping_enabled": false,
+      "latency_ms": 136.981
+    },
+    {
+      "id": "SpeakerBot\\ v1",
+      "name": "SpeakerBot\\ v1",
+      "hostname": "speakerbot1.local",
+      "platform": "speakerbot",
+      "ip": "10.0.0.40",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:56.788564-05:00",
+      "status": "online",
+      "homekit_enabled": false,
+      "ping_enabled": false,
+      "latency_ms": 97.706
+    },
+    {
+      "id": "wled-224f74",
+      "name": "wled-224f74",
+      "hostname": "wled-224f74.local",
+      "platform": "dogbot_v1",
+      "ip": "10.0.0.56",
+      "port": 80,
+      "last_seen": "2026-08-25T19:22:56.792295-05:00",
+      "status": "online",
+      "homekit_enabled": false,
+      "ping_enabled": false,
+      "latency_ms": 8.592
     }
   ],
   "sensors": [],

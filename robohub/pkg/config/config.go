@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -105,16 +106,95 @@ type Config struct {
 	mu         sync.RWMutex
 }
 
-// DefaultConfig returns rich robot fleet defaults for PaulBots and MyBots.
+// DogBotDefaultActions returns standard movement and OLED actions for quadruped DogBots.
+func DogBotDefaultActions() []DeviceAction {
+	return []DeviceAction{
+		{Name: "Stand", Endpoint: "/stand", Method: "GET"},
+		{Name: "Wave Hi", Endpoint: "/hi", Method: "GET"},
+		{Name: "Wiggle Dance", Endpoint: "/wiggle", Method: "GET"},
+		{Name: "Bark", Endpoint: "/bark", Method: "GET"},
+		{Name: "Bow", Endpoint: "/bow", Method: "GET"},
+		{Name: "Lie Down", Endpoint: "/lay", Method: "GET"},
+		{Name: "Jump Forward", Endpoint: "/jump_fwd", Method: "GET"},
+		{Name: "Walk Forward", Endpoint: "/walk_fwd", Method: "GET"},
+		{Name: "Walk Backward", Endpoint: "/walk_bwd", Method: "GET"},
+		{Name: "Shake", Endpoint: "/shake", Method: "GET"},
+		{Name: "Poke", Endpoint: "/poke", Method: "GET"},
+		{Name: "Kick", Endpoint: "/kick", Method: "GET"},
+		{Name: "Rock", Endpoint: "/rock", Method: "GET"},
+		{Name: "Sway", Endpoint: "/sway", Method: "GET"},
+		{Name: "Lean Back", Endpoint: "/lean", Method: "GET"},
+		{Name: "Happy Eyes", Endpoint: "/eye_mood?val=0", Method: "GET"},
+		{Name: "Sad Eyes", Endpoint: "/eye_mood?val=1", Method: "GET"},
+		{Name: "Neutral Eyes", Endpoint: "/eye_mood?val=2", Method: "GET"},
+		{Name: "Angry Eyes", Endpoint: "/eye_mood?val=3", Method: "GET"},
+		{Name: "Fireworks OLED", Endpoint: "/anim_fireworks", Method: "GET"},
+		{Name: "Matrix Rain OLED", Endpoint: "/anim_matrix", Method: "GET"},
+		{Name: "Heartbeat OLED", Endpoint: "/anim_heartbeat", Method: "GET"},
+		{Name: "Eyes Mode OLED", Endpoint: "/anim_eyes", Method: "GET"},
+		{Name: "Sound: Huh?", Endpoint: "/huh", Method: "GET"},
+		{Name: "Sound: Yes", Endpoint: "/yes", Method: "GET"},
+		{Name: "Sound: Jump", Endpoint: "/jump", Method: "GET"},
+		{Name: "Sound: Ding", Endpoint: "/ding", Method: "GET"},
+		{Name: "LED On", Endpoint: "/l1on", Method: "GET"},
+		{Name: "LED Off", Endpoint: "/l1off", Method: "GET"},
+		{Name: "LED Toggle", Endpoint: "/toggle", Method: "GET"},
+	}
+}
+
+// MyBotDefaultActions returns standard servo, sound, and OLED actions for MyBot breadboards.
+func MyBotDefaultActions() []DeviceAction {
+	return []DeviceAction{
+		{Name: "Servo 1 ON", Endpoint: "/s1on", Method: "GET"},
+		{Name: "Servo 1 OFF", Endpoint: "/s1off", Method: "GET"},
+		{Name: "Servo 2 ON", Endpoint: "/s2on", Method: "GET"},
+		{Name: "Servo 2 OFF", Endpoint: "/s2off", Method: "GET"},
+		{Name: "Random Look ON", Endpoint: "/random_look?on=1", Method: "GET"},
+		{Name: "Random Look OFF", Endpoint: "/random_look?on=0", Method: "GET"},
+		{Name: "Mario Melody", Endpoint: "/demo?type=mario", Method: "GET"},
+		{Name: "Coin SFX", Endpoint: "/demo?type=coin", Method: "GET"},
+		{Name: "1Up SFX", Endpoint: "/demo?type=1up", Method: "GET"},
+		{Name: "Laser SFX", Endpoint: "/demo?type=laser", Method: "GET"},
+		{Name: "Siren SFX", Endpoint: "/demo?type=siren", Method: "GET"},
+		{Name: "Game Over SFX", Endpoint: "/demo?type=gameover", Method: "GET"},
+		{Name: "Mario Dance OLED", Endpoint: "/anim_mario", Method: "GET"},
+		{Name: "Space Invaders OLED", Endpoint: "/anim_invader", Method: "GET"},
+		{Name: "Big Yawn OLED", Endpoint: "/big_yawn", Method: "GET"},
+		{Name: "Fireworks OLED", Endpoint: "/anim_fireworks", Method: "GET"},
+		{Name: "Matrix Rain OLED", Endpoint: "/anim_matrix", Method: "GET"},
+		{Name: "Heartbeat OLED", Endpoint: "/anim_heartbeat", Method: "GET"},
+		{Name: "Game Off / Normal", Endpoint: "/game_off", Method: "GET"},
+		{Name: "Green LED ON", Endpoint: "/grnon", Method: "GET"},
+		{Name: "Green LED OFF", Endpoint: "/grnoff", Method: "GET"},
+		{Name: "Green LED Tog", Endpoint: "/grntog", Method: "GET"},
+		{Name: "Red LED ON", Endpoint: "/redon", Method: "GET"},
+		{Name: "Red LED OFF", Endpoint: "/redoff", Method: "GET"},
+		{Name: "Red LED Tog", Endpoint: "/redtog", Method: "GET"},
+		{Name: "Board LED ON", Endpoint: "/l1on", Method: "GET"},
+		{Name: "Board LED OFF", Endpoint: "/l1off", Method: "GET"},
+		{Name: "Board LED Tog", Endpoint: "/toggle", Method: "GET"},
+	}
+}
+
+// CleanBotName strips parenthetical extra text (e.g. "(DogBot Quad)", "(Breadboard Bot)", "(RX Gateway)")
+// for a cleaner and more modern appearance.
+func CleanBotName(name string) string {
+	if idx := strings.Index(name, "("); idx != -1 {
+		return strings.TrimSpace(name[:idx])
+	}
+	return strings.TrimSpace(name)
+}
+
+// DefaultConfig returns rich robot fleet defaults for PaulBots (12-22) and MyBots (57-67).
 func DefaultConfig(path string) *Config {
 	bots := []RobotNode{}
 
-	// 1. Generate default PaulBot DogBots (Quadrupeds) 1 to 12
-	for i := 1; i <= 12; i++ {
+	// 1. PaulBot DogBots (Quadrupeds) 12 to 22
+	for i := 12; i <= 22; i++ {
 		id := fmt.Sprintf("paulbot%d", i)
 		hostname := fmt.Sprintf("paulbot%d.local", i)
 		fallbackIP := fmt.Sprintf("192.168.4.%d", 100+i)
-		name := fmt.Sprintf("PaulBot %d (DogBot Quad)", i)
+		name := fmt.Sprintf("PaulBot %d", i)
 
 		bots = append(bots, RobotNode{
 			ID:          id,
@@ -127,47 +207,16 @@ func DefaultConfig(path string) *Config {
 			Status:      "online",
 			Role:        "quadruped_dogbot",
 			PingEnabled: true,
-			Actions: []DeviceAction{
-				{Name: "Stand", Endpoint: "/stand", Method: "GET"},
-				{Name: "Wave Hi", Endpoint: "/hi", Method: "GET"},
-				{Name: "Wiggle Dance", Endpoint: "/wiggle", Method: "GET"},
-				{Name: "Bark", Endpoint: "/bark", Method: "GET"},
-				{Name: "Bow", Endpoint: "/bow", Method: "GET"},
-				{Name: "Lie Down", Endpoint: "/lay", Method: "GET"},
-				{Name: "Jump Forward", Endpoint: "/jump_fwd", Method: "GET"},
-				{Name: "Walk Forward", Endpoint: "/walk_fwd", Method: "GET"},
-				{Name: "Walk Backward", Endpoint: "/walk_bwd", Method: "GET"},
-				{Name: "Shake", Endpoint: "/shake", Method: "GET"},
-				{Name: "Poke", Endpoint: "/poke", Method: "GET"},
-				{Name: "Kick", Endpoint: "/kick", Method: "GET"},
-				{Name: "Rock", Endpoint: "/rock", Method: "GET"},
-				{Name: "Sway", Endpoint: "/sway", Method: "GET"},
-				{Name: "Lean Back", Endpoint: "/lean", Method: "GET"},
-				{Name: "Happy Eyes", Endpoint: "/eye_mood?val=0", Method: "GET"},
-				{Name: "Sad Eyes", Endpoint: "/eye_mood?val=1", Method: "GET"},
-				{Name: "Neutral Eyes", Endpoint: "/eye_mood?val=2", Method: "GET"},
-				{Name: "Angry Eyes", Endpoint: "/eye_mood?val=3", Method: "GET"},
-				{Name: "Fireworks OLED", Endpoint: "/anim_fireworks", Method: "GET"},
-				{Name: "Matrix Rain OLED", Endpoint: "/anim_matrix", Method: "GET"},
-				{Name: "Heartbeat OLED", Endpoint: "/anim_heartbeat", Method: "GET"},
-				{Name: "Eyes Mode OLED", Endpoint: "/anim_eyes", Method: "GET"},
-				{Name: "Sound: Huh?", Endpoint: "/huh", Method: "GET"},
-				{Name: "Sound: Yes", Endpoint: "/yes", Method: "GET"},
-				{Name: "Sound: Jump", Endpoint: "/jump", Method: "GET"},
-				{Name: "Sound: Ding", Endpoint: "/ding", Method: "GET"},
-				{Name: "LED On", Endpoint: "/l1on", Method: "GET"},
-				{Name: "LED Off", Endpoint: "/l1off", Method: "GET"},
-				{Name: "LED Toggle", Endpoint: "/toggle", Method: "GET"},
-			},
+			Actions:     DogBotDefaultActions(),
 		})
 	}
 
-	// 2. Generate default MyBots (Breadboard Bots) 1 to 12
-	for i := 1; i <= 12; i++ {
+	// 2. MyBots (Breadboard Bots) 57 to 67
+	for i := 57; i <= 67; i++ {
 		id := fmt.Sprintf("mybot%d", i)
 		hostname := fmt.Sprintf("mybot%d.local", i)
-		fallbackIP := fmt.Sprintf("192.168.4.%d", 200+i)
-		name := fmt.Sprintf("MyBot %d (Breadboard Bot)", i)
+		fallbackIP := fmt.Sprintf("192.168.4.%d", 200+(i-50))
+		name := fmt.Sprintf("MyBot %d", i)
 
 		bots = append(bots, RobotNode{
 			ID:          id,
@@ -180,36 +229,7 @@ func DefaultConfig(path string) *Config {
 			Status:      "online",
 			Role:        "breadboard_bot",
 			PingEnabled: true,
-			Actions: []DeviceAction{
-				{Name: "Servo 1 ON", Endpoint: "/s1on", Method: "GET"},
-				{Name: "Servo 1 OFF", Endpoint: "/s1off", Method: "GET"},
-				{Name: "Servo 2 ON", Endpoint: "/s2on", Method: "GET"},
-				{Name: "Servo 2 OFF", Endpoint: "/s2off", Method: "GET"},
-				{Name: "Random Look ON", Endpoint: "/random_look?on=1", Method: "GET"},
-				{Name: "Random Look OFF", Endpoint: "/random_look?on=0", Method: "GET"},
-				{Name: "Mario Melody", Endpoint: "/demo?type=mario", Method: "GET"},
-				{Name: "Coin SFX", Endpoint: "/demo?type=coin", Method: "GET"},
-				{Name: "1Up SFX", Endpoint: "/demo?type=1up", Method: "GET"},
-				{Name: "Laser SFX", Endpoint: "/demo?type=laser", Method: "GET"},
-				{Name: "Siren SFX", Endpoint: "/demo?type=siren", Method: "GET"},
-				{Name: "Game Over SFX", Endpoint: "/demo?type=gameover", Method: "GET"},
-				{Name: "Mario Dance OLED", Endpoint: "/anim_mario", Method: "GET"},
-				{Name: "Space Invaders OLED", Endpoint: "/anim_invader", Method: "GET"},
-				{Name: "Big Yawn OLED", Endpoint: "/big_yawn", Method: "GET"},
-				{Name: "Fireworks OLED", Endpoint: "/anim_fireworks", Method: "GET"},
-				{Name: "Matrix Rain OLED", Endpoint: "/anim_matrix", Method: "GET"},
-				{Name: "Heartbeat OLED", Endpoint: "/anim_heartbeat", Method: "GET"},
-				{Name: "Game Off / Normal", Endpoint: "/game_off", Method: "GET"},
-				{Name: "Green LED ON", Endpoint: "/grnon", Method: "GET"},
-				{Name: "Green LED OFF", Endpoint: "/grnoff", Method: "GET"},
-				{Name: "Green LED Tog", Endpoint: "/grntog", Method: "GET"},
-				{Name: "Red LED ON", Endpoint: "/redon", Method: "GET"},
-				{Name: "Red LED OFF", Endpoint: "/redoff", Method: "GET"},
-				{Name: "Red LED Tog", Endpoint: "/redtog", Method: "GET"},
-				{Name: "Board LED ON", Endpoint: "/l1on", Method: "GET"},
-				{Name: "Board LED OFF", Endpoint: "/l1off", Method: "GET"},
-				{Name: "Board LED Tog", Endpoint: "/toggle", Method: "GET"},
-			},
+			Actions:     MyBotDefaultActions(),
 		})
 	}
 
@@ -244,14 +264,20 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 
+	// Clean any legacy verbose bot names in loaded config
+	for i := range cfg.Bots {
+		cfg.Bots[i].Name = CleanBotName(cfg.Bots[i].Name)
+	}
+
 	// Try loading known_devices.json
 	knownDevicesPath := "known_devices.json"
 	if _, err := os.Stat(knownDevicesPath); err == nil {
 		knownData, err := os.ReadFile(knownDevicesPath)
 		if err == nil {
 			var knownBots []RobotNode
-			if err := json.Unmarshal(knownData, &knownBots); err == nil {
+			if err := json.Unmarshal(knownData, &knownBots); err == nil && len(knownBots) > 0 {
 				for _, dev := range knownBots {
+					dev.Name = CleanBotName(dev.Name)
 					cfg.UpsertBot(dev)
 				}
 			}
@@ -280,10 +306,35 @@ func (c *Config) Save() error {
 	return os.WriteFile(c.filePath, data, 0644)
 }
 
+// SetBots replaces the entire bot fleet list.
+func (c *Config) SetBots(bots []RobotNode) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Bots = bots
+}
+
+// DeleteBot removes a bot by ID or Hostname.
+func (c *Config) DeleteBot(id string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, b := range c.Bots {
+		if b.ID == id || b.Hostname == id || strings.EqualFold(b.ID, id) {
+			c.Bots = append(c.Bots[:i], c.Bots[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 // UpsertBot adds or updates a discovered or configured robot node in the fleet registry.
 func (c *Config) UpsertBot(node RobotNode) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if node.Name != "" {
+		node.Name = CleanBotName(node.Name)
+	}
 
 	found := false
 	for i, b := range c.Bots {

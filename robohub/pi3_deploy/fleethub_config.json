@@ -6,7 +6,7 @@
   "bots": [
     {
       "id": "rfbot1",
-      "name": "RFBot 1 (RX Gateway)",
+      "name": "RFBot 1",
       "hostname": "rfbot1.local",
       "fallback_ip": "192.168.1.101",
       "platform": "rfbot",
@@ -22,7 +22,7 @@
     },
     {
       "id": "speakerbot1",
-      "name": "SpeakerBot 1 (Audio Output)",
+      "name": "SpeakerBot 1",
       "hostname": "speakerbot1.local",
       "fallback_ip": "192.168.1.102",
       "platform": "speakerbot",
@@ -45,7 +45,7 @@
     },
     {
       "id": "rfbot6",
-      "name": "RFBot 6 (TX Gateway)",
+      "name": "RFBot 6",
       "hostname": "rfbot6.local",
       "fallback_ip": "192.168.1.106",
       "platform": "rfbot",
@@ -68,7 +68,7 @@
     },
     {
       "id": "simplebot1",
-      "name": "SimpleBot 1 (Kitchen Light Controller)",
+      "name": "SimpleBot 1",
       "hostname": "simplebot1.local",
       "fallback_ip": "192.168.1.105",
       "platform": "simplebot",

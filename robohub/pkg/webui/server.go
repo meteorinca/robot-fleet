@@ -88,6 +88,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/bots", s.handleBots)
 	mux.HandleFunc("/api/bots/scan", s.handleScanBots)
+	mux.HandleFunc("/api/bots/update", s.handleUpdateBot)
+	mux.HandleFunc("/api/bots/save_all", s.handleSaveAllBots)
+	mux.HandleFunc("/api/bots/delete", s.handleDeleteBot)
+	mux.HandleFunc("/api/bots/range", s.handleRangeBots)
+	mux.HandleFunc("/api/bots/ping_single", s.handlePingSingleBot)
 	mux.HandleFunc("/api/sensors", s.handleSensors)
 	mux.HandleFunc("/api/rules", s.handleRules)
 	mux.HandleFunc("/api/buttons", s.handleButtons)
@@ -314,6 +319,328 @@ func (s *Server) handleScanBots(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "ok",
 		"bots":   s.cfg.Bots,
+	})
+}
+
+func (s *Server) handleUpdateBot(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var node config.RobotNode
+	if err := json.NewDecoder(r.Body).Decode(&node); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if node.ID == "" && node.Name != "" {
+		node.ID = strings.ToLower(strings.ReplaceAll(node.Name, " ", "_"))
+	}
+	if node.ID == "" {
+		http.Error(w, "Missing bot ID", http.StatusBadRequest)
+		return
+	}
+	if node.Hostname != "" && !strings.Contains(node.Hostname, ".") && !isValidIP(node.Hostname) {
+		node.Hostname = node.Hostname + ".local"
+	}
+	if node.Port == 0 {
+		node.Port = 80
+	}
+	if len(node.Actions) == 0 {
+		if node.Platform == config.PlatformDogBot {
+			node.Actions = config.DogBotDefaultActions()
+		} else if node.Platform == config.PlatformMyBot {
+			node.Actions = config.MyBotDefaultActions()
+		}
+	}
+	if node.Status == "" {
+		node.Status = "online"
+	}
+
+	s.cfg.UpsertBot(node)
+	_ = s.cfg.Save()
+
+	if s.pinger != nil {
+		go func() {
+			latency, online, ip := s.pinger.PingDevice(node)
+			status := "offline"
+			if online {
+				status = "online"
+			}
+			node.Status = status
+			node.LatencyMs = latency
+			if ip != "" {
+				node.IP = ip
+			}
+			s.cfg.UpsertBot(node)
+		}()
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"bot":    node,
+	})
+}
+
+func (s *Server) handleDeleteBot(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		var req struct {
+			ID string `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		id = req.ID
+	}
+
+	if id == "" {
+		http.Error(w, "Missing bot ID", http.StatusBadRequest)
+		return
+	}
+
+	deleted := s.cfg.DeleteBot(id)
+	_ = s.cfg.Save()
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "ok",
+		"deleted": deleted,
+		"id":      id,
+		"count":   len(s.cfg.Bots),
+	})
+}
+
+func (s *Server) handleSaveAllBots(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var bots []config.RobotNode
+	if err := json.NewDecoder(r.Body).Decode(&bots); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	for i := range bots {
+		if bots[i].ID == "" && bots[i].Name != "" {
+			bots[i].ID = strings.ToLower(strings.ReplaceAll(bots[i].Name, " ", "_"))
+		}
+		if bots[i].Port == 0 {
+			bots[i].Port = 80
+		}
+		if len(bots[i].Actions) == 0 {
+			if bots[i].Platform == config.PlatformDogBot {
+				bots[i].Actions = config.DogBotDefaultActions()
+			} else if bots[i].Platform == config.PlatformMyBot {
+				bots[i].Actions = config.MyBotDefaultActions()
+			}
+		}
+	}
+
+	s.cfg.SetBots(bots)
+	_ = s.cfg.Save()
+
+	if s.pinger != nil {
+		go s.pinger.PingAll()
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"count":  len(s.cfg.Bots),
+		"bots":   s.cfg.Bots,
+	})
+}
+
+func (s *Server) handleRangeBots(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Platform   config.BotPlatform `json:"platform"`
+		Prefix     string             `json:"prefix"`
+		NamePrefix string             `json:"name_prefix"`
+		Start      int                `json:"start"`
+		End        int                `json:"end"`
+		IPBase     string             `json:"ip_base"`
+		IPOffset   int                `json:"ip_offset"`
+		Port       int                `json:"port"`
+		Role       string             `json:"role"`
+		Mode       string             `json:"mode"` // "append", "replace_type", "replace_all"
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.Prefix == "" {
+		req.Prefix = "bot"
+	}
+	if req.NamePrefix == "" {
+		req.NamePrefix = strings.Title(req.Prefix)
+	}
+	if req.Start <= 0 {
+		req.Start = 1
+	}
+	if req.End < req.Start {
+		req.End = req.Start
+	}
+	if req.Port == 0 {
+		req.Port = 80
+	}
+	if req.Platform == "" {
+		if strings.Contains(strings.ToLower(req.Prefix), "paul") || strings.Contains(strings.ToLower(req.Prefix), "dog") {
+			req.Platform = config.PlatformDogBot
+		} else if strings.Contains(strings.ToLower(req.Prefix), "mybot") || strings.Contains(strings.ToLower(req.Prefix), "bread") {
+			req.Platform = config.PlatformMyBot
+		} else {
+			req.Platform = config.PlatformDogBot
+		}
+	}
+	if req.Role == "" {
+		if req.Platform == config.PlatformDogBot {
+			req.Role = "quadruped_dogbot"
+		} else if req.Platform == config.PlatformMyBot {
+			req.Role = "breadboard_bot"
+		} else {
+			req.Role = string(req.Platform)
+		}
+	}
+
+	var generated []config.RobotNode
+	for i := req.Start; i <= req.End; i++ {
+		id := fmt.Sprintf("%s%d", req.Prefix, i)
+		hostname := fmt.Sprintf("%s%d.local", req.Prefix, i)
+		fallbackIP := ""
+		if req.IPBase != "" {
+			fallbackIP = fmt.Sprintf("%s%d", req.IPBase, req.IPOffset+i)
+		}
+		name := fmt.Sprintf("%s %d", req.NamePrefix, i)
+
+		var actions []config.DeviceAction
+		if req.Platform == config.PlatformDogBot {
+			actions = config.DogBotDefaultActions()
+		} else if req.Platform == config.PlatformMyBot {
+			actions = config.MyBotDefaultActions()
+		}
+
+		generated = append(generated, config.RobotNode{
+			ID:          id,
+			Name:        name,
+			Hostname:    hostname,
+			FallbackIP:  fallbackIP,
+			Platform:    req.Platform,
+			IP:          hostname,
+			Port:        req.Port,
+			Status:      "online",
+			Role:        req.Role,
+			PingEnabled: true,
+			Actions:     actions,
+		})
+	}
+
+	switch req.Mode {
+	case "replace_all":
+		s.cfg.SetBots(generated)
+	case "replace_type":
+		var preserved []config.RobotNode
+		for _, b := range s.cfg.Bots {
+			if b.Platform != req.Platform {
+				preserved = append(preserved, b)
+			}
+		}
+		s.cfg.SetBots(append(preserved, generated...))
+	default: // "append" or upsert
+		for _, b := range generated {
+			s.cfg.UpsertBot(b)
+		}
+	}
+
+	_ = s.cfg.Save()
+
+	if s.pinger != nil {
+		go s.pinger.PingAll()
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"generated": len(generated),
+		"count":     len(s.cfg.Bots),
+		"bots":      s.cfg.Bots,
+	})
+}
+
+func (s *Server) handlePingSingleBot(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	id := r.URL.Query().Get("id")
+	if id == "" && r.Method == http.MethodPost {
+		var req struct {
+			ID string `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		id = req.ID
+	}
+
+	if id == "" {
+		http.Error(w, "Missing bot ID", http.StatusBadRequest)
+		return
+	}
+
+	var targetBot *config.RobotNode
+	for _, b := range s.cfg.Bots {
+		if b.ID == id || b.Hostname == id || strings.EqualFold(b.ID, id) {
+			targetBot = &b
+			break
+		}
+	}
+
+	if targetBot == nil {
+		http.Error(w, "Bot not found", http.StatusNotFound)
+		return
+	}
+
+	if s.pinger != nil {
+		latency, online, ip := s.pinger.PingDevice(*targetBot)
+		status := "offline"
+		if online {
+			status = "online"
+		}
+		targetBot.Status = status
+		targetBot.LatencyMs = latency
+		if ip != "" {
+			targetBot.IP = ip
+		}
+		s.cfg.UpsertBot(*targetBot)
+		_ = s.cfg.Save()
+
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":     "ok",
+			"id":         targetBot.ID,
+			"bot_status": status,
+			"latency_ms": latency,
+			"ip":         targetBot.IP,
+		})
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "ok",
+		"id":         targetBot.ID,
+		"bot_status": targetBot.Status,
+		"latency_ms": targetBot.LatencyMs,
+		"ip":         targetBot.IP,
 	})
 }
 
