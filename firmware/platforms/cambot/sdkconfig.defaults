@@ -1,0 +1,11 @@
+# sdkconfig.defaults — applied to ALL boards/chips
+# (chip-specific overrides go in sdkconfig.defaults.<chip>, e.g. sdkconfig.defaults.esp32s3)
+
+# Custom OTA partition table (chip-specific file referenced below)
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_ota_8mb.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions_ota_8mb.csv"
+
+# HTTP server: larger headers for MJPEG boundary
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=512

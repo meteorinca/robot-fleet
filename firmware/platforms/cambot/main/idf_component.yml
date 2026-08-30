@@ -1,0 +1,8 @@
+## IDF Component Manager Manifest File
+dependencies:
+  ## Required IDF version
+  idf:
+    version: '>=5.0.0'
+  espressif/mdns: '*'
+  # OV2640/OV3660 camera driver for ESP32-S3 (PSRAM-backed frame buffers)
+  espressif/esp32-camera: '>=2.0.0'
