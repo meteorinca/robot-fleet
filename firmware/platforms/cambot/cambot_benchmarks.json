@@ -1,0 +1,55 @@
+{
+  "http://cambot1.local": {
+    "online": false,
+    "error": "<urlopen error [Errno 11001] getaddrinfo failed>"
+  },
+  "http://cambot3.local": {
+    "online": true,
+    "sensor_name": "Legacy (Flash updated firmware for /diag)",
+    "wifi_rssi": "N/A",
+    "free_psram": "N/A",
+    "free_heap": "N/A",
+    "version": "0.1",
+    "legacy": true,
+    "idle_status_lat": {
+      "avg": 74.5193400001881,
+      "min": 30.096800001047086,
+      "max": 116.44750000050408,
+      "p95": 116.44750000050408,
+      "samples": 20,
+      "errors": 0
+    },
+    "idle_drive_lat": {
+      "avg": 132.57638500035682,
+      "min": 51.58230000233743,
+      "max": 390.472499999305,
+      "p95": 390.472499999305,
+      "samples": 20,
+      "errors": 0
+    },
+    "stream_results": {
+      "fps_client": 18.229086225097067,
+      "bitrate_mbps": 1.2846701300762324,
+      "frames_received": 146,
+      "stream_status_lat": {
+        "avg": 340.0018900003488,
+        "min": 64.5358000001579,
+        "max": 2928.9109999990615,
+        "p95": 2928.9109999990615,
+        "samples": 20,
+        "errors": 0
+      },
+      "stream_drive_lat": {
+        "avg": 99.24902500042663,
+        "min": 64.34139999691979,
+        "max": 168.16879999896628,
+        "p95": 168.16879999896628,
+        "samples": 20,
+        "errors": 0
+      },
+      "peer_interference_lat": null,
+      "device_stats": {},
+      "error": null
+    }
+  }
+}

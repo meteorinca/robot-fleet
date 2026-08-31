@@ -40,8 +40,65 @@
 #include "freertos/semphr.h"
 #include <sys/socket.h>
 #include <netinet/tcp.h>
+#include "esp_wifi.h"
+#include "esp_heap_caps.h"
+#include "esp_timer.h"
 
 static httpd_handle_t s_server = NULL;
+
+// ----------------------------------------------------------------------------
+//  Live Stream Instrumentation & Camera Model Detection
+// ----------------------------------------------------------------------------
+typedef struct {
+    bool     active;
+    uint32_t frames_sent;
+    uint64_t total_bytes;
+    int64_t  start_time_us;
+    int64_t  last_frame_time_us;
+    uint32_t last_capture_us;
+    uint32_t avg_capture_us;
+    uint32_t max_capture_us;
+    uint32_t min_capture_us;
+    uint32_t last_send_us;
+    uint32_t avg_send_us;
+    uint32_t max_send_us;
+    uint32_t min_send_us;
+    uint32_t last_frame_bytes;
+    uint32_t avg_frame_bytes;
+    uint32_t send_errors;
+    float    fps_current;
+    float    bitrate_kbps;
+} stream_stats_t;
+
+static stream_stats_t s_stream_stats = {0};
+
+static const char* get_camera_sensor_name(void) {
+    sensor_t *s = esp_camera_sensor_get();
+    if (!s) return "Not Initialized";
+    switch (s->id.PID) {
+        case OV2640_PID: return "OV2640";
+        case OV3660_PID: return "OV3660";
+        case OV5640_PID: return "OV5640";
+        case OV7725_PID: return "OV7725";
+        case OV7670_PID: return "OV7670";
+        case NT99141_PID: return "NT99141";
+        case GC2145_PID: return "GC2145";
+        case GC032A_PID: return "GC032A";
+        case GC0308_PID: return "GC0308";
+        case BF3005_PID: return "BF3005";
+        case BF20A6_PID: return "BF20A6";
+        case SC101IOT_PID: return "SC101IOT";
+        case SC030IOT_PID: return "SC030IOT";
+        case SC031GS_PID: return "SC031GS";
+        default: return "Unknown Sensor";
+    }
+}
+
+static int compare_u32(const void *a, const void *b) {
+    uint32_t val_a = *(const uint32_t *)a;
+    uint32_t val_b = *(const uint32_t *)b;
+    return (val_a > val_b) - (val_a < val_b);
+}
 
 // ----------------------------------------------------------------------------
 //  Named-action dispatcher (used by webserver + scheduler)
@@ -91,7 +148,7 @@ static TaskHandle_t s_stream_task = NULL;
 static void mjpeg_stream_task(void *arg) {
     httpd_req_t *req = (httpd_req_t *)arg;
     esp_err_t res = ESP_OK;
-    char part_buf[128];
+    char part_buf[192];
 
     // Set TCP_NODELAY and socket send timeout to eliminate network buffering latency
     int fd = httpd_req_to_sockfd(req);
@@ -104,6 +161,22 @@ static void mjpeg_stream_task(void *arg) {
 
     ESP_LOGI("STREAM", "Streaming task started");
 
+    // Initialize real-time stream stats
+    s_stream_stats.active = true;
+    s_stream_stats.frames_sent = 0;
+    s_stream_stats.total_bytes = 0;
+    s_stream_stats.start_time_us = esp_timer_get_time();
+    s_stream_stats.last_frame_time_us = s_stream_stats.start_time_us;
+    s_stream_stats.avg_capture_us = 0;
+    s_stream_stats.max_capture_us = 0;
+    s_stream_stats.min_capture_us = UINT32_MAX;
+    s_stream_stats.avg_send_us = 0;
+    s_stream_stats.max_send_us = 0;
+    s_stream_stats.min_send_us = UINT32_MAX;
+    s_stream_stats.send_errors = 0;
+    s_stream_stats.fps_current = 0.0f;
+    s_stream_stats.bitrate_kbps = 0.0f;
+
     // Flush any stale/accumulated frames in the hardware queue from when streaming was stopped
     for (int i = 0; i < 2; i++) {
         camera_fb_t *stale = esp_camera_fb_get();
@@ -112,24 +185,37 @@ static void mjpeg_stream_task(void *arg) {
         }
     }
 
+    uint32_t frame_seq = 0;
     while (camera_is_streaming()) {
+        int64_t t_cap_start = esp_timer_get_time();
         camera_fb_t *fb = esp_camera_fb_get();
+        int64_t t_cap_end = esp_timer_get_time();
+        uint32_t cap_us = (uint32_t)(t_cap_end - t_cap_start);
+
         if (!fb) {
             ESP_LOGE("STREAM", "Camera capture failed - stopping");
             res = ESP_FAIL;
             break;
         }
 
-        // Part header
+        frame_seq++;
+        size_t frame_len = fb->len;
+
+        // Part header with embedded diagnostic timing instrumentation
         size_t hlen = snprintf(part_buf, sizeof(part_buf),
             "--" MJPEG_BOUNDARY "\r\n"
             "Content-Type: image/jpeg\r\n"
-            "Content-Length: %zu\r\n\r\n",
-            fb->len);
+            "Content-Length: %zu\r\n"
+            "X-Frame-Num: %lu\r\n"
+            "X-Cap-Time-Us: %lu\r\n\r\n",
+            frame_len,
+            (unsigned long)frame_seq,
+            (unsigned long)cap_us);
 
+        int64_t t_send_start = esp_timer_get_time();
         res = httpd_resp_send_chunk(req, part_buf, (ssize_t)hlen);
         if (res == ESP_OK)
-            res = httpd_resp_send_chunk(req, (const char *)fb->buf, (ssize_t)fb->len);
+            res = httpd_resp_send_chunk(req, (const char *)fb->buf, (ssize_t)frame_len);
 
         // Return frame buffer immediately so camera DMA never starves
         esp_camera_fb_return(fb);
@@ -138,11 +224,43 @@ static void mjpeg_stream_task(void *arg) {
         if (res == ESP_OK)
             res = httpd_resp_send_chunk(req, "\r\n", 2);
 
+        int64_t t_send_end = esp_timer_get_time();
+        uint32_t send_us = (uint32_t)(t_send_end - t_send_start);
+
         if (res != ESP_OK) {
-            // Client disconnected
+            s_stream_stats.send_errors++;
             ESP_LOGI("STREAM", "Client disconnected (send error)");
             break;
         }
+
+        // Update live metrics
+        s_stream_stats.frames_sent++;
+        s_stream_stats.total_bytes += frame_len + hlen + 2;
+        s_stream_stats.last_capture_us = cap_us;
+        s_stream_stats.last_send_us = send_us;
+        s_stream_stats.last_frame_bytes = (uint32_t)frame_len;
+        if (cap_us > s_stream_stats.max_capture_us) s_stream_stats.max_capture_us = cap_us;
+        if (cap_us < s_stream_stats.min_capture_us) s_stream_stats.min_capture_us = cap_us;
+        if (send_us > s_stream_stats.max_send_us) s_stream_stats.max_send_us = send_us;
+        if (send_us < s_stream_stats.min_send_us) s_stream_stats.min_send_us = send_us;
+
+        if (s_stream_stats.frames_sent == 1) {
+            s_stream_stats.avg_capture_us = cap_us;
+            s_stream_stats.avg_send_us = send_us;
+            s_stream_stats.avg_frame_bytes = (uint32_t)frame_len;
+        } else {
+            s_stream_stats.avg_capture_us = (s_stream_stats.avg_capture_us * 7 + cap_us) / 8;
+            s_stream_stats.avg_send_us = (s_stream_stats.avg_send_us * 7 + send_us) / 8;
+            s_stream_stats.avg_frame_bytes = (s_stream_stats.avg_frame_bytes * 7 + (uint32_t)frame_len) / 8;
+        }
+
+        int64_t now_us = esp_timer_get_time();
+        int64_t elapsed_us = now_us - s_stream_stats.start_time_us;
+        if (elapsed_us > 0) {
+            s_stream_stats.fps_current = (float)s_stream_stats.frames_sent * 1000000.0f / (float)elapsed_us;
+            s_stream_stats.bitrate_kbps = (float)(s_stream_stats.total_bytes * 8) * 1000.0f / (float)elapsed_us;
+        }
+        s_stream_stats.last_frame_time_us = now_us;
     }
 
     // Send closing boundary then terminate the chunked response
@@ -152,7 +270,11 @@ static void mjpeg_stream_task(void *arg) {
     // Release the async request slot back to httpd
     httpd_req_async_handler_complete(req);
 
-    ESP_LOGI("STREAM", "Streaming task ended");
+    s_stream_stats.active = false;
+    ESP_LOGI("STREAM", "Streaming task ended (%lu frames sent, avg cap=%.1f ms, avg send=%.1f ms)",
+             (unsigned long)s_stream_stats.frames_sent,
+             s_stream_stats.avg_capture_us / 1000.0f,
+             s_stream_stats.avg_send_us / 1000.0f);
     s_stream_task = NULL;
     vTaskDelete(NULL);
 }
@@ -232,9 +354,10 @@ static esp_err_t stream_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 
-    // 4 KB stack - frame processing is minimal; actual JPEG data is in PSRAM
-    if (xTaskCreate(mjpeg_stream_task, "mjpeg_stream", 4096,
-                    async_req, 5, &s_stream_task) != pdPASS) {
+    // 4 KB stack pinned to Core 1 - frame processing is minimal; actual JPEG data is in PSRAM.
+    // Core 1 handles camera DMA/capture while Core 0 handles WiFi MAC/LWIP stack concurrently.
+    if (xTaskCreatePinnedToCore(mjpeg_stream_task, "mjpeg_stream", 4096,
+                                async_req, 5, &s_stream_task, 1) != pdPASS) {
         ESP_LOGE("STREAM", "Failed to create streaming task");
         httpd_req_async_handler_complete(async_req);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Task create failed");
@@ -244,6 +367,212 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     ESP_LOGI("STREAM", "Async streaming task launched");
     return ESP_OK;  // httpd worker is now FREE - /cam_off and other APIs work normally
 }
+
+// ----------------------------------------------------------------------------
+//  GET /diag - Deep Diagnostic and Camera Benchmark
+// ----------------------------------------------------------------------------
+static esp_err_t diag_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
+    httpd_resp_set_type(req, "application/json");
+
+    int frames_to_test = 20;
+    bool do_bench = true;
+    char qs[64];
+    if (httpd_req_get_url_query_str(req, qs, sizeof(qs)) == ESP_OK) {
+        char p[16];
+        if (httpd_query_key_value(qs, "frames", p, sizeof(p)) == ESP_OK) {
+            frames_to_test = atoi(p);
+            if (frames_to_test < 0) frames_to_test = 0;
+            if (frames_to_test > 50) frames_to_test = 50;
+        }
+        if (httpd_query_key_value(qs, "bench", p, sizeof(p)) == ESP_OK) {
+            if (atoi(p) == 0) do_bench = false;
+        }
+    }
+
+    // System info
+    uint32_t free_heap = esp_get_free_heap_size();
+    uint32_t min_free_heap = esp_get_minimum_free_heap_size();
+    uint32_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    uint32_t min_free_psram = heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM);
+
+    wifi_ap_record_t ap_info = {0};
+    int8_t rssi = 0;
+    uint8_t channel = 0;
+    char ssid[33] = "disconnected";
+    if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+        rssi = ap_info.rssi;
+        channel = ap_info.primary;
+        strncpy(ssid, (char *)ap_info.ssid, sizeof(ssid) - 1);
+    }
+
+    sensor_t *s = esp_camera_sensor_get();
+    const char *sensor_name = get_camera_sensor_name();
+    uint16_t sensor_pid = s ? s->id.PID : 0;
+    int framesize = s ? s->status.framesize : -1;
+    int quality = s ? s->status.quality : -1;
+    bool currently_streaming = camera_is_streaming() || (s_stream_task != NULL);
+
+    // On-device capture benchmark (only if stream is NOT running to avoid sensor lock contention)
+    uint32_t cap_times_us[50];
+    uint32_t sorted_caps[50];
+    uint32_t frame_sizes[50];
+    int frames_captured = 0;
+    uint64_t total_cap_us = 0;
+    uint64_t total_bytes = 0;
+    uint32_t min_cap = UINT32_MAX;
+    uint32_t max_cap = 0;
+    uint32_t min_size = UINT32_MAX;
+    uint32_t max_size = 0;
+
+    int64_t bench_start_us = esp_timer_get_time();
+    if (do_bench && frames_to_test > 0 && !currently_streaming) {
+        for (int i = 0; i < frames_to_test; i++) {
+            int64_t t0 = esp_timer_get_time();
+            camera_fb_t *fb = esp_camera_fb_get();
+            int64_t t1 = esp_timer_get_time();
+            if (!fb) break;
+
+            uint32_t dt = (uint32_t)(t1 - t0);
+            uint32_t sz = (uint32_t)fb->len;
+            esp_camera_fb_return(fb);
+
+            cap_times_us[frames_captured] = dt;
+            sorted_caps[frames_captured] = dt;
+            frame_sizes[frames_captured] = sz;
+            total_cap_us += dt;
+            total_bytes += sz;
+            if (dt < min_cap) min_cap = dt;
+            if (dt > max_cap) max_cap = dt;
+            if (sz < min_size) min_size = sz;
+            if (sz > max_size) max_size = sz;
+            frames_captured++;
+        }
+    }
+    int64_t bench_total_us = esp_timer_get_time() - bench_start_us;
+
+    float avg_cap_ms = 0.0f;
+    float p95_cap_ms = 0.0f;
+    float raw_fps = 0.0f;
+    float avg_size_bytes = 0.0f;
+
+    if (frames_captured > 0) {
+        avg_cap_ms = (float)total_cap_us / (float)(frames_captured * 1000.0f);
+        avg_size_bytes = (float)total_bytes / (float)frames_captured;
+        qsort(sorted_caps, frames_captured, sizeof(uint32_t), compare_u32);
+        int p95_idx = (frames_captured * 95) / 100;
+        if (p95_idx >= frames_captured) p95_idx = frames_captured - 1;
+        p95_cap_ms = (float)sorted_caps[p95_idx] / 1000.0f;
+        if (bench_total_us > 0) {
+            raw_fps = (float)frames_captured * 1000000.0f / (float)bench_total_us;
+        }
+    } else {
+        min_cap = 0;
+        min_size = 0;
+    }
+
+    char *buf = malloc(2048);
+    if (!buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Alloc failed");
+        return ESP_FAIL;
+    }
+
+    int len = snprintf(buf, 2048,
+        "{\n"
+        "  \"device\":\"%s\",\n"
+        "  \"device_number\":%d,\n"
+        "  \"version\":\"%s\",\n"
+        "  \"sensor\":{\n"
+        "    \"name\":\"%s\",\n"
+        "    \"pid\":\"0x%04X\",\n"
+        "    \"framesize\":%d,\n"
+        "    \"quality\":%d,\n"
+        "    \"xclk_mhz\":%d,\n"
+        "    \"fb_count\":%d\n"
+        "  },\n"
+        "  \"system\":{\n"
+        "    \"free_heap_bytes\":%lu,\n"
+        "    \"min_free_heap_bytes\":%lu,\n"
+        "    \"free_psram_bytes\":%lu,\n"
+        "    \"min_free_psram_bytes\":%lu,\n"
+        "    \"wifi_ssid\":\"%s\",\n"
+        "    \"wifi_rssi_dbm\":%d,\n"
+        "    \"wifi_channel\":%d,\n"
+        "    \"streaming_active\":%s\n"
+        "  },\n"
+        "  \"capture_bench\":{\n"
+        "    \"tested\":%s,\n"
+        "    \"frames_requested\":%d,\n"
+        "    \"frames_captured\":%d,\n"
+        "    \"total_time_ms\":%.2f,\n"
+        "    \"raw_fps\":%.2f,\n"
+        "    \"capture_ms\":{\"avg\":%.2f,\"min\":%.2f,\"max\":%.2f,\"p95\":%.2f},\n"
+        "    \"frame_bytes\":{\"avg\":%.1f,\"min\":%lu,\"max\":%lu}\n"
+        "  },\n"
+        "  \"live_stream\":{\n"
+        "    \"active\":%s,\n"
+        "    \"frames_sent\":%lu,\n"
+        "    \"total_bytes\":%llu,\n"
+        "    \"fps_current\":%.2f,\n"
+        "    \"bitrate_kbps\":%.1f,\n"
+        "    \"avg_capture_ms\":%.2f,\n"
+        "    \"max_capture_ms\":%.2f,\n"
+        "    \"min_capture_ms\":%.2f,\n"
+        "    \"avg_send_ms\":%.2f,\n"
+        "    \"max_send_ms\":%.2f,\n"
+        "    \"min_send_ms\":%.2f,\n"
+        "    \"send_errors\":%lu\n"
+        "  }\n"
+        "}\n",
+        MDNS_HOSTNAME,
+        DEVICE_NUMBER,
+        FW_VERSION,
+        sensor_name,
+        sensor_pid,
+        framesize,
+        quality,
+        CAMERA_XCLK_FREQ_HZ / 1000000,
+        CAMERA_FB_COUNT,
+        (unsigned long)free_heap,
+        (unsigned long)min_free_heap,
+        (unsigned long)free_psram,
+        (unsigned long)min_free_psram,
+        ssid,
+        (int)rssi,
+        (int)channel,
+        currently_streaming ? "true" : "false",
+        (frames_captured > 0) ? "true" : "false",
+        frames_to_test,
+        frames_captured,
+        (float)bench_total_us / 1000.0f,
+        raw_fps,
+        avg_cap_ms,
+        (float)min_cap / 1000.0f,
+        (float)max_cap / 1000.0f,
+        p95_cap_ms,
+        avg_size_bytes,
+        (unsigned long)min_size,
+        (unsigned long)max_size,
+        s_stream_stats.active ? "true" : "false",
+        (unsigned long)s_stream_stats.frames_sent,
+        (unsigned long long)s_stream_stats.total_bytes,
+        s_stream_stats.fps_current,
+        s_stream_stats.bitrate_kbps,
+        (float)s_stream_stats.avg_capture_us / 1000.0f,
+        (float)s_stream_stats.max_capture_us / 1000.0f,
+        (s_stream_stats.min_capture_us == UINT32_MAX) ? 0.0f : ((float)s_stream_stats.min_capture_us / 1000.0f),
+        (float)s_stream_stats.avg_send_us / 1000.0f,
+        (float)s_stream_stats.max_send_us / 1000.0f,
+        (s_stream_stats.min_send_us == UINT32_MAX) ? 0.0f : ((float)s_stream_stats.min_send_us / 1000.0f),
+        (unsigned long)s_stream_stats.send_errors
+    );
+
+    httpd_resp_send(req, buf, len);
+    free(buf);
+    return ESP_OK;
+}
+
 
 
 // ----------------------------------------------------------------------------
@@ -745,24 +1074,29 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
         "  .catch(function(){});"
         "},10000);"
 
-        /* ── Motor send (throttled to 20 Hz max) ── */
+        /* ── Motor send (in-flight tracking + 25 Hz max rate limit) ── */
+        "var driveSending=false,pendingDrive=null,lastDriveTime=0;"
         "function sendDrive(s,d){"
-        "  s = Math.round(s * maxSpeed);"
-        "  d = Math.round(d * maxSpeed);"
-        "  if(s===lastSteer&&d===lastDrive)return;"
-        "  lastSteer=s;lastDrive=d;"
+        "  s=Math.round(s*maxSpeed);d=Math.round(d*maxSpeed);"
+        "  if(s===lastSteer&&d===lastDrive&&!pendingDrive)return;"
         "  document.getElementById('sv').textContent=s;"
         "  document.getElementById('dv').textContent=d;"
-        "  fetch('/drive?steer='+s+'&drive='+d).catch(function(){});"
+        "  var now=Date.now();"
+        "  if(!driveSending&&(now-lastDriveTime>=40)){"
+        "    lastDriveTime=now;driveSending=true;lastSteer=s;lastDrive=d;pendingDrive=null;"
+        "    fetch('/drive?steer='+s+'&drive='+d,{cache:'no-store'}).finally(function(){"
+        "      driveSending=false;"
+        "      if(pendingDrive){var p=pendingDrive;pendingDrive=null;sendDrive(p.s,p.d);}"
+        "    }).catch(function(){});"
+        "  }else{pendingDrive={s:s,d:d};}"
         "}"
         "function eStop(){"
-        "  joyX=0;joyY=0;keys={};"
+        "  joyX=0;joyY=0;keys={};pendingDrive=null;"
         "  moveKnob(0,0);"
-        "  lastSteer=1;lastDrive=1;" /* force re-send */
-        "  fetch('/drive?stop=1').catch(function(){});"
+        "  lastSteer=0;lastDrive=0;"
         "  document.getElementById('sv').textContent='0';"
         "  document.getElementById('dv').textContent='0';"
-        "  lastSteer=0;lastDrive=0;"
+        "  fetch('/drive?stop=1',{cache:'no-store'}).catch(function(){});"
         "}"
 
         /* ── Joystick ── */
@@ -955,6 +1289,8 @@ void webserver_start(void) {
         { "/flash",      HTTP_GET,  quick_action_handler, NULL },
         { "/flash_on",   HTTP_GET,  quick_action_handler, NULL },
         { "/flash_off",  HTTP_GET,  quick_action_handler, NULL },
+        { "/diag",        HTTP_GET,  diag_handler,       NULL },
+        { "/diag_stream", HTTP_GET,  stream_handler,     NULL },
         { "/ota",        HTTP_POST, ota_post_handler,   NULL },
         { "/ota",        HTTP_OPTIONS, cors_options_handler, NULL },
     };

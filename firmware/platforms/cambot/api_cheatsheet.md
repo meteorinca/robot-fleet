@@ -85,13 +85,23 @@ Returns JSON: `{"ok":true,"action":"cam_on","at":1714000010,"ms":0}`
 
 ---
 
-## ⏱️ System & Status
+## ⏱️ System, Status & Diagnostics
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/status` | Firmware version, streaming state, NTP sync |
 | `GET` | `/time` | NTP epoch + formatted time |
 | `GET` | `/sync_time?epoch=<epoch>` | Set device clock from browser |
+| `GET` | `/diag` | **Deep diagnostic benchmark** (`?frames=20&bench=1`): camera capture timings (min/avg/max/p95), frame sizes, heap/PSRAM memory, WiFi RSSI & channel, live stream metrics |
+| `GET` | `/diag_stream` | **Instrumented stream** — multipart MJPEG with per-frame header timing (`X-Cap-Time-Us`, `X-Frame-Num`) |
+
+```bash
+# Run 20-frame camera capture benchmark
+curl http://cambot1.local/diag?frames=20
+
+# Query system & live stream stats only without running camera bench
+curl http://cambot1.local/diag?bench=0
+```
 
 ---
 
