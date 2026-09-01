@@ -11,9 +11,9 @@
       "fallback_ip": "192.168.1.101",
       "platform": "rfbot",
       "ip": "10.0.0.42",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:37:00.7603803-04:00",
-      "status": "offline",
+      "port": 80,
+      "last_seen": "2026-09-01T10:41:34.5949114-04:00",
+      "status": "online",
       "role": "receiver",
       "homekit_enabled": true,
       "homekit_category": "sensor",
@@ -28,7 +28,7 @@
       "platform": "speakerbot",
       "ip": "10.0.0.40",
       "port": 80,
-      "last_seen": "2026-09-01T10:36:58.7190351-04:00",
+      "last_seen": "2026-09-01T10:41:29.8897849-04:00",
       "status": "online",
       "role": "audio_output",
       "homekit_enabled": true,
@@ -51,7 +51,7 @@
       "platform": "rfbot",
       "ip": "10.0.0.46",
       "port": 80,
-      "last_seen": "2026-09-01T10:36:58.7145272-04:00",
+      "last_seen": "2026-09-01T10:41:29.8897849-04:00",
       "status": "online",
       "role": "transceiver",
       "homekit_enabled": false,
@@ -61,7 +61,7 @@
       "actions": [
         {
           "name": "Send RF Code (123456)",
-          "endpoint": "/rf/send?code=123456\u0026bits=24\u0026proto=1\u0026pulse=185",
+          "endpoint": "/rf/send?code=123456&bits=24&proto=1&pulse=185",
           "method": "GET"
         }
       ]
@@ -74,13 +74,13 @@
       "platform": "simplebot",
       "ip": "10.0.0.28",
       "port": 80,
-      "last_seen": "2026-09-01T10:36:58.7190351-04:00",
+      "last_seen": "2026-09-01T10:41:29.8897849-04:00",
       "status": "online",
       "role": "kitchen_bot",
       "homekit_enabled": true,
       "homekit_category": "switch",
       "ping_enabled": true,
-      "latency_ms": 54.299,
+      "latency_ms": 96.309,
       "actions": [
         {
           "name": "Servo 1 ON",
@@ -103,105 +103,6 @@
           "method": "GET"
         }
       ]
-    },
-    {
-      "id": "[::1]:60553",
-      "name": "[::1]:60553",
-      "platform": "rfbot",
-      "ip": "[::1]:60553",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:49200",
-      "name": "[::1]:49200",
-      "platform": "rfbot",
-      "ip": "[::1]:49200",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:50074",
-      "name": "[::1]:50074",
-      "platform": "rfbot",
-      "ip": "[::1]:50074",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:58117",
-      "name": "[::1]:58117",
-      "platform": "rfbot",
-      "ip": "[::1]:58117",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:64719",
-      "name": "[::1]:64719",
-      "platform": "rfbot",
-      "ip": "[::1]:64719",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:53718",
-      "name": "[::1]:53718",
-      "platform": "rfbot",
-      "ip": "[::1]:53718",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:51866",
-      "name": "[::1]:51866",
-      "platform": "rfbot",
-      "ip": "[::1]:51866",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:65385",
-      "name": "[::1]:65385",
-      "platform": "rfbot",
-      "ip": "[::1]:65385",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9581382-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
-    },
-    {
-      "id": "[::1]:59754",
-      "name": "[::1]:59754",
-      "platform": "rfbot",
-      "ip": "[::1]:59754",
-      "port": 4330,
-      "last_seen": "2026-09-01T10:36:55.9576159-04:00",
-      "status": "offline",
-      "homekit_enabled": false,
-      "ping_enabled": false
     }
   ],
   "sensors": [
@@ -210,7 +111,7 @@
       "name": "Hallway Light Sensor",
       "accessory_type": "light",
       "room": "Living Room",
-      "last_triggered": "2026-09-01T10:36:56.9698805-04:00",
+      "last_triggered": "2026-08-19T00:44:09.498374-04:00",
       "state": true
     },
     {

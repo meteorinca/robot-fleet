@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -299,6 +300,18 @@ func (c *Config) Save() error {
 
 // UpsertBot adds or updates a discovered or configured robot node in the fleet registry.
 func (c *Config) UpsertBot(node RobotNode) {
+	// Discard loopback or internal junk registrations
+	if strings.Contains(node.ID, "[::1]") || strings.Contains(node.IP, "[::1]") ||
+		strings.Contains(node.ID, "127.0.0.1") || strings.Contains(node.IP, "127.0.0.1") ||
+		strings.Contains(node.ID, "localhost") || strings.Contains(node.IP, "localhost") {
+		return
+	}
+
+	// Devices operate their HTTP control server on port 80
+	if node.Port == 0 || node.Port == 4330 {
+		node.Port = 80
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -321,8 +334,10 @@ func (c *Config) UpsertBot(node RobotNode) {
 			if node.IP != "" {
 				c.Bots[i].IP = node.IP
 			}
-			if node.Port != 0 {
+			if node.Port != 0 && node.Port != 4330 {
 				c.Bots[i].Port = node.Port
+			} else if c.Bots[i].Port == 0 || c.Bots[i].Port == 4330 {
+				c.Bots[i].Port = 80
 			}
 			if node.Platform != "" {
 				c.Bots[i].Platform = node.Platform
@@ -353,6 +368,9 @@ func (c *Config) UpsertBot(node RobotNode) {
 	}
 
 	if !found {
+		if node.Port == 0 || node.Port == 4330 {
+			node.Port = 80
+		}
 		if node.LastSeen.IsZero() {
 			node.LastSeen = time.Now()
 		}

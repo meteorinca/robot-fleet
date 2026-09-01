@@ -313,7 +313,7 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 			Name:     event.Gateway,
 			Platform: platform,
 			IP:       event.Gateway,
-			Port:     4330,
+			Port:     80,
 			Status:   "online",
 		})
 	}
