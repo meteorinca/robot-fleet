@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -223,12 +224,32 @@ func (d *DB) RecordRFEvent(code uint32, bits, proto, pulse uint, gateway, ruleNa
 	return newCount, nil
 }
 
-// GetRFCounts returns all recorded RF codes with their total counts and timestamps.
+// GetRFCounts returns recorded RF codes with their total counts and timestamps.
 func (d *DB) GetRFCounts() ([]RFAggregate, error) {
+	return d.GetFilteredRFCounts(0, 0)
+}
+
+// GetFilteredRFCounts returns RF aggregates optionally filtered by minimum hits and limited.
+func (d *DB) GetFilteredRFCounts(minHits int, limit int) ([]RFAggregate, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	rows, err := d.db.Query(`SELECT code, total_count, first_seen, last_seen FROM rf_aggregates ORDER BY total_count DESC`)
+	query := `SELECT code, total_count, first_seen, last_seen FROM rf_aggregates`
+	var args []interface{}
+
+	if minHits > 0 {
+		query += ` WHERE total_count >= ?`
+		args = append(args, minHits)
+	}
+
+	query += ` ORDER BY total_count DESC`
+
+	if limit > 0 {
+		query += ` LIMIT ?`
+		args = append(args, limit)
+	}
+
+	rows, err := d.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +263,64 @@ func (d *DB) GetRFCounts() ([]RFAggregate, error) {
 		}
 	}
 	return list, nil
+}
+
+// PruneRFEphemeralNoise deletes noise codes from rf_aggregates with total_count < minHits that are not in preserveCodes.
+func (d *DB) PruneRFEphemeralNoise(minHits int, preserveCodes []uint32) (int64, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if minHits <= 1 {
+		minHits = 2
+	}
+
+	query := `DELETE FROM rf_aggregates WHERE total_count < ?`
+	var args []interface{}
+	args = append(args, minHits)
+
+	if len(preserveCodes) > 0 {
+		placeholders := make([]string, len(preserveCodes))
+		for i, c := range preserveCodes {
+			placeholders[i] = "?"
+			args = append(args, c)
+		}
+		query += fmt.Sprintf(` AND code NOT IN (%s)`, strings.Join(placeholders, ","))
+	}
+
+	res, err := d.db.Exec(query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// EnforceRFEventRetention deletes older records from rf_events, keeping at most maxRows.
+func (d *DB) EnforceRFEventRetention(maxRows int) (int64, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if maxRows <= 0 {
+		maxRows = 1000
+	}
+
+	res, err := d.db.Exec(`
+		DELETE FROM rf_events 
+		WHERE id NOT IN (
+			SELECT id FROM rf_events ORDER BY created_at DESC LIMIT ?
+		)
+	`, maxRows)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// ClearAllRFEvents truncates the rf_events table.
+func (d *DB) ClearAllRFEvents() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	_, err := d.db.Exec(`DELETE FROM rf_events`)
+	return err
 }
 
 // GetRFCodeCount returns the total count and metadata for a specific RF code.

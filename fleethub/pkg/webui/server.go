@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/environment"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/listener"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/pinger"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rfpoller"
@@ -36,6 +37,7 @@ type Server struct {
 	database   *db.DB
 	telemetry  *telemetry.Service
 	pinger     *pinger.Pinger
+	env        *environment.Service
 	assets     fs.FS
 	clients    map[*websocket.Conn]bool
 	clientsMu  sync.Mutex
@@ -75,6 +77,11 @@ func (s *Server) SetPinger(p *pinger.Pinger) {
 	s.pinger = p
 }
 
+// SetEnvironment attaches the environment weather/solar service.
+func (s *Server) SetEnvironment(e *environment.Service) {
+	s.env = e
+}
+
 // Handler returns the http.Handler for all routes.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -98,6 +105,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/devices/control", s.handleDeviceControl)
 	mux.HandleFunc("/api/devices/add", s.handleAddDevice)
 	mux.HandleFunc("/api/v1/rf_event", listener.HTTPHandler(s.engine))
+	mux.HandleFunc("/api/environment/status", s.handleEnvironmentStatus)
 
 	// CamBot Camera Endpoints
 	mux.HandleFunc("/api/camera/stream", s.handleCameraStream)
@@ -113,6 +121,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/telemetry/pings", s.handleTelemetryPings)
 	mux.HandleFunc("/api/telemetry/rf_logs", s.handleTelemetryRFLogs)
 	mux.HandleFunc("/api/telemetry/rf_aggregates", s.handleTelemetryRFAggregates)
+	mux.HandleFunc("/api/telemetry/rf_aggregates/purge", s.handleTelemetryRFAggregatesPurge)
+	mux.HandleFunc("/api/telemetry/rf_events/prune", s.handleTelemetryRFEventsPrune)
+	mux.HandleFunc("/api/telemetry/rf_events/clear", s.handleTelemetryRFEventsClear)
 	mux.HandleFunc("/api/telemetry/system", s.handleTelemetrySystem)
 	mux.HandleFunc("/api/telemetry/speedtest", s.handleTelemetrySpeedtest)
 	mux.HandleFunc("/api/telemetry/ping_now", s.handleTelemetryPingNow)
@@ -1076,11 +1087,130 @@ func (s *Server) handleTelemetryRFAggregates(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	aggregates, err := s.database.GetRFCounts()
+	minHits := 0
+	if m := r.URL.Query().Get("min_hits"); m != "" {
+		if val, err := strconv.Atoi(m); err == nil && val >= 0 {
+			minHits = val
+		}
+	}
+
+	limit := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 {
+			limit = val
+		}
+	}
+
+	aggregates, err := s.database.GetFilteredRFCounts(minHits, limit)
 	if err != nil {
 		aggregates = []db.RFAggregate{}
 	}
 	_ = json.NewEncoder(w).Encode(aggregates)
+}
+
+func (s *Server) handleTelemetryRFAggregatesPurge(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.database == nil {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "no database connected"})
+		return
+	}
+
+	// Preserve active sensor codes
+	var preserve []uint32
+	for _, sensor := range s.cfg.Sensors {
+		preserve = append(preserve, sensor.Code)
+	}
+	for _, rule := range s.cfg.Rules {
+		if rule.TriggerCode > 0 {
+			preserve = append(preserve, rule.TriggerCode)
+		}
+	}
+
+	minHits := 2
+	if m := r.URL.Query().Get("min_hits"); m != "" {
+		if val, err := strconv.Atoi(m); err == nil && val > 0 {
+			minHits = val
+		}
+	}
+
+	deleted, err := s.database.PruneRFEphemeralNoise(minHits, preserve)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":          "purged",
+		"deleted_count":   deleted,
+		"preserved_codes": preserve,
+	})
+}
+
+func (s *Server) handleTelemetryRFEventsPrune(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.database == nil {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "no database connected"})
+		return
+	}
+
+	maxRows := 1000
+	if m := r.URL.Query().Get("max_rows"); m != "" {
+		if val, err := strconv.Atoi(m); err == nil && val > 0 {
+			maxRows = val
+		}
+	}
+
+	deleted, err := s.database.EnforceRFEventRetention(maxRows)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":        "pruned",
+		"deleted_count": deleted,
+		"retained_max":  maxRows,
+	})
+}
+
+func (s *Server) handleTelemetryRFEventsClear(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.database == nil {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "no database connected"})
+		return
+	}
+
+	err := s.database.ClearAllRFEvents()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "cleared"})
+}
+
+func (s *Server) handleEnvironmentStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.env == nil {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"weather":     "clear",
+			"is_raining":  false,
+			"sun":         "down",
+			"sun_alt_deg": -15.0,
+		})
+		return
+	}
+
+	weather, temp, isRaining := s.env.GetWeatherState()
+	sunPos, sunAlt := s.env.SunPosition()
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"weather":     weather,
+		"temp_c":      temp,
+		"is_raining":  isRaining,
+		"sun":         sunPos,
+		"sun_alt_deg": sunAlt,
+	})
 }
 
 func (s *Server) handleTelemetrySystem(w http.ResponseWriter, r *http.Request) {

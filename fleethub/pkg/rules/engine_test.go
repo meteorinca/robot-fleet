@@ -93,3 +93,49 @@ func TestEngineCooldownAndSnooze(t *testing.T) {
 		t.Errorf("Expected 0 active snoozes after cancel")
 	}
 }
+
+func TestEngineConditionsAndWLED(t *testing.T) {
+	cfg := &config.Config{
+		Rules: []config.AutomationRule{
+			{
+				ID:          "complex-rule-1",
+				Name:        "Rain and Sunset WLED Pink Rule",
+				Enabled:     true,
+				TriggerCode: 888123,
+				LogicMode:   "AND",
+				Conditions: []config.RuleCondition{
+					{
+						Type:     "weather",
+						Operator: "is_raining",
+					},
+					{
+						Type:     "sun_position",
+						Operator: "is_down",
+					},
+				},
+				Actions: []config.RuleAction{
+					{
+						Type:    "wled_color",
+						Target:  "wled.local",
+						Path:    "/json/state",
+						Payload: "#FF1493",
+					},
+				},
+			},
+		},
+	}
+
+	engine := NewEngine(cfg, nil)
+
+	// Test condition evaluation directly
+	rule := cfg.Rules[0]
+	// Without environment service, conditions default to true
+	passed, reason := engine.evaluateConditions(rule)
+	if !passed {
+		t.Errorf("Expected conditions to pass by default when environment service is nil, got: %s", reason)
+	}
+
+	// Verify WLED action parsing does not crash
+	engine.ExecuteRuleAction(rule.Actions[0])
+}
+

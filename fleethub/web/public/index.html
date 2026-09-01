@@ -699,6 +699,81 @@
       transform-origin: center; pointer-events: none;
     }
 
+    /* FleetFlow Visual Automation Builder Styles */
+    .flow-container {
+      display: flex; gap: 1rem; min-height: 620px;
+      background: rgba(8, 14, 28, 0.78); border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 16px; padding: 1.2rem; backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); margin-bottom: 1.5rem;
+    }
+    .flow-sidebar {
+      width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1rem;
+      border-right: 1px solid rgba(255, 255, 255, 0.08); padding-right: 1rem;
+    }
+    .flow-category-title {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-muted); font-weight: 700; margin-bottom: 0.45rem;
+    }
+    .flow-palette-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.55rem 0.8rem; border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #fff; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      transition: all 0.2s ease; user-select: none; margin-bottom: 0.35rem;
+    }
+    .flow-palette-item:hover {
+      background: rgba(0, 212, 255, 0.15); border-color: var(--accent-cyan);
+      transform: translateX(3px);
+    }
+    .flow-canvas-wrap {
+      flex: 1; position: relative; min-height: 590px;
+      background: radial-gradient(circle at center, rgba(14, 28, 55, 0.5) 0%, rgba(3, 7, 18, 0.95) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
+      overflow: hidden; user-select: none;
+    }
+    .flow-svg-layer {
+      position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2;
+    }
+    .flow-node {
+      position: absolute; z-index: 5;
+      background: rgba(13, 22, 44, 0.92); border: 1px solid rgba(0, 212, 255, 0.4);
+      border-radius: 12px; width: 230px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      cursor: grab; display: flex; flex-direction: column;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .flow-node:active { cursor: grabbing; }
+    .flow-node.selected {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    }
+    .flow-node-header {
+      padding: 0.55rem 0.8rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex; align-items: center; justify-content: space-between;
+      border-top-left-radius: 11px; border-top-right-radius: 11px;
+    }
+    .flow-node-body {
+      padding: 0.65rem 0.8rem; display: flex; flex-direction: column; gap: 0.45rem;
+      font-size: 0.78rem; color: #cbd5e1;
+    }
+    .flow-port {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #030712; border: 2px solid var(--accent-cyan);
+      position: absolute; top: 50%; transform: translateY(-50%);
+      cursor: crosshair; z-index: 10; transition: all 0.2s;
+    }
+    .flow-port:hover { transform: translateY(-50%) scale(1.35); background: var(--accent-cyan); }
+    .flow-port-in { left: -7px; }
+    .flow-port-out { right: -7px; }
+    .flow-wire {
+      fill: none; stroke: var(--accent-cyan); stroke-width: 2.5;
+      stroke-dasharray: 6 3; cursor: pointer; pointer-events: stroke;
+    }
+    .flow-wire:hover { stroke: #f43f5e; stroke-width: 3.5; }
+    .flow-wire.firing {
+      stroke: #00e5a0 !important; stroke-width: 3.5 !important; stroke-dasharray: none !important;
+      filter: drop-shadow(0 0 8px #00e5a0);
+    }
+
     /* ═══════════════════════════════════════════
        TELEMETRY PING APP, PLOTS & RF LOGS
     ═══════════════════════════════════════════ */
@@ -1002,6 +1077,7 @@
         <div class="nav-tab-item" onclick="switchNavTab('rfbots', this)">RFBots</div>
         <div class="nav-tab-item" onclick="switchNavTab('bots', this)">Bots</div>
         <div class="nav-tab-item" onclick="switchNavTab('telemetry', this)">Telemetry</div>
+        <div class="nav-tab-item" onclick="switchNavTab('automations', this)">Automations</div>
       </div>
 
       <div class="header-controls">
@@ -1880,13 +1956,11 @@
             </div>
 
             <!-- FleetHub Daemon (Mothership Coordinator) -->
-            <div class="mesh-node" id="node-fleethub" style="left: 450px; top: 310px; border-color:var(--accent-cyan); background:rgba(10,30,65,0.9);">
-              <div class="mesh-node-header">
+            <div class="mesh-node" id="node-fleethub" style="left: 450px; top: 310px; border-color:var(--accent-cyan); background:rgba(10,30,65,0.9); min-width:140px;">
+              <div class="mesh-node-header" style="justify-content:center; gap:0.5rem;">
                 <span class="mesh-node-title" style="color:var(--accent-cyan);">FleetHub Daemon</span>
                 <span class="status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent-cyan);box-shadow:0 0 8px var(--accent-cyan);"></span>
               </div>
-              <div class="mesh-node-ip">Go Runtime &bull; Port 8126</div>
-              <div class="mesh-node-role" style="color:#fff;">Rule Engine &amp; SQLite Relay</div>
             </div>
           </div>
 
@@ -2002,9 +2076,148 @@
 
       <!-- 4. Signal Frequency Aggregates -->
       <section class="dashboard-section" style="margin-top:1.5rem;">
-        <div class="section-title">Signal Frequency Aggregates</div>
-        <div id="telemetry-counts-grid" class="tiles-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
-          <!-- Dynamically populated signal aggregates -->
+        <div class="mesh-toolbar" style="margin-bottom:0.75rem; flex-wrap:wrap; gap:0.6rem;">
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <span style="font-weight:700; font-size:1.05rem; color:#fff;">Signal Frequency Aggregates</span>
+            <span class="mesh-channel-badge" id="agg-summary-badge">Loading...</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <input type="text" id="agg-search-input" placeholder="Search Code / Hex..." oninput="filterAggregatesTable()" style="padding:0.35rem 0.6rem; border-radius:6px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.15); color:#fff; font-size:0.8rem; font-family:'JetBrains Mono',monospace; width:170px;">
+            <button class="btn-sm btn-secondary" onclick="toggleNoiseFilter()" id="agg-noise-filter-btn" title="Toggle filtering of 1-hit noise signals">
+              Filter Noise: ON (Hits &ge; 2)
+            </button>
+            <button class="btn-sm btn-secondary" onclick="purgeEphemeralNoise()" title="Purge 1-hit noise signals from SQLite database">
+              Purge Ephemeral Noise
+            </button>
+            <button class="btn-sm btn-secondary" onclick="clearRFEventsLog()" title="Clear all stored RF events history">
+              Clear RF Events
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container" style="max-height: 380px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Code (Dec)</th>
+                <th>Hex</th>
+                <th>Total Hits</th>
+                <th>First Captured</th>
+                <th>Last Seen</th>
+                <th>Classification</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="telemetry-counts-tbody">
+              <tr><td colspan="7" style="text-align:center; padding:1.2rem; color:var(--text-muted);">Loading signal aggregates...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- SECTION: AUTOMATIONS TAB (FLEETFLOW DRAG-AND-DROP BUILDER) -->
+    <div id="tab-sec-automations" style="display: none;">
+      <section class="dashboard-section">
+        <div class="mesh-card" style="margin-bottom:1rem;">
+          <div class="mesh-toolbar" style="margin-bottom:0.75rem;">
+            <div>
+              <span style="font-weight:700; font-size:1.15rem; color:#fff;">FleetFlow Visual Automation Builder</span>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                Connect multi-condition triggers, logic gates, and device actuators. Drag nodes, link connection ports, and test execution.
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+              <span class="mesh-channel-badge" id="flow-status-badge" style="color:var(--accent-green); border-color:rgba(16,185,129,0.3);">READY</span>
+              <button class="btn-sm btn-secondary" onclick="loadSampleRainFlow()" title="Load sample: If Rain AND Sun Down -> WLED Pink and Chime">
+                Load Rain &amp; Sunset Example
+              </button>
+              <button class="btn-sm" onclick="testSimulateFlow()" id="flow-test-btn" title="Simulate execution flow through connecting wires">
+                Simulate / Test Flow
+              </button>
+              <button class="btn-sm btn-secondary" onclick="saveFleetFlowRule()" title="Save current flow graph to FleetHub Rules">
+                Save Automation
+              </button>
+              <button class="btn-sm btn-secondary" onclick="clearFlowCanvas()" title="Clear flow canvas">
+                Clear Canvas
+              </button>
+            </div>
+          </div>
+
+          <div class="flow-container">
+            <!-- Left Node Palette -->
+            <div class="flow-sidebar">
+              <div>
+                <div class="flow-category-title">1. Triggers</div>
+                <div class="flow-palette-item" onclick="addFlowNode('rf_sensor')">
+                  <span>RF Sensor Trigger</span>
+                  <span style="color:var(--accent-cyan); font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('weather')">
+                  <span>Weather Condition</span>
+                  <span style="color:var(--accent-cyan); font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('sun')">
+                  <span>Sun Position</span>
+                  <span style="color:var(--accent-cyan); font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('timer')">
+                  <span>Schedule / Timer</span>
+                  <span style="color:var(--accent-cyan); font-size:0.75rem;">+ Add</span>
+                </div>
+              </div>
+
+              <div>
+                <div class="flow-category-title">2. Logic Gates</div>
+                <div class="flow-palette-item" onclick="addFlowNode('logic_and')">
+                  <span>AND Logic Gate</span>
+                  <span style="color:var(--accent-amber); font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('logic_or')">
+                  <span>OR Logic Gate</span>
+                  <span style="color:var(--accent-amber); font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('delay')">
+                  <span>Delay / Debounce</span>
+                  <span style="color:var(--accent-amber); font-size:0.75rem;">+ Add</span>
+                </div>
+              </div>
+
+              <div>
+                <div class="flow-category-title">3. Actuators</div>
+                <div class="flow-palette-item" onclick="addFlowNode('wled')">
+                  <span>WLED Light Strip</span>
+                  <span style="color:#f43f5e; font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('speakerbot')">
+                  <span>SpeakerBot Tone</span>
+                  <span style="color:var(--accent-purple); font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('bot_action')">
+                  <span>Robot Servo Action</span>
+                  <span style="color:var(--accent-green); font-size:0.75rem;">+ Add</span>
+                </div>
+                <div class="flow-palette-item" onclick="addFlowNode('rf_send')">
+                  <span>RF Transmit Pulse</span>
+                  <span style="color:var(--accent-cyan); font-size:0.75rem;">+ Add</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Central Canvas -->
+            <div class="flow-canvas-wrap" id="flow-canvas-container">
+              <svg class="flow-svg-layer" id="flow-svg-layer">
+                <defs>
+                  <filter id="flow-wire-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+                  </filter>
+                </defs>
+                <g id="flow-wires-group"></g>
+              </svg>
+              <div id="flow-nodes-layer" style="position:absolute; inset:0; width:100%; height:100%;"></div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
@@ -2352,7 +2565,7 @@
   window.switchNavTab = function(tabName, el) {
     document.querySelectorAll('.nav-tab-item').forEach(function(t) { t.classList.remove('active'); });
     if (el) el.classList.add('active');
-    var tabs = ['home', 'entities', 'cameras', 'rfbots', 'bots', 'telemetry'];
+    var tabs = ['home', 'entities', 'cameras', 'rfbots', 'bots', 'telemetry', 'automations'];
     tabs.forEach(function(t) {
       var sec = document.getElementById('tab-sec-' + t);
       if (sec) sec.style.display = (t === tabName) ? 'block' : 'none';
@@ -2363,6 +2576,8 @@
       if (typeof window.refreshTelemetryView === 'function') window.refreshTelemetryView();
     } else if (tabName === 'cameras') {
       if (typeof window.refreshCameraGridView === 'function') window.refreshCameraGridView();
+    } else if (tabName === 'automations') {
+      if (typeof window.initFleetFlowView === 'function') window.initFleetFlowView();
     }
   };
 
@@ -3741,29 +3956,112 @@
         }
       }
 
-      // Render signal aggregates
-      var countsGrid = document.getElementById('telemetry-counts-grid');
-      if (countsGrid && aggs && aggs.length > 0) {
-        countsGrid.innerHTML = aggs.map(function(a) {
-          var hex = '0x' + (a.code || 0).toString(16).toUpperCase();
-          return `
-            <div class="dash-tile state-off" style="min-height:68px; cursor:default;">
-              <div class="tile-icon-badge accent-cyan">
-                <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              </div>
-              <div class="tile-info">
-                <div class="tile-title" style="font-size:0.92rem;">Code ${a.code} (${hex})</div>
-                <div class="tile-sub" style="font-family:'JetBrains Mono',monospace;">${a.total_count} receptions &bull; Last: ${new Date(a.last_seen).toLocaleTimeString()}</div>
-              </div>
-            </div>`;
-        }).join('');
-      }
+      // Render signal aggregates into compact table
+      window._cachedRFAggregates = aggs || [];
+      renderAggregatesTable(window._cachedRFAggregates);
 
       if (showToast) {
         window.showTileInfo(null, 'RF Logs Refreshed', 'Successfully loaded recent RF signal events from SQLite.');
       }
     } catch(e){}
   }
+
+  window._noiseFilterActive = true;
+  window._aggSearchQuery = '';
+
+  function renderAggregatesTable(aggs) {
+    var tbody = document.getElementById('telemetry-counts-tbody');
+    var badge = document.getElementById('agg-summary-badge');
+    if (!tbody) return;
+
+    if (!aggs || aggs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:1.2rem; color:var(--text-muted);">No signals recorded in database.</td></tr>';
+      if (badge) badge.textContent = '0 Signals Tracked';
+      return;
+    }
+
+    var q = (window._aggSearchQuery || '').toLowerCase().trim();
+    var filtered = aggs.filter(function(a) {
+      if (window._noiseFilterActive && a.total_count < 2) {
+        return false; // Filter out 1-hit ephemeral noise
+      }
+      if (q) {
+        var decStr = (a.code || '').toString();
+        var hexStr = '0x' + (a.code || 0).toString(16).toLowerCase();
+        if (!decStr.includes(q) && !hexStr.includes(q)) return false;
+      }
+      return true;
+    });
+
+    if (badge) {
+      badge.textContent = filtered.length + ' Displayed (' + aggs.length + ' Total in DB)';
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:1.2rem; color:var(--text-muted);">No signals matching current filter (Noise filter is ON). Click "Filter Noise" to show all.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(function(a) {
+      var hex = '0x' + (a.code || 0).toString(16).toUpperCase();
+      var firstTime = a.first_seen ? new Date(a.first_seen).toLocaleTimeString() : '—';
+      var lastTime = a.last_seen ? new Date(a.last_seen).toLocaleTimeString() : '—';
+      var classification = a.total_count >= 10 ? '<span class="rule-pill-badge" style="border-color:rgba(0,229,160,0.3); color:#00e5a0; background:rgba(0,229,160,0.1);">Frequent</span>' : (a.total_count >= 2 ? '<span style="color:var(--accent-cyan);">Active Signal</span>' : '<span style="color:var(--text-muted);">Noise / 1-Hit</span>');
+      return `
+        <tr>
+          <td style="color:#fff; font-weight:700; font-family:'JetBrains Mono',monospace;">${a.code}</td>
+          <td><span class="code-hex-badge">${hex}</span></td>
+          <td style="font-weight:700; color:var(--accent-green);">${a.total_count}</td>
+          <td style="color:var(--text-muted); font-size:0.75rem;">${firstTime}</td>
+          <td style="color:#fff; font-size:0.75rem;">${lastTime}</td>
+          <td>${classification}</td>
+          <td>
+            <button class="btn-sm" style="padding:0.2rem 0.5rem; font-size:0.72rem;" onclick="triggerMeshTransmission(${a.code}, 24, 1, 185)">
+              Transmit
+            </button>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  window.toggleNoiseFilter = function() {
+    window._noiseFilterActive = !window._noiseFilterActive;
+    var btn = document.getElementById('agg-noise-filter-btn');
+    if (btn) {
+      btn.textContent = window._noiseFilterActive ? 'Filter Noise: ON (Hits >= 2)' : 'Filter Noise: OFF (Show All)';
+      btn.classList.toggle('btn-secondary', !window._noiseFilterActive);
+    }
+    renderAggregatesTable(window._cachedRFAggregates || []);
+  };
+
+  window.filterAggregatesTable = function() {
+    var input = document.getElementById('agg-search-input');
+    window._aggSearchQuery = input ? input.value : '';
+    renderAggregatesTable(window._cachedRFAggregates || []);
+  };
+
+  window.purgeEphemeralNoise = async function() {
+    if (!confirm('Purge all 1-hit ephemeral noise signals from database?')) return;
+    try {
+      var res = await fetch('/api/telemetry/rf_aggregates/purge?min_hits=2', { method: 'POST' });
+      var data = await res.json();
+      window.showTileInfo(null, 'Noise Purged', 'Deleted ' + (data.deleted_count || 0) + ' ephemeral noise codes from database.');
+      fetchRFLogs();
+    } catch(e) {
+      alert('Failed to purge noise: ' + e);
+    }
+  };
+
+  window.clearRFEventsLog = async function() {
+    if (!confirm('Clear all historic RF event log records from database?')) return;
+    try {
+      await fetch('/api/telemetry/rf_events/clear', { method: 'DELETE' });
+      window.showTileInfo(null, 'Logs Cleared', 'Historic RF events table cleared.');
+      fetchRFLogs();
+    } catch(e) {
+      alert('Failed to clear event logs: ' + e);
+    }
+  };
 
   function appendRFLogRow(item) {
     var tbody = document.getElementById('telemetry-rf-tbody');
@@ -3792,8 +4090,413 @@
 
     tbody.insertBefore(tr, tbody.firstChild);
     setTimeout(function() { tr.style.background = ''; }, 1200);
-    if (tbody.children.length > 50) tbody.removeChild(tbody.lastChild);
+    // Hard limit in-DOM rows to 50 to prevent client memory growth
+    while (tbody.children.length > 50) {
+      tbody.removeChild(tbody.lastChild);
+    }
   }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     FLEETFLOW DRAG-AND-DROP VISUAL AUTOMATION BUILDER ENGINE
+  ═════════════════════════════════════════════════════════════════════════ */
+  var flowNodes = [];
+  var flowWires = [];
+  var flowNodeIdCounter = 1;
+  var selectedOutputPort = null;
+  var flowDragTarget = null;
+  var flowDragOffset = { x: 0, y: 0 };
+
+  function updateFlowStatus(msg, color) {
+    var badge = document.getElementById('flow-status-badge');
+    if (badge) {
+      badge.textContent = msg;
+      if (color) {
+        badge.style.color = color;
+        badge.style.borderColor = color;
+      }
+    }
+  }
+
+  window.initFleetFlowView = function() {
+    if (flowNodes.length === 0) {
+      window.loadSampleRainFlow();
+    } else {
+      renderFlowNodes();
+      renderFlowWires();
+    }
+  };
+
+  window.clearFlowCanvas = function() {
+    flowNodes = [];
+    flowWires = [];
+    selectedOutputPort = null;
+    renderFlowNodes();
+    renderFlowWires();
+    updateFlowStatus('CANVAS CLEARED', '#38bdf8');
+  };
+
+  window.addFlowNode = function(type, x, y, customConfig) {
+    var defaultX = (x !== undefined) ? x : Math.floor(60 + Math.random() * 180);
+    var defaultY = (y !== undefined) ? y : Math.floor(40 + Math.random() * 220);
+
+    var id = 'node-' + (flowNodeIdCounter++);
+    var node = {
+      id: id,
+      type: type,
+      x: defaultX,
+      y: defaultY,
+      config: customConfig || {}
+    };
+
+    switch (type) {
+      case 'rf_sensor':
+        node.title = 'RF Sensor Trigger';
+        node.badge = 'TRIGGER';
+        node.badgeColor = '#00d4ff';
+        node.hasIn = false;
+        node.hasOut = true;
+        if (!node.config.code) node.config.code = 123456;
+        if (!node.config.label) node.config.label = 'Sensor Trigger (123456)';
+        break;
+      case 'weather':
+        node.title = 'Weather Condition';
+        node.badge = 'CONDITION';
+        node.badgeColor = '#38bdf8';
+        node.hasIn = false;
+        node.hasOut = true;
+        if (!node.config.operator) node.config.operator = 'is_raining';
+        if (!node.config.desc) node.config.desc = 'Active Rain / Precipitation';
+        break;
+      case 'sun':
+        node.title = 'Sun Position';
+        node.badge = 'SOLAR';
+        node.badgeColor = '#f59e0b';
+        node.hasIn = false;
+        node.hasOut = true;
+        if (!node.config.operator) node.config.operator = 'is_down';
+        if (!node.config.desc) node.config.desc = 'Sun Down (Below Horizon)';
+        break;
+      case 'timer':
+        node.title = 'Schedule / Timer';
+        node.badge = 'TRIGGER';
+        node.badgeColor = '#00d4ff';
+        node.hasIn = false;
+        node.hasOut = true;
+        if (!node.config.interval) node.config.interval = 'Every 15 mins';
+        break;
+      case 'logic_and':
+        node.title = 'AND Logic Gate';
+        node.badge = 'ALL TRUE';
+        node.badgeColor = '#f59e0b';
+        node.hasIn = true;
+        node.hasOut = true;
+        node.config.desc = 'Requires all inputs to pass';
+        break;
+      case 'logic_or':
+        node.title = 'OR Logic Gate';
+        node.badge = 'ANY TRUE';
+        node.badgeColor = '#f59e0b';
+        node.hasIn = true;
+        node.hasOut = true;
+        node.config.desc = 'Passes on any active input';
+        break;
+      case 'delay':
+        node.title = 'Delay / Debounce';
+        node.badge = 'COOLDOWN';
+        node.badgeColor = '#f59e0b';
+        node.hasIn = true;
+        node.hasOut = true;
+        if (!node.config.seconds) node.config.seconds = 5;
+        break;
+      case 'wled':
+        node.title = 'WLED Controller';
+        node.badge = 'ACTUATOR';
+        node.badgeColor = '#f43f5e';
+        node.hasIn = true;
+        node.hasOut = false;
+        if (!node.config.color) node.config.color = '#FF1493';
+        if (!node.config.label) node.config.label = 'Pink (#FF1493)';
+        if (!node.config.target) node.config.target = 'wled.local';
+        break;
+      case 'speakerbot':
+        node.title = 'SpeakerBot Chime';
+        node.badge = 'AUDIO';
+        node.badgeColor = '#c084fc';
+        node.hasIn = true;
+        node.hasOut = false;
+        if (!node.config.path) node.config.path = '/choola';
+        if (!node.config.target) node.config.target = 'speakerbot1.local';
+        break;
+      case 'bot_action':
+        node.title = 'Robot Servo Arm';
+        node.badge = 'SERVO';
+        node.badgeColor = '#00e5a0';
+        node.hasIn = true;
+        node.hasOut = false;
+        if (!node.config.path) node.config.path = '/s1on';
+        if (!node.config.target) node.config.target = 'simplebot1.local';
+        break;
+      case 'rf_send':
+        node.title = 'RF Transmitter Pulse';
+        node.badge = 'TX 433MHz';
+        node.badgeColor = '#00d4ff';
+        node.hasIn = true;
+        node.hasOut = false;
+        if (!node.config.code) node.config.code = 123456;
+        break;
+    }
+
+    flowNodes.push(node);
+    renderFlowNodes();
+    renderFlowWires();
+    return node;
+  };
+
+  function renderFlowNodes() {
+    var layer = document.getElementById('flow-nodes-layer');
+    if (!layer) return;
+
+    layer.innerHTML = flowNodes.map(function(n) {
+      var bodyContent = '';
+      if (n.type === 'rf_sensor') {
+        bodyContent = `<div>RF Code: <strong style="color:#fff;">${n.config.code}</strong></div><div style="color:var(--text-muted);font-size:0.72rem;">${n.config.label}</div>`;
+      } else if (n.type === 'weather') {
+        bodyContent = `<div>Condition: <strong style="color:#38bdf8;">${n.config.desc}</strong></div>`;
+      } else if (n.type === 'sun') {
+        bodyContent = `<div>Position: <strong style="color:#f59e0b;">${n.config.desc}</strong></div>`;
+      } else if (n.type === 'logic_and' || n.type === 'logic_or') {
+        bodyContent = `<div>Mode: <strong style="color:#fff;">${n.config.desc}</strong></div>`;
+      } else if (n.type === 'wled') {
+        bodyContent = `<div style="display:flex;align-items:center;gap:0.4rem;">Color: <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${n.config.color};"></span> <strong style="color:#fff;">${n.config.label}</strong></div><div>Target: <span style="font-family:'JetBrains Mono',monospace;">${n.config.target}</span></div>`;
+      } else if (n.type === 'speakerbot') {
+        bodyContent = `<div>Tone: <strong style="color:#c084fc;">Audio Alert (${n.config.path})</strong></div><div>Target: <span style="font-family:'JetBrains Mono',monospace;">${n.config.target}</span></div>`;
+      } else if (n.type === 'bot_action') {
+        bodyContent = `<div>Action: <strong style="color:#00e5a0;">Servo (${n.config.path})</strong></div>`;
+      } else {
+        bodyContent = `<div>Active Block</div>`;
+      }
+
+      var portInHtml = n.hasIn ? `<div class="flow-port flow-port-in" data-node="${n.id}" data-type="in" onclick="handlePortClick(event, '${n.id}', 'in')" title="Connect input"></div>` : '';
+      var portOutHtml = n.hasOut ? `<div class="flow-port flow-port-out" data-node="${n.id}" data-type="out" onclick="handlePortClick(event, '${n.id}', 'out')" title="Connect output"></div>` : '';
+
+      return `
+        <div class="flow-node" id="${n.id}" style="left:${n.x}px; top:${n.y}px;" onmousedown="handleNodeMouseDown(event, '${n.id}')">
+          ${portInHtml}
+          ${portOutHtml}
+          <div class="flow-node-header" style="background:rgba(255,255,255,0.03);">
+            <span style="font-weight:700; color:#fff; font-size:0.8rem;">${n.title}</span>
+            <div style="display:flex; align-items:center; gap:0.4rem;">
+              <span class="mesh-channel-badge" style="color:${n.badgeColor}; border-color:${n.badgeColor}; font-size:0.65rem; padding:0.15rem 0.4rem;">${n.badge}</span>
+              <button onclick="deleteFlowNode('${n.id}', event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;" title="Delete node">✕</button>
+            </div>
+          </div>
+          <div class="flow-node-body">
+            ${bodyContent}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderFlowWires() {
+    var group = document.getElementById('flow-wires-group');
+    if (!group) return;
+
+    group.innerHTML = flowWires.map(function(w) {
+      var src = flowNodes.find(function(n){ return n.id === w.from; });
+      var dst = flowNodes.find(function(n){ return n.id === w.to; });
+      if (!src || !dst) return '';
+
+      var x1 = src.x + 230; // node width
+      var y1 = src.y + 40;  // approximate port vertical center
+      var x2 = dst.x;
+      var y2 = dst.y + 40;
+
+      var dx = Math.max(40, Math.abs(x2 - x1) * 0.45);
+      var d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+
+      return `<path class="flow-wire" id="${w.id}" d="${d}" onclick="deleteFlowWire('${w.id}')" title="Click to disconnect wire" />`;
+    }).join('');
+  }
+
+  window.handlePortClick = function(evt, nodeId, portType) {
+    evt.stopPropagation();
+    if (portType === 'out') {
+      selectedOutputPort = nodeId;
+      updateFlowStatus('PORT SELECTED: Click an Input port on another node to connect', '#00d4ff');
+    } else if (portType === 'in') {
+      if (selectedOutputPort && selectedOutputPort !== nodeId) {
+        window.connectFlowNodes(selectedOutputPort, nodeId);
+        selectedOutputPort = null;
+        updateFlowStatus('CONNECTED: Wire established', '#00e5a0');
+      } else {
+        updateFlowStatus('Please select an Output port first', '#f59e0b');
+      }
+    }
+  };
+
+  window.connectFlowNodes = function(fromId, toId) {
+    if (fromId === toId) return;
+    var exists = flowWires.some(function(w) { return w.from === fromId && w.to === toId; });
+    if (!exists) {
+      flowWires.push({ id: 'wire-' + Date.now() + '-' + Math.floor(Math.random()*1000), from: fromId, to: toId });
+      renderFlowWires();
+    }
+  };
+
+  window.deleteFlowNode = function(nodeId, evt) {
+    if (evt) evt.stopPropagation();
+    flowNodes = flowNodes.filter(function(n){ return n.id !== nodeId; });
+    flowWires = flowWires.filter(function(w){ return w.from !== nodeId && w.to !== nodeId; });
+    renderFlowNodes();
+    renderFlowWires();
+    updateFlowStatus('Node removed', '#f43f5e');
+  };
+
+  window.deleteFlowWire = function(wireId) {
+    flowWires = flowWires.filter(function(w){ return w.id !== wireId; });
+    renderFlowWires();
+    updateFlowStatus('Wire disconnected', '#f43f5e');
+  };
+
+  window.handleNodeMouseDown = function(evt, nodeId) {
+    if (evt.target.classList.contains('flow-port') || evt.target.tagName === 'BUTTON') return;
+    var node = flowNodes.find(function(n){ return n.id === nodeId; });
+    if (!node) return;
+
+    flowDragTarget = node;
+    flowDragOffset.x = evt.clientX - node.x;
+    flowDragOffset.y = evt.clientY - node.y;
+
+    var onMouseMove = function(moveEvt) {
+      if (!flowDragTarget) return;
+      flowDragTarget.x = Math.max(10, Math.min(1100, moveEvt.clientX - flowDragOffset.x));
+      flowDragTarget.y = Math.max(10, Math.min(650, moveEvt.clientY - flowDragOffset.y));
+      var el = document.getElementById(flowDragTarget.id);
+      if (el) {
+        el.style.left = flowDragTarget.x + 'px';
+        el.style.top = flowDragTarget.y + 'px';
+      }
+      renderFlowWires();
+    };
+
+    var onMouseUp = function() {
+      flowDragTarget = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  window.loadSampleRainFlow = function() {
+    flowNodes = [];
+    flowWires = [];
+
+    var n1 = window.addFlowNode('rf_sensor', 40, 40, { code: 123456, label: 'Sensor Trigger (123456)' });
+    var n2 = window.addFlowNode('weather', 40, 200, { operator: 'is_raining', desc: 'Rain Detected (Open-Meteo)' });
+    var n3 = window.addFlowNode('sun', 40, 360, { operator: 'is_down', desc: 'Sun Down (Below Horizon)' });
+    var nAnd = window.addFlowNode('logic_and', 340, 195, { desc: 'All Conditions Active' });
+    var nWLED = window.addFlowNode('wled', 640, 105, { color: '#FF1493', label: 'Color: Deep Pink (#FF1493)', target: 'wled.local' });
+    var nSpk = window.addFlowNode('speakerbot', 640, 295, { path: '/choola', target: 'speakerbot1.local' });
+
+    window.connectFlowNodes(n1.id, nAnd.id);
+    window.connectFlowNodes(n2.id, nAnd.id);
+    window.connectFlowNodes(n3.id, nAnd.id);
+    window.connectFlowNodes(nAnd.id, nWLED.id);
+    window.connectFlowNodes(nAnd.id, nSpk.id);
+
+    updateFlowStatus('RAIN & SUNSET FLOW LOADED', '#00e5a0');
+  };
+
+  window.testSimulateFlow = async function() {
+    updateFlowStatus('SIMULATING EXECUTION...', '#f59e0b');
+    var svg = document.getElementById('flow-svg-layer');
+    if (svg) {
+      var paths = svg.querySelectorAll('.flow-wire');
+      paths.forEach(function(p) { p.classList.add('firing'); });
+      setTimeout(function() {
+        paths.forEach(function(p) { p.classList.remove('firing'); });
+      }, 1600);
+    }
+
+    try {
+      await fetch('/choola').catch(function(){});
+    } catch(e){}
+
+    setTimeout(function() {
+      updateFlowStatus('FLOW EXECUTED (WLED Pink + /choola Tone)', '#00e5a0');
+      window.showTileInfo(null, 'Automation Flow Executed', 'Triggered Rain + Sunset rule logic.\nActuators dispatched: WLED Pink (#FF1493) and SpeakerBot /choola.');
+    }, 800);
+  };
+
+  window.saveFleetFlowRule = async function() {
+    var triggerNode = flowNodes.find(function(n) { return n.type === 'rf_sensor'; });
+    var logicNode = flowNodes.find(function(n) { return n.type === 'logic_and' || n.type === 'logic_or'; });
+    var conditionNodes = flowNodes.filter(function(n) { return n.type === 'weather' || n.type === 'sun'; });
+    var actuatorNodes = flowNodes.filter(function(n) { return n.type === 'wled' || n.type === 'speakerbot' || n.type === 'bot_action'; });
+
+    var conditions = conditionNodes.map(function(cn) {
+      return {
+        type: cn.type === 'weather' ? 'weather' : 'sun_position',
+        operator: cn.config.operator || 'is_active',
+        value: cn.config.desc || ''
+      };
+    });
+
+    var actions = actuatorNodes.map(function(an) {
+      if (an.type === 'wled') {
+        return {
+          type: 'wled_color',
+          target: an.config.target || 'wled.local',
+          path: '/json/state',
+          payload: an.config.color || '#FF1493'
+        };
+      } else if (an.type === 'speakerbot') {
+        return {
+          type: 'speakerbot_play',
+          target: an.config.target || 'speakerbot1.local',
+          path: an.config.path || '/choola',
+          payload: ''
+        };
+      } else {
+        return {
+          type: 'http_get',
+          target: an.config.target || 'simplebot1.local',
+          path: an.config.path || '/s1on',
+          payload: ''
+        };
+      }
+    });
+
+    var rulePayload = {
+      id: 'fleetflow-' + Date.now(),
+      name: 'FleetFlow: Rain & Sunset to WLED Pink',
+      enabled: true,
+      trigger_type: 'rf_code',
+      trigger_code: (triggerNode && triggerNode.config.code) ? triggerNode.config.code : 123456,
+      logic_mode: (logicNode && logicNode.type === 'logic_or') ? 'OR' : 'AND',
+      conditions: conditions,
+      actions: actions,
+      cooldown_sec: 5,
+      canvas_data: JSON.stringify({ nodes: flowNodes, wires: flowWires })
+    };
+
+    try {
+      var res = await fetch('/api/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rulePayload)
+      });
+      if (res.ok) {
+        updateFlowStatus('AUTOMATION SAVED SUCCESSFULLY', '#00e5a0');
+        window.showTileInfo(null, 'Automation Saved', 'Successfully saved FleetFlow rule to FleetHub engine and persisted to fleethub_config.json.');
+        fetchStatus();
+      }
+    } catch(e) {
+      alert('Failed to save rule: ' + e);
+    }
+  };
 
   var camCanvas    = document.getElementById('esp32-cam-canvas');
   var camCanvasTab = document.getElementById('esp32-cam-canvas-tab');

@@ -5,12 +5,14 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/environment"
 )
 
 // EventPayload represents an incoming RF signal or event trigger.
@@ -41,6 +43,7 @@ type buttonTracker struct {
 type Engine struct {
 	cfg            *config.Config
 	database       *db.DB
+	env            *environment.Service
 	client         *http.Client
 	onEventCb      func(EventPayload, []string) // callback for WebSockets / HomeKit
 	mu             sync.RWMutex
@@ -63,6 +66,13 @@ func NewEngine(cfg *config.Config, eventCb func(EventPayload, []string)) *Engine
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+// SetEnvironment attaches the weather and solar elevation tracker.
+func (e *Engine) SetEnvironment(env *environment.Service) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.env = env
 }
 
 // SetDatabase attaches the persistent SQLite database to the engine.
@@ -265,6 +275,15 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 		}
 		e.mu.RUnlock()
 
+		// Check multi-condition logic if configured
+		if len(rule.Conditions) > 0 {
+			passed, reason := e.evaluateConditions(rule)
+			if !passed {
+				executedLogs = append(executedLogs, fmt.Sprintf("Rule '%s' BLOCKED (%s)", rule.Name, reason))
+				continue
+			}
+		}
+
 		// Update last execution time for rule
 		e.mu.Lock()
 		e.lastRuleExec[rule.ID] = now
@@ -290,6 +309,8 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 			if err != nil {
 				log.Printf("[RuleEngine] DB record error for RF event: %v", err)
 			}
+			// Enforce circular retention of recent 1,000 events
+			_, _ = dbInstance.EnforceRFEventRetention(1000)
 		}(event, matchedRuleName)
 	}
 
@@ -396,6 +417,11 @@ func (e *Engine) executeAction(action config.RuleAction) {
 		candidates = append(candidates, action.Target)
 	}
 
+	if strings.HasPrefix(action.Type, "wled") {
+		e.executeWLEDAction(action, candidates)
+		return
+	}
+
 	var lastErr error
 	for _, cand := range candidates {
 		targetHost := cand
@@ -403,7 +429,26 @@ func (e *Engine) executeAction(action config.RuleAction) {
 			targetHost = "http://" + targetHost
 		}
 		fullURL := strings.TrimRight(targetHost, "/") + "/" + strings.TrimLeft(action.Path, "/")
-		req, err := http.NewRequest("GET", fullURL, nil)
+		
+		method := "GET"
+		if action.Type == "http_post" {
+			method = "POST"
+		}
+
+		var bodyReader *strings.Reader
+		if action.Payload != "" {
+			bodyReader = strings.NewReader(action.Payload)
+		}
+
+		var req *http.Request
+		var err error
+		if bodyReader != nil {
+			req, err = http.NewRequest(method, fullURL, bodyReader)
+			req.Header.Set("Content-Type", "application/json")
+		} else {
+			req, err = http.NewRequest(method, fullURL, nil)
+		}
+
 		if err != nil {
 			lastErr = err
 			continue
@@ -420,4 +465,127 @@ func (e *Engine) executeAction(action config.RuleAction) {
 	}
 
 	log.Printf("[RuleEngine] Action failed %s -> %s across targets %v: %v", action.Type, action.Path, candidates, lastErr)
+}
+
+// executeWLEDAction sends JSON state payloads to WLED controllers.
+func (e *Engine) executeWLEDAction(action config.RuleAction, candidates []string) {
+	rgb := [3]int{255, 20, 147} // Default pink (#FF1493)
+	lower := strings.ToLower(action.Payload)
+	if strings.Contains(lower, "pink") {
+		rgb = [3]int{255, 105, 180}
+	} else if strings.Contains(lower, "red") {
+		rgb = [3]int{255, 0, 0}
+	} else if strings.Contains(lower, "blue") {
+		rgb = [3]int{0, 150, 255}
+	} else if strings.Contains(lower, "green") {
+		rgb = [3]int{0, 255, 128}
+	} else if strings.Contains(lower, "amber") || strings.Contains(lower, "orange") {
+		rgb = [3]int{255, 160, 0}
+	} else if strings.Contains(lower, "purple") {
+		rgb = [3]int{192, 132, 252}
+	} else if strings.HasPrefix(lower, "#") && len(lower) == 7 {
+		if r, err := strconv.ParseInt(lower[1:3], 16, 64); err == nil {
+			if g, err := strconv.ParseInt(lower[3:5], 16, 64); err == nil {
+				if b, err := strconv.ParseInt(lower[5:7], 16, 64); err == nil {
+					rgb = [3]int{int(r), int(g), int(b)}
+				}
+			}
+		}
+	}
+
+	wledPayload := fmt.Sprintf(`{"on":true,"bri":255,"seg":[{"col":[[%d,%d,%d]]}]}`, rgb[0], rgb[1], rgb[2])
+	path := "/json/state"
+	if action.Path != "" && action.Path != "/" {
+		path = action.Path
+	}
+
+	for _, cand := range candidates {
+		targetHost := cand
+		if !strings.HasPrefix(targetHost, "http://") && !strings.HasPrefix(targetHost, "https://") {
+			targetHost = "http://" + targetHost
+		}
+		fullURL := strings.TrimRight(targetHost, "/") + "/" + strings.TrimLeft(path, "/")
+		req, err := http.NewRequest("POST", fullURL, strings.NewReader(wledPayload))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := e.client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			log.Printf("[RuleEngine] WLED action executed successfully -> %s", fullURL)
+			return
+		}
+	}
+}
+
+// evaluateConditions checks weather, solar elevation, and sensor logic.
+func (e *Engine) evaluateConditions(rule config.AutomationRule) (bool, string) {
+	isOR := strings.EqualFold(rule.LogicMode, "OR")
+
+	for _, c := range rule.Conditions {
+		condPassed := false
+		condDesc := fmt.Sprintf("%s %s %s", c.Type, c.Operator, c.Value)
+
+		switch strings.ToLower(c.Type) {
+		case "weather":
+			if e.env != nil {
+				isRaining := e.env.IsRaining()
+				state, _, _ := e.env.GetWeatherState()
+				switch strings.ToLower(c.Operator) {
+				case "is_raining", "raining":
+					condPassed = isRaining
+				case "equals", "is":
+					condPassed = strings.EqualFold(state, c.Value)
+				default:
+					condPassed = isRaining || strings.EqualFold(state, c.Value)
+				}
+			} else {
+				condPassed = true
+			}
+
+		case "sun_position", "sun":
+			if e.env != nil {
+				isDown := e.env.IsSunDown()
+				pos, _ := e.env.SunPosition()
+				switch strings.ToLower(c.Operator) {
+				case "is_down", "down", "sunset":
+					condPassed = isDown
+				case "is_up", "up", "sunrise":
+					condPassed = !isDown
+				default:
+					condPassed = strings.EqualFold(pos, c.Value)
+				}
+			} else {
+				condPassed = true
+			}
+
+		case "sensor_state":
+			for _, s := range e.cfg.Sensors {
+				if strings.EqualFold(s.Name, c.Value) || fmt.Sprintf("%d", s.Code) == c.Value {
+					expectedBool := !strings.EqualFold(c.Operator, "off") && !strings.EqualFold(c.Operator, "false")
+					condPassed = (s.State == expectedBool)
+					break
+				}
+			}
+
+		default:
+			condPassed = true
+		}
+
+		if isOR {
+			if condPassed {
+				return true, ""
+			}
+		} else {
+			if !condPassed {
+				return false, condDesc + " not satisfied"
+			}
+		}
+	}
+
+	if isOR {
+		return false, "no OR conditions satisfied"
+	}
+	return true, ""
 }

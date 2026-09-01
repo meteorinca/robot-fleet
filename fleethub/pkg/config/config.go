@@ -71,15 +71,26 @@ type RuleAction struct {
 	Payload string `json:"payload"` // Body or query param
 }
 
+// RuleCondition represents an individual logic evaluation check.
+type RuleCondition struct {
+	Type     string `json:"type"`     // "weather", "sun_position", "sensor_state", "time_window"
+	Operator string `json:"operator"` // "equals", "is_raining", "is_down", "is_up", "between"
+	Value    string `json:"value"`
+}
+
 // AutomationRule represents an active rule in the engine.
 type AutomationRule struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Enabled     bool         `json:"enabled"`
-	TriggerCode uint32       `json:"trigger_code"`
-	CooldownSec int          `json:"cooldown_sec,omitempty"` // Cooldown period in seconds to prevent spam
-	Snoozeable  bool         `json:"snoozeable"`             // Allow rule to be snoozed
-	Actions     []RuleAction `json:"actions"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Enabled     bool            `json:"enabled"`
+	TriggerType string          `json:"trigger_type,omitempty"` // "rf_code", "interval", "weather_change"
+	TriggerCode uint32          `json:"trigger_code"`
+	LogicMode   string          `json:"logic_mode,omitempty"`   // "AND" (default) or "OR"
+	Conditions  []RuleCondition `json:"conditions,omitempty"`
+	CooldownSec int             `json:"cooldown_sec,omitempty"` // Cooldown period in seconds to prevent spam
+	Snoozeable  bool            `json:"snoozeable"`             // Allow rule to be snoozed
+	Actions     []RuleAction    `json:"actions"`
+	CanvasData  string          `json:"canvas_data,omitempty"`  // Serialized flow graph positions and wires
 }
 
 // InputButton represents a physical RF button remote code or virtual input button.

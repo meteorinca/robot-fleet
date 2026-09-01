@@ -14,6 +14,7 @@ import (
 
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/environment"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/homekit"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/listener"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/mdns"
@@ -90,6 +91,9 @@ func main() {
 	var webServer *webui.Server
 	var hkBridge *homekit.BridgeManager
 
+	// Initialize Environmental & Solar Tracker
+	envSvc := environment.NewService(0, 0)
+
 	// 5. Initialize Rule Engine
 	ruleEngine := rules.NewEngine(cfg, func(event rules.EventPayload, executed []string) {
 		if webServer != nil {
@@ -99,6 +103,7 @@ func main() {
 			hkBridge.HandleRFEvent(event)
 		}
 	})
+	ruleEngine.SetEnvironment(envSvc)
 	if database != nil {
 		ruleEngine.SetDatabase(database)
 	}
@@ -109,6 +114,7 @@ func main() {
 	log.Printf("[FleetHub] Active HTTP RF Poller active (Polling RFBot receiver nodes every 800ms)")
 
 	webServer = webui.NewServer(cfg, ruleEngine, rfPoller, assets)
+	webServer.SetEnvironment(envSvc)
 	if database != nil {
 		webServer.SetDatabase(database)
 	}

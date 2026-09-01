@@ -136,5 +136,43 @@
         "method": "GET"
       }
     ]
+  },
+  {
+    "id": "cambot3",
+    "name": "CamBot 3 (OV2640 Camera)",
+    "hostname": "cambot3.local",
+    "fallback_ip": "10.0.0.68",
+    "platform": "cambot",
+    "ip": "10.0.0.68",
+    "port": 80,
+    "last_seen": "2026-09-01T12:24:14.6497054-04:00",
+    "status": "online",
+    "role": "camera",
+    "homekit_enabled": false,
+    "homekit_category": "camera",
+    "ping_enabled": true,
+    "latency_ms": 9.5,
+    "actions": [
+      {
+        "name": "Start Stream",
+        "endpoint": "/cam_on",
+        "method": "GET"
+      },
+      {
+        "name": "Stop Stream",
+        "endpoint": "/cam_off",
+        "method": "GET"
+      },
+      {
+        "name": "Snapshot",
+        "endpoint": "/snapshot",
+        "method": "GET"
+      },
+      {
+        "name": "Toggle Flash",
+        "endpoint": "/toggle",
+        "method": "GET"
+      }
+    ]
   }
 ]

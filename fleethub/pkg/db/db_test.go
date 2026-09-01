@@ -111,4 +111,36 @@ func TestDatabaseOperations(t *testing.T) {
 	if len(speedHistory) != 1 || speedHistory[0].DownloadMbps != 185.4 {
 		t.Errorf("Expected speed record 185.4 Mbps, got %v", speedHistory)
 	}
+
+	// 6. Test Noise Pruning and Retention
+	_, _ = database.RecordRFEvent(999991, 24, 1, 185, "noise1", "", now)
+	_, _ = database.RecordRFEvent(999992, 24, 1, 185, "noise2", "", now)
+
+	// Filtered counts: minHits = 2 should only return code 123456
+	filtered, err := database.GetFilteredRFCounts(2, 10)
+	if err != nil {
+		t.Fatalf("GetFilteredRFCounts failed: %v", err)
+	}
+	if len(filtered) != 1 || filtered[0].Code != code {
+		t.Errorf("Expected only code %d in filtered results, got %v", code, filtered)
+	}
+
+	// Prune noise: minHits = 2, preserve empty
+	deletedNoise, err := database.PruneRFEphemeralNoise(2, nil)
+	if err != nil {
+		t.Fatalf("PruneRFEphemeralNoise failed: %v", err)
+	}
+	if deletedNoise != 2 {
+		t.Errorf("Expected 2 noise codes pruned, got %d", deletedNoise)
+	}
+
+	// Retention test: enforce retention to 1 record
+	deletedRows, err := database.EnforceRFEventRetention(1)
+	if err != nil {
+		t.Fatalf("EnforceRFEventRetention failed: %v", err)
+	}
+	if deletedRows == 0 {
+		t.Errorf("Expected older events deleted by retention limit, got %d", deletedRows)
+	}
 }
+
