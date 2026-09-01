@@ -18,6 +18,7 @@ const (
 	PlatformDogBot     BotPlatform = "dogbot_v1"
 	PlatformSimpleBot  BotPlatform = "simplebot"
 	PlatformCarBot     BotPlatform = "carbot"
+	PlatformCamBot     BotPlatform = "cambot"
 	PlatformMyBot      BotPlatform = "mybot"
 )
 
@@ -192,6 +193,26 @@ func DefaultConfig(path string) *Config {
 					{Name: "Servo 1 OFF", Endpoint: "/s1off", Method: "GET"},
 					{Name: "Servo 2 ON", Endpoint: "/s2on", Method: "GET"},
 					{Name: "Servo 2 OFF", Endpoint: "/s2off", Method: "GET"},
+				},
+			},
+			{
+				ID:              "cambot1",
+				Name:            "CamBot 1 (OV2640 Camera)",
+				Hostname:        "cambot1.local",
+				FallbackIP:      "192.168.1.107",
+				Platform:        PlatformCamBot,
+				IP:              "cambot1.local",
+				Port:            80,
+				Status:          "online",
+				Role:            "camera",
+				HomeKitEnabled:  false,
+				HomeKitCategory: "camera",
+				PingEnabled:     true,
+				Actions: []DeviceAction{
+					{Name: "Start Stream", Endpoint: "/cam_on", Method: "GET"},
+					{Name: "Stop Stream", Endpoint: "/cam_off", Method: "GET"},
+					{Name: "Snapshot", Endpoint: "/snapshot", Method: "GET"},
+					{Name: "Toggle Flash", Endpoint: "/toggle", Method: "GET"},
 				},
 			},
 		},

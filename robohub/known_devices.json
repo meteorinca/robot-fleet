@@ -107,5 +107,42 @@
     "role": "breadboard_bot",
     "ping_enabled": true,
     "latency_ms": 2.9
+  },
+  {
+    "id": "cambot1",
+    "name": "CamBot 1 (OV2640 Camera)",
+    "hostname": "cambot1.local",
+    "fallback_ip": "192.168.1.107",
+    "platform": "cambot",
+    "ip": "cambot1.local",
+    "port": 80,
+    "status": "online",
+    "role": "camera",
+    "homekit_enabled": false,
+    "homekit_category": "camera",
+    "ping_enabled": true,
+    "latency_ms": 24.5,
+    "actions": [
+      {
+        "name": "Start Stream",
+        "endpoint": "/cam_on",
+        "method": "GET"
+      },
+      {
+        "name": "Stop Stream",
+        "endpoint": "/cam_off",
+        "method": "GET"
+      },
+      {
+        "name": "Snapshot",
+        "endpoint": "/snapshot",
+        "method": "GET"
+      },
+      {
+        "name": "Toggle Flash",
+        "endpoint": "/toggle",
+        "method": "GET"
+      }
+    ]
   }
 ]

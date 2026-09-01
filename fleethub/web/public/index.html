@@ -414,16 +414,86 @@
     }
     @media (max-width: 768px) { .media-card-wide { grid-column: span 1; } }
 
-    .cam-viewport-box { width: 100%; height: 200px; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .cam-stream-canvas { width: 100%; height: 100%; object-fit: cover; }
-    .cam-overlay-bar {
-      position: absolute; bottom: 0; left: 0; right: 0; padding: 0.75rem 1rem;
-      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
-      display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 0.85rem; font-weight: 600;
+    .cam-card {
+      background: linear-gradient(145deg, rgba(10, 20, 38, 0.75) 0%, rgba(15, 10, 28, 0.65) 100%);
+      border: 1px solid rgba(0, 212, 255, 0.22); box-shadow: 0 12px 36px rgba(0,0,0,0.45);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .cam-live-indicator { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; background: rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.5); color: #f87171; padding: 0.2rem 0.55rem; border-radius: 12px; font-weight: 700; }
-    .cam-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444; animation: list-pulse 1.8s infinite; }
-    .media-card-controls { padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); border-top: 1px solid rgba(255,255,255,0.08); }
+    .cam-card:hover {
+      border-color: rgba(0, 212, 255, 0.45);
+      box-shadow: 0 16px 44px rgba(0, 212, 255, 0.12), 0 8px 24px rgba(0,0,0,0.5);
+      transform: translateY(-2px);
+    }
+    .cam-card-header {
+      padding: 0.9rem 1.1rem; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);
+    }
+    .cam-icon-badge {
+      width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.25);
+    }
+    .cam-viewport-box {
+      width: 100%; height: 260px; background: #020610; position: relative;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .cam-stream-img {
+      width: 100%; height: 100%; object-fit: contain; display: block; background: #000;
+    }
+    .cam-stream-canvas { width: 100%; height: 100%; object-fit: cover; }
+    .cam-off-overlay {
+      position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(15,23,42,0.85) 0%, rgba(2,6,16,0.96) 100%);
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    .cam-off-inner { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .cam-play-btn {
+      width: 54px; height: 54px; border-radius: 50%; background: rgba(0, 212, 255, 0.12);
+      border: 2px solid #00d4ff; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.25s ease; box-shadow: 0 0 20px rgba(0, 212, 255, 0.25);
+    }
+    .cam-play-btn:hover {
+      background: rgba(0, 212, 255, 0.28); transform: scale(1.1);
+      box-shadow: 0 0 30px rgba(0, 212, 255, 0.45);
+    }
+    .cam-overlay-bar {
+      position: absolute; bottom: 0; left: 0; right: 0; padding: 0.65rem 0.95rem;
+      background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 70%, transparent 100%);
+      display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 0.85rem; font-weight: 600;
+      pointer-events: none;
+    }
+    .cam-overlay-actions { pointer-events: auto; display: flex; gap: 0.4rem; }
+    .cam-live-indicator {
+      display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem;
+      background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399; padding: 0.2rem 0.6rem; border-radius: 12px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .cam-live-indicator.off {
+      background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.25); color: #94a3b8;
+    }
+    .cam-live-indicator.off .cam-live-dot {
+      background: #94a3b8; box-shadow: none; animation: none;
+    }
+    .cam-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; animation: list-pulse 1.8s infinite; }
+    .media-card-controls { padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.06); }
+
+    .cam-drive-panel {
+      padding: 0.85rem 1.1rem; background: rgba(0, 0, 0, 0.35); border-top: 1px solid rgba(0, 212, 255, 0.15);
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .cam-dpad-grid {
+      display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 40px); gap: 5px;
+    }
+    .dpad-btn {
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px; color: #fff; font-size: 14px; font-weight: 700; display: flex;
+      align-items: center; justify-content: center; cursor: pointer; user-select: none;
+      transition: all 0.15s ease;
+    }
+    .dpad-btn:hover { background: rgba(0, 212, 255, 0.25); border-color: #00d4ff; color: #00d4ff; }
+    .dpad-btn:active { background: #00d4ff; color: #000; transform: scale(0.94); }
+    .dpad-stop { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #ef4444; }
+    .dpad-stop:hover { background: rgba(239, 68, 68, 0.4); }
 
     .person-tile { background: #fff; color: #0f172a; border-radius: 16px; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 0.75rem; box-shadow: 0 8px 25px rgba(0,0,0,0.2); }
     .person-avatar { width: 42px; height: 42px; border-radius: 50%; background: #38bdf8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800; font-size: 1rem; color: #fff; }
@@ -1605,17 +1675,110 @@
     <!-- SECTION: CAMERAS TAB -->
     <div id="tab-sec-cameras" style="display: none;">
       <section class="dashboard-section">
-        <div class="section-title">Live High-FPS Camera Grid</div>
-        <div class="tiles-grid" style="grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));">
-          <div class="media-card-wide" style="grid-column: span 1;">
-            <div class="cam-viewport-box">
-              <canvas id="esp32-cam-canvas-tab" class="cam-stream-canvas"></canvas>
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem;">
+          <div>
+            <div class="section-title" style="margin-bottom:0.25rem;">Live High-FPS Camera Grid</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Real-time MJPEG video feeds from CamBot robot fleet &amp; security cameras</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+            <span class="mesh-channel-badge" id="cam-active-count-badge" style="color:var(--accent-green); border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.1);">
+              1 CAMERA ONLINE
+            </span>
+            <button class="btn-sm btn-secondary" onclick="refreshCameraGridView()" title="Refresh Camera Devices">
+              Refresh Grid
+            </button>
+            <button class="btn-sm" onclick="startAllCamStreams()" title="Turn on all camera streams">
+              Start All Streams
+            </button>
+            <button class="btn-sm btn-secondary" onclick="stopAllCamStreams()" title="Turn off all camera streams">
+              Stop All Streams
+            </button>
+          </div>
+        </div>
+
+        <div class="tiles-grid" id="camera-grid" style="grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 1.25rem;">
+          <!-- Dynamically populated by renderCameras() -->
+          <div class="media-card-wide cam-card" id="cam-card-cambot1">
+            <div class="cam-card-header">
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <div class="cam-icon-badge">
+                  <svg style="width:18px;height:18px;fill:none;stroke:#00d4ff;stroke-width:2;" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:0.95rem; font-weight:700; color:#fff;">CamBot 1 (OV2640 Camera)</div>
+                  <div style="font-size:0.75rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">cambot1.local &bull; VGA @ 25fps</div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span class="cam-live-indicator off" id="cam-badge-cambot1">
+                  <div class="cam-live-dot"></div>
+                  <span>STREAM OFF</span>
+                </span>
+                <button class="btn-micro" onclick="expandCamModal('cambot1')" title="Fullscreen View">⛶</button>
+              </div>
+            </div>
+
+            <div class="cam-viewport-box" id="cam-viewport-cambot1" onclick="toggleCamStream('cambot1')" style="cursor:pointer;">
+              <img id="cam-img-cambot1" class="cam-stream-img" src="" style="display:none;" alt="CamBot 1" onerror="handleCamImgError('cambot1')" onload="handleCamImgLoad('cambot1')">
+              
+              <div class="cam-off-overlay" id="cam-off-overlay-cambot1">
+                <div class="cam-off-inner">
+                  <div class="cam-play-btn">
+                    <svg style="width:28px;height:28px;fill:#00d4ff;margin-left:4px;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  </div>
+                  <div style="font-size:0.88rem; font-weight:700; color:#fff; margin-top:0.6rem;">Stream is Off</div>
+                  <div style="font-size:0.74rem; color:rgba(255,255,255,0.6);">Click to Start Live Video Stream</div>
+                </div>
+              </div>
+
               <div class="cam-overlay-bar">
                 <div>
-                  <div style="font-size:0.92rem;font-weight:700;">Camera 1 (Front Gate)</div>
-                  <div style="font-size:0.75rem;color:rgba(255,255,255,0.7);">1080p Stream</div>
+                  <div style="font-size:0.88rem; font-weight:700;">CamBot 1 (Live Feed)</div>
+                  <div style="font-size:0.72rem; color:rgba(255,255,255,0.7); font-family:'JetBrains Mono',monospace;">MJPEG Multipart &bull; Ready</div>
                 </div>
-                <div class="cam-live-indicator"><div class="cam-live-dot"></div><span>LIVE</span></div>
+                <div class="cam-overlay-actions" onclick="event.stopPropagation()">
+                  <button class="btn-micro" onclick="takeCamSnapshot('cambot1')" title="Snapshot Frame">📷 Snapshot</button>
+                  <button class="btn-micro" onclick="toggleCamFlash('cambot1')" title="Toggle Flashlight">💡 Light</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="media-card-controls">
+              <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                <button class="btn-sm" onclick="toggleCamStream('cambot1')" id="cam-toggle-btn-cambot1">
+                  Turn Stream ON
+                </button>
+                <button class="btn-sm btn-secondary" onclick="takeCamSnapshot('cambot1')">
+                  Snapshot
+                </button>
+                <button class="btn-sm btn-secondary" onclick="toggleCamFlash('cambot1')">
+                  Flash LED
+                </button>
+              </div>
+              <div style="display:flex; gap:0.4rem; align-items:center;">
+                <button class="btn-sm btn-secondary" onclick="toggleCamDrivePanel('cambot1')" title="Toggle RC Drive Pad">
+                  🚗 Drive Pad
+                </button>
+                <a href="http://cambot1.local" target="_blank" rel="noopener noreferrer" class="btn-sm btn-secondary" style="text-decoration:none;" title="Open Bot WebUI">
+                  Open UI ↗
+                </a>
+              </div>
+            </div>
+
+            <div class="cam-drive-panel" id="cam-drive-panel-cambot1" style="display:none;">
+              <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem;">
+                CamBot Remote Drive Control (L298N)
+              </div>
+              <div class="cam-dpad-grid">
+                <div></div>
+                <button class="dpad-btn" onmousedown="driveCamBot('cambot1', 0, 100)" onmouseup="driveCamBot('cambot1', 0, 0)" ontouchstart="driveCamBot('cambot1', 0, 100)" ontouchend="driveCamBot('cambot1', 0, 0)" title="Forward">▲</button>
+                <div></div>
+                <button class="dpad-btn" onmousedown="driveCamBot('cambot1', 100, 70)" onmouseup="driveCamBot('cambot1', 0, 0)" ontouchstart="driveCamBot('cambot1', 100, 70)" ontouchend="driveCamBot('cambot1', 0, 0)" title="Steer Left">◀</button>
+                <button class="dpad-btn dpad-stop" onclick="stopCamBot('cambot1')" title="Emergency Stop">■</button>
+                <button class="dpad-btn" onmousedown="driveCamBot('cambot1', -100, 70)" onmouseup="driveCamBot('cambot1', 0, 0)" ontouchstart="driveCamBot('cambot1', -100, 70)" ontouchend="driveCamBot('cambot1', 0, 0)" title="Steer Right">▶</button>
+                <div></div>
+                <button class="dpad-btn" onmousedown="driveCamBot('cambot1', 0, -100)" onmouseup="driveCamBot('cambot1', 0, 0)" ontouchstart="driveCamBot('cambot1', 0, -100)" ontouchend="driveCamBot('cambot1', 0, 0)" title="Reverse">▼</button>
+                <div></div>
               </div>
             </div>
           </div>
@@ -1903,6 +2066,7 @@
         <input type="text" id="dev-fallback" placeholder="Fallback IP (e.g. 192.168.1.102)">
         <select id="dev-platform">
           <option value="rfbot">RFBot (TX/RX Gateway)</option>
+          <option value="cambot">CamBot (Camera Robot)</option>
           <option value="speakerbot">SpeakerBot (Audio)</option>
           <option value="simplebot">SimpleBot (Kitchen Light Controller)</option>
           <option value="dogbot_v1">DogBot v1 (Quadruped)</option>
@@ -1949,6 +2113,61 @@
           <button style="flex: 1;" onclick="saveRule()">Save Rule</button>
           <button type="button" class="modal-close-btn" style="flex: 1; background:rgba(255,255,255,0.1);" onclick="closeModal('add-rule-modal')">Cancel</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CamBot Fullscreen Stream & Control Modal -->
+  <div id="cam-expand-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'cam-expand-modal')">
+    <div class="modal-content" style="max-width: 820px; width: 95vw; padding: 1.25rem;" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <h3 id="modal-cam-title" style="font-size: 1.15rem; color: #fff; margin:0;">CamBot Live Stream</h3>
+          <span class="cam-live-indicator" id="modal-cam-live-indicator"><div class="cam-live-dot"></div><span>LIVE</span></span>
+        </div>
+        <button type="button" class="modal-close-btn" style="background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer;" onclick="closeModal('cam-expand-modal')">✕</button>
+      </div>
+
+      <div class="cam-viewport-box" style="height: 440px; border-radius: 12px; position:relative; background:#000;">
+        <img id="modal-cam-img" class="cam-stream-img" src="" style="width:100%; height:100%; object-fit:contain;" alt="Fullscreen Camera Stream">
+        <div class="cam-off-overlay" id="modal-cam-off" style="display:none;">
+          <div class="cam-off-inner">
+            <div class="cam-play-btn" onclick="toggleModalCamStream()">
+              <svg style="width:36px;height:36px;fill:#00d4ff;margin-left:5px;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <div style="font-size:1rem; font-weight:700; color:#fff; margin-top:0.8rem;">Camera Stream is Stopped</div>
+            <div style="font-size:0.8rem; color:rgba(255,255,255,0.6);">Click to Activate Stream</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.8rem; flex-wrap:wrap; gap:0.6rem;">
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <button class="btn-sm" id="modal-cam-toggle-btn" onclick="toggleModalCamStream()">Stream ON</button>
+          <button class="btn-sm btn-secondary" onclick="takeModalCamSnapshot()">📷 Snapshot</button>
+          <button class="btn-sm btn-secondary" onclick="toggleModalCamFlash()">💡 Light</button>
+        </div>
+        <div style="display:flex; gap:0.4rem; align-items:center;">
+          <span style="font-size:0.75rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;" id="modal-cam-telemetry">VGA &bull; 25 FPS &bull; ESP32-S3</span>
+          <a id="modal-cam-direct-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-sm btn-secondary" style="text-decoration:none;">Open Bot UI ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snapshot Preview Modal -->
+  <div id="cam-snap-modal" class="modal-overlay" onclick="closeModalOnOverlay(event, 'cam-snap-modal')">
+    <div class="modal-content" style="max-width: 680px; width: 90vw; padding: 1.25rem;" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.75rem;">
+        <h3 style="font-size: 1.1rem; color: #fff; margin:0;">Captured Snapshot</h3>
+        <button type="button" class="modal-close-btn" style="background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer;" onclick="closeModal('cam-snap-modal')">✕</button>
+      </div>
+      <div style="border-radius:8px; overflow:hidden; background:#000; display:flex; justify-content:center;">
+        <img id="snap-modal-img" src="" style="max-width:100%; max-height:420px; object-fit:contain;" alt="Camera Snapshot">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:0.8rem;">
+        <a id="snap-download-btn" href="#" download="cambot_snap.jpg" class="btn-sm" style="text-decoration:none;">Download Image</a>
+        <button type="button" class="btn-sm btn-secondary" onclick="closeModal('cam-snap-modal')">Close</button>
       </div>
     </div>
   </div>
@@ -2142,6 +2361,8 @@
       if (typeof window.initRFMeshView === 'function') window.initRFMeshView();
     } else if (tabName === 'telemetry') {
       if (typeof window.refreshTelemetryView === 'function') window.refreshTelemetryView();
+    } else if (tabName === 'cameras') {
+      if (typeof window.refreshCameraGridView === 'function') window.refreshCameraGridView();
     }
   };
 
@@ -2456,7 +2677,11 @@
         fetch('/api/buttons').catch(()=>null)
       ]);
 
-      if (botsRes && botsRes.ok) renderBots(await botsRes.json());
+      if (botsRes && botsRes.ok) {
+        var botsData = await botsRes.json();
+        renderBots(botsData);
+        renderCameras(botsData);
+      }
       if (senRes && senRes.ok) renderSensors(await senRes.json());
       if (rulesRes && rulesRes.ok) renderRules(await rulesRes.json());
       if (btnsRes && btnsRes.ok) renderButtons(await btnsRes.json());
@@ -2550,7 +2775,8 @@
                   <input type="checkbox" ${b.homekit_enabled?'checked':''} onchange="toggleHomeKit('${b.id}',this.checked)" style="width:auto;">
                   <span>HomeKit</span>
                 </label>
-                <div style="display:flex;gap:0.4rem;">
+                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                  ${b.platform === 'cambot' ? `<button class="btn-sm" style="background:rgba(0,212,255,0.18);border-color:#00d4ff;color:#00d4ff;" onclick="switchNavTab('cameras'); expandCamModal('${b.id}')">📷 View Stream</button>` : ''}
                   ${(b.actions||[]).map((act,i)=>`<button class="btn-sm" onclick="triggerAction('${b.id}',${i})">${act.name}</button>`).join('')}
                 </div>
               </div>
@@ -3618,7 +3844,375 @@
   }
   setTimeout(drawHudPowerSpark, 900);
 
-  window.snapCamFrame       = function() { alert('Snapshot saved to gallery.'); };
+  /* ═════════════════════════════════════════════════════════════════════════
+     CAMBOT CAMERA SUITE (STREAMING, POWER ON/OFF, SNAPSHOT, DRIVE CONTROLS)
+  ═════════════════════════════════════════════════════════════════════════ */
+  window._activeCamStreams = window._activeCamStreams || {};
+  window._currentModalCamId = 'cambot1';
+  window._cachedCameraBots = [];
+
+  window.renderCameras = function(bots) {
+    if (!bots || !Array.isArray(bots)) return;
+    var cameraBots = bots.filter(function(b) {
+      return b.platform === 'cambot' || b.role === 'camera' || (b.id && b.id.toLowerCase().includes('cam'));
+    });
+
+    if (cameraBots.length === 0) {
+      cameraBots = [{
+        id: 'cambot1',
+        name: 'CamBot 1 (OV2640 Camera)',
+        hostname: 'cambot1.local',
+        ip: 'cambot1.local',
+        platform: 'cambot',
+        role: 'camera',
+        status: 'online',
+        latency_ms: 24.5
+      }];
+    }
+    window._cachedCameraBots = cameraBots;
+
+    var badge = document.getElementById('cam-active-count-badge');
+    var activeCount = Object.keys(window._activeCamStreams).filter(function(k){ return window._activeCamStreams[k]; }).length;
+    if (badge) {
+      badge.textContent = cameraBots.length + ' CAMERA' + (cameraBots.length > 1 ? 'S' : '') + ' CONFIGURED (' + activeCount + ' STREAMING)';
+    }
+
+    var grid = document.getElementById('camera-grid');
+    if (!grid) return;
+
+    // Check if we need to rebuild grid or just update indicators
+    var existingCards = grid.querySelectorAll('.cam-card');
+    var idsMatch = existingCards.length === cameraBots.length;
+    if (idsMatch) {
+      cameraBots.forEach(function(cam, i) {
+        if (!existingCards[i] || existingCards[i].id !== 'cam-card-' + cam.id) idsMatch = false;
+      });
+    }
+
+    if (idsMatch) {
+      // Fast in-place status update without rebuilding DOM (preserves video streams)
+      cameraBots.forEach(function(cam) {
+        var isStreaming = !!window._activeCamStreams[cam.id];
+        var badgeEl = document.getElementById('cam-badge-' + cam.id);
+        var toggleBtn = document.getElementById('cam-toggle-btn-' + cam.id);
+        var overlay = document.getElementById('cam-off-overlay-' + cam.id);
+        var img = document.getElementById('cam-img-' + cam.id);
+
+        if (badgeEl) {
+          badgeEl.className = 'cam-live-indicator ' + (isStreaming ? '' : 'off');
+          badgeEl.querySelector('span').textContent = isStreaming ? 'LIVE' : 'STREAM OFF';
+        }
+        if (toggleBtn) {
+          toggleBtn.textContent = isStreaming ? 'Turn Stream OFF' : 'Turn Stream ON';
+          if (isStreaming) toggleBtn.classList.add('btn-red'); else toggleBtn.classList.remove('btn-red');
+        }
+        if (overlay) overlay.style.display = isStreaming ? 'none' : 'flex';
+        if (img) img.style.display = isStreaming ? 'block' : 'none';
+      });
+      return;
+    }
+
+    // Build fresh camera grid
+    grid.innerHTML = cameraBots.map(function(cam) {
+      var isStreaming = !!window._activeCamStreams[cam.id];
+      var streamSrc = isStreaming ? ('/api/camera/stream?id=' + encodeURIComponent(cam.id)) : '';
+      var hostDisplay = cam.ip || cam.fallback_ip || cam.hostname || 'cambot.local';
+      var directUrl = cam.ip ? ('http://' + cam.ip) : ('http://' + (cam.hostname || 'cambot1.local'));
+
+      return `
+        <div class="media-card-wide cam-card" id="cam-card-${cam.id}">
+          <div class="cam-card-header">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <div class="cam-icon-badge">
+                <svg style="width:18px;height:18px;fill:none;stroke:#00d4ff;stroke-width:2;" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <div>
+                <div style="font-size:0.95rem; font-weight:700; color:#fff;">${cam.name}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">${hostDisplay} &bull; OV2640 VGA</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span class="cam-live-indicator ${isStreaming ? '' : 'off'}" id="cam-badge-${cam.id}">
+                <div class="cam-live-dot"></div>
+                <span>${isStreaming ? 'LIVE' : 'STREAM OFF'}</span>
+              </span>
+              <button class="btn-micro" onclick="expandCamModal('${cam.id}')" title="Fullscreen View">⛶</button>
+            </div>
+          </div>
+
+          <div class="cam-viewport-box" id="cam-viewport-${cam.id}" onclick="toggleCamStream('${cam.id}')" style="cursor:pointer;">
+            <img id="cam-img-${cam.id}" class="cam-stream-img" src="${streamSrc}" style="${isStreaming ? '' : 'display:none;'}" alt="${cam.name}" onerror="handleCamImgError('${cam.id}')" onload="handleCamImgLoad('${cam.id}')">
+            
+            <div class="cam-off-overlay" id="cam-off-overlay-${cam.id}" style="${isStreaming ? 'display:none;' : 'display:flex;'}">
+              <div class="cam-off-inner">
+                <div class="cam-play-btn">
+                  <svg style="width:28px;height:28px;fill:#00d4ff;margin-left:4px;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </div>
+                <div style="font-size:0.88rem; font-weight:700; color:#fff; margin-top:0.6rem;">Stream is Off</div>
+                <div style="font-size:0.74rem; color:rgba(255,255,255,0.6);">Click to Start Live Video Stream</div>
+              </div>
+            </div>
+
+            <div class="cam-overlay-bar">
+              <div>
+                <div class="cam-stream-title" style="font-size:0.88rem; font-weight:700;">${cam.name}</div>
+                <div style="font-size:0.72rem; color:rgba(255,255,255,0.7); font-family:'JetBrains Mono',monospace;">MJPEG &bull; ${cam.latency_ms ? cam.latency_ms.toFixed(0)+'ms' : 'Ready'}</div>
+              </div>
+              <div class="cam-overlay-actions" onclick="event.stopPropagation()">
+                <button class="btn-micro" onclick="takeCamSnapshot('${cam.id}')" title="Snapshot Frame">📷 Snapshot</button>
+                <button class="btn-micro" onclick="toggleCamFlash('${cam.id}')" title="Toggle Flashlight">💡 Light</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="media-card-controls">
+            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+              <button class="btn-sm ${isStreaming ? 'btn-red' : ''}" onclick="toggleCamStream('${cam.id}')" id="cam-toggle-btn-${cam.id}">
+                ${isStreaming ? 'Turn Stream OFF' : 'Turn Stream ON'}
+              </button>
+              <button class="btn-sm btn-secondary" onclick="takeCamSnapshot('${cam.id}')">
+                Snapshot
+              </button>
+              <button class="btn-sm btn-secondary" onclick="toggleCamFlash('${cam.id}')">
+                Flash LED
+              </button>
+            </div>
+            <div style="display:flex; gap:0.4rem; align-items:center;">
+              <button class="btn-sm btn-secondary" onclick="toggleCamDrivePanel('${cam.id}')" title="Toggle RC Drive Pad">
+                🚗 Drive Pad
+              </button>
+              <a href="${directUrl}" target="_blank" rel="noopener noreferrer" class="btn-sm btn-secondary" style="text-decoration:none;" title="Open Bot WebUI">
+                Open UI ↗
+              </a>
+            </div>
+          </div>
+
+          <div class="cam-drive-panel" id="cam-drive-panel-${cam.id}" style="display:none;">
+            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem;">
+              CamBot Remote Drive Control (L298N)
+            </div>
+            <div class="cam-dpad-grid">
+              <div></div>
+              <button class="dpad-btn" onmousedown="driveCamBot('${cam.id}', 0, 100)" onmouseup="driveCamBot('${cam.id}', 0, 0)" ontouchstart="driveCamBot('${cam.id}', 0, 100)" ontouchend="driveCamBot('${cam.id}', 0, 0)" title="Forward">▲</button>
+              <div></div>
+              <button class="dpad-btn" onmousedown="driveCamBot('${cam.id}', 100, 70)" onmouseup="driveCamBot('${cam.id}', 0, 0)" ontouchstart="driveCamBot('${cam.id}', 100, 70)" ontouchend="driveCamBot('${cam.id}', 0, 0)" title="Steer Left">◀</button>
+              <button class="dpad-btn dpad-stop" onclick="stopCamBot('${cam.id}')" title="Emergency Stop">■</button>
+              <button class="dpad-btn" onmousedown="driveCamBot('${cam.id}', -100, 70)" onmouseup="driveCamBot('${cam.id}', 0, 0)" ontouchstart="driveCamBot('${cam.id}', -100, 70)" ontouchend="driveCamBot('${cam.id}', 0, 0)" title="Steer Right">▶</button>
+              <div></div>
+              <button class="dpad-btn" onmousedown="driveCamBot('${cam.id}', 0, -100)" onmouseup="driveCamBot('${cam.id}', 0, 0)" ontouchstart="driveCamBot('${cam.id}', 0, -100)" ontouchend="driveCamBot('${cam.id}', 0, 0)" title="Reverse">▼</button>
+              <div></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  };
+
+  window.refreshCameraGridView = function() {
+    fetch('/api/bots').then(r => r.json()).then(bots => {
+      renderBots(bots);
+      renderCameras(bots);
+      showTileInfo(null, 'Camera Grid Refreshed', 'Synced camera device nodes from FleetHub Mothership.');
+    }).catch(err => {
+      console.error('Error refreshing cameras:', err);
+    });
+  };
+
+  window.toggleCamStream = async function(id) {
+    var isCurrentlyOn = !!window._activeCamStreams[id];
+    var targetState = !isCurrentlyOn;
+    var btn = document.getElementById('cam-toggle-btn-' + id);
+    if (btn) btn.textContent = targetState ? 'Connecting...' : 'Stopping...';
+
+    try {
+      var endpoint = targetState ? '/api/camera/on?id=' + encodeURIComponent(id) : '/api/camera/off?id=' + encodeURIComponent(id);
+      var res = await fetch(endpoint);
+      var data = await res.json();
+      window._activeCamStreams[id] = targetState;
+
+      var img = document.getElementById('cam-img-' + id);
+      var overlay = document.getElementById('cam-off-overlay-' + id);
+      var badge = document.getElementById('cam-badge-' + id);
+
+      if (targetState) {
+        if (img) {
+          img.src = '/api/camera/stream?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+          img.style.display = 'block';
+        }
+        if (overlay) overlay.style.display = 'none';
+        if (badge) {
+          badge.className = 'cam-live-indicator';
+          badge.querySelector('span').textContent = 'LIVE';
+        }
+        if (btn) {
+          btn.textContent = 'Turn Stream OFF';
+          btn.classList.add('btn-red');
+        }
+        showTileInfo(null, 'Camera Stream Started', 'Live MJPEG stream connected for ' + id + '.');
+      } else {
+        if (img) {
+          img.src = '';
+          img.style.display = 'none';
+        }
+        if (overlay) overlay.style.display = 'flex';
+        if (badge) {
+          badge.className = 'cam-live-indicator off';
+          badge.querySelector('span').textContent = 'STREAM OFF';
+        }
+        if (btn) {
+          btn.textContent = 'Turn Stream ON';
+          btn.classList.remove('btn-red');
+        }
+        showTileInfo(null, 'Camera Stream Stopped', 'Stream power turned off for ' + id + '.');
+      }
+
+      // Sync to HUD if active
+      syncHudCameraFeed();
+    } catch(err) {
+      console.error('Failed to toggle stream:', err);
+      if (btn) btn.textContent = isCurrentlyOn ? 'Turn Stream OFF' : 'Turn Stream ON';
+    }
+  };
+
+  window.startAllCamStreams = async function() {
+    var bots = window._cachedCameraBots || [{id:'cambot1'}];
+    for (var i = 0; i < bots.length; i++) {
+      if (!window._activeCamStreams[bots[i].id]) {
+        await toggleCamStream(bots[i].id);
+      }
+    }
+  };
+
+  window.stopAllCamStreams = async function() {
+    var bots = window._cachedCameraBots || [{id:'cambot1'}];
+    for (var i = 0; i < bots.length; i++) {
+      if (window._activeCamStreams[bots[i].id]) {
+        await toggleCamStream(bots[i].id);
+      }
+    }
+  };
+
+  window.handleCamImgLoad = function(id) {
+    var overlay = document.getElementById('cam-off-overlay-' + id);
+    if (overlay) overlay.style.display = 'none';
+  };
+
+  window.handleCamImgError = function(id) {
+    console.warn('Camera stream img load error for', id);
+  };
+
+  window.takeCamSnapshot = async function(id) {
+    try {
+      var snapUrl = '/api/camera/snapshot?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+      var modalImg = document.getElementById('snap-modal-img');
+      var dlBtn = document.getElementById('snap-download-btn');
+      if (modalImg) modalImg.src = snapUrl;
+      if (dlBtn) {
+        dlBtn.href = snapUrl;
+        dlBtn.download = id + '_snapshot_' + Date.now() + '.jpg';
+      }
+      var modal = document.getElementById('cam-snap-modal');
+      if (modal) modal.style.display = 'flex';
+    } catch(err) {
+      console.error('Failed to take snapshot:', err);
+    }
+  };
+
+  window.toggleCamFlash = async function(id) {
+    try {
+      await fetch('/api/devices/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id, endpoint: '/toggle', method: 'GET' })
+      });
+      showTileInfo(null, 'Flashlight Toggled', 'CamBot LED toggled.');
+    } catch(err) {
+      console.error('Failed to toggle flash:', err);
+    }
+  };
+
+  window.toggleCamDrivePanel = function(id) {
+    var panel = document.getElementById('cam-drive-panel-' + id);
+    if (panel) {
+      panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'flex' : 'none';
+    }
+  };
+
+  window.driveCamBot = function(id, steer, drive) {
+    fetch('/api/camera/drive?id=' + encodeURIComponent(id) + '&steer=' + steer + '&drive=' + drive).catch(()=>{});
+  };
+
+  window.stopCamBot = function(id) {
+    fetch('/api/camera/drive?id=' + encodeURIComponent(id) + '&stop=1').catch(()=>{});
+  };
+
+  window.expandCamModal = function(id) {
+    window._currentModalCamId = id;
+    var bot = (window._cachedCameraBots || []).find(b => b.id === id) || { id: id, name: id };
+    var title = document.getElementById('modal-cam-title');
+    if (title) title.textContent = bot.name + ' Live Feed';
+
+    var isStreaming = !!window._activeCamStreams[id];
+    var modalImg = document.getElementById('modal-cam-img');
+    var modalOff = document.getElementById('modal-cam-off');
+    var badge = document.getElementById('modal-cam-live-indicator');
+    var toggleBtn = document.getElementById('modal-cam-toggle-btn');
+    var directLink = document.getElementById('modal-cam-direct-link');
+
+    if (modalImg) {
+      modalImg.src = isStreaming ? ('/api/camera/stream?id=' + encodeURIComponent(id)) : '';
+      modalImg.style.display = isStreaming ? 'block' : 'none';
+    }
+    if (modalOff) modalOff.style.display = isStreaming ? 'none' : 'flex';
+    if (badge) {
+      badge.className = 'cam-live-indicator ' + (isStreaming ? '' : 'off');
+      badge.querySelector('span').textContent = isStreaming ? 'LIVE' : 'STREAM OFF';
+    }
+    if (toggleBtn) {
+      toggleBtn.textContent = isStreaming ? 'Turn Stream OFF' : 'Turn Stream ON';
+      if (isStreaming) toggleBtn.classList.add('btn-red'); else toggleBtn.classList.remove('btn-red');
+    }
+    if (directLink) {
+      directLink.href = bot.ip ? ('http://' + bot.ip) : ('http://' + (bot.hostname || 'cambot1.local'));
+    }
+
+    var modal = document.getElementById('cam-expand-modal');
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.toggleModalCamStream = async function() {
+    var id = window._currentModalCamId || 'cambot1';
+    await toggleCamStream(id);
+    expandCamModal(id);
+  };
+
+  window.takeModalCamSnapshot = function() {
+    var id = window._currentModalCamId || 'cambot1';
+    takeCamSnapshot(id);
+  };
+
+  window.toggleModalCamFlash = function() {
+    var id = window._currentModalCamId || 'cambot1';
+    toggleCamFlash(id);
+  };
+
+  /* Sync live frames to HUD security monitor if viewing CamBot */
+  function syncHudCameraFeed() {
+    var hudCanvas = document.getElementById('hud-cam-canvas');
+    if (!hudCanvas) return;
+    var activeId = Object.keys(window._activeCamStreams).find(k => window._activeCamStreams[k]);
+    if (!activeId) {
+      drawCamPlaceholder(hudCanvas);
+      return;
+    }
+    var ctx = hudCanvas.getContext('2d');
+    var liveImg = document.getElementById('cam-img-' + activeId);
+    if (liveImg && liveImg.complete && liveImg.naturalWidth > 0) {
+      ctx.drawImage(liveImg, 0, 0, hudCanvas.width, hudCanvas.height);
+    }
+  }
+  setInterval(syncHudCameraFeed, 1000);
+
+  window.snapCamFrame       = function() { takeCamSnapshot(window._currentModalCamId || 'cambot1'); };
   window.switchCamStream    = function(c) { console.log('Switched camera stream:', c); };
   window.showAddDeviceModal = function() { document.getElementById('add-device-modal').style.display = 'flex'; };
   window.showAddButtonModal = function() { document.getElementById('add-button-modal').style.display = 'flex'; };

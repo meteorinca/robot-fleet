@@ -2,8 +2,10 @@ package webui
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -96,6 +98,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/devices/control", s.handleDeviceControl)
 	mux.HandleFunc("/api/devices/add", s.handleAddDevice)
 	mux.HandleFunc("/api/v1/rf_event", listener.HTTPHandler(s.engine))
+
+	// CamBot Camera Endpoints
+	mux.HandleFunc("/api/camera/stream", s.handleCameraStream)
+	mux.HandleFunc("/api/camera/snapshot", s.handleCameraSnapshot)
+	mux.HandleFunc("/api/camera/on", s.handleCameraOn)
+	mux.HandleFunc("/api/camera/off", s.handleCameraOff)
+	mux.HandleFunc("/api/camera/status", s.handleCameraStatus)
+	mux.HandleFunc("/api/camera/toggle", s.handleCameraToggle)
+	mux.HandleFunc("/api/camera/drive", s.handleCameraDrive)
+	mux.HandleFunc("/api/camera/list", s.handleCameraList)
 
 	// Telemetry & Diagnostic Endpoints
 	mux.HandleFunc("/api/telemetry/pings", s.handleTelemetryPings)
@@ -1132,6 +1144,439 @@ func (s *Server) handleTelemetryPingNow(w http.ResponseWriter, r *http.Request) 
 		"results": []interface{}{},
 	})
 }
+
+// ----------------------------------------------------------------------------
+// CamBot Camera Management & Stream Proxy Handlers
+// ----------------------------------------------------------------------------
+
+func (s *Server) resolveBot(id string) *config.RobotNode {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		for _, b := range s.cfg.Bots {
+			if b.Platform == config.PlatformCamBot || b.Role == "camera" {
+				copyNode := b
+				return &copyNode
+			}
+		}
+	}
+
+	for _, b := range s.cfg.Bots {
+		if strings.EqualFold(b.ID, id) || strings.EqualFold(b.Name, id) || strings.EqualFold(b.Hostname, id) ||
+			(id != "" && strings.HasPrefix(strings.ToLower(b.ID), strings.ToLower(id))) {
+			copyNode := b
+			return &copyNode
+		}
+	}
+
+	if id != "" {
+		host := id
+		if !strings.Contains(host, ".") && !isValidIP(host) {
+			host = host + ".local"
+		}
+		return &config.RobotNode{
+			ID:       id,
+			Name:     id,
+			Hostname: host,
+			Platform: config.PlatformCamBot,
+			Role:     "camera",
+			Port:     80,
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) buildBotTargets(bot *config.RobotNode) []string {
+	if bot == nil {
+		return nil
+	}
+
+	port := bot.Port
+	if port == 0 || port == 4330 {
+		port = 80
+	}
+
+	targets := []string{}
+	if isValidIP(bot.IP) {
+		targets = append(targets, fmt.Sprintf("%s:%d", bot.IP, port))
+	}
+	if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
+		targets = append(targets, fmt.Sprintf("%s:%d", bot.FallbackIP, port))
+	}
+	if bot.Hostname != "" {
+		targets = append(targets, fmt.Sprintf("%s:%d", bot.Hostname, port))
+	} else if bot.ID != "" {
+		targets = append(targets, fmt.Sprintf("%s.local:%d", bot.ID, port))
+	}
+
+	return targets
+}
+
+func (s *Server) sendBotQuickCmd(bot *config.RobotNode, pathAndQuery string) ([]byte, error) {
+	targets := s.buildBotTargets(bot)
+	client := &http.Client{Timeout: 3 * time.Second}
+	var lastErr error
+
+	for _, target := range targets {
+		url := target
+		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+			url = "http://" + url
+		}
+		fullURL := strings.TrimRight(url, "/") + "/" + strings.TrimLeft(pathAndQuery, "/")
+
+		resp, err := client.Get(fullURL)
+		if err == nil {
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			return body, nil
+		}
+		lastErr = err
+	}
+
+	return nil, lastErr
+}
+
+func (s *Server) handleCameraList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	type CamItem struct {
+		ID         string  `json:"id"`
+		Name       string  `json:"name"`
+		Hostname   string  `json:"hostname"`
+		IP         string  `json:"ip"`
+		Status     string  `json:"status"`
+		LatencyMs  float64 `json:"latency_ms"`
+		StreamURL  string  `json:"stream_url"`
+		SnapURL    string  `json:"snapshot_url"`
+		DirectURL  string  `json:"direct_url"`
+	}
+
+	cams := []CamItem{}
+	for _, b := range s.cfg.Bots {
+		if b.Platform == config.PlatformCamBot || b.Role == "camera" || strings.Contains(strings.ToLower(b.ID), "cam") {
+			port := b.Port
+			if port == 0 {
+				port = 80
+			}
+			host := b.IP
+			if host == "" {
+				host = b.Hostname
+			}
+			direct := fmt.Sprintf("http://%s:%d", host, port)
+
+			cams = append(cams, CamItem{
+				ID:        b.ID,
+				Name:      b.Name,
+				Hostname:  b.Hostname,
+				IP:        b.IP,
+				Status:    b.Status,
+				LatencyMs: b.LatencyMs,
+				StreamURL: fmt.Sprintf("/api/camera/stream?id=%s", b.ID),
+				SnapURL:   fmt.Sprintf("/api/camera/snapshot?id=%s", b.ID),
+				DirectURL: direct,
+			})
+		}
+	}
+
+	_ = json.NewEncoder(w).Encode(cams)
+}
+
+func (s *Server) handleCameraStream(w http.ResponseWriter, r *http.Request) {
+	botID := r.URL.Query().Get("id")
+	bot := s.resolveBot(botID)
+	if bot == nil {
+		http.Error(w, "Camera bot not found", http.StatusNotFound)
+		return
+	}
+
+	targets := s.buildBotTargets(bot)
+	if len(targets) == 0 {
+		http.Error(w, "No network route to camera bot", http.StatusBadGateway)
+		return
+	}
+
+	// Auto-wake stream on camera if specified or defaulted
+	if r.URL.Query().Get("auto") == "1" || r.URL.Query().Get("start") == "1" {
+		_, _ = s.sendBotQuickCmd(bot, "/cam_on")
+		time.Sleep(120 * time.Millisecond)
+	}
+
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	client := &http.Client{
+		Timeout: 0, // Streaming connection: no timeout
+	}
+
+	var upstreamResp *http.Response
+	var lastErr error
+
+	for _, target := range targets {
+		streamURL := fmt.Sprintf("http://%s/stream", strings.TrimPrefix(target, "http://"))
+		req, err := http.NewRequestWithContext(ctx, "GET", streamURL, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		resp, err := client.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			upstreamResp = resp
+			break
+		}
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+		if err != nil {
+			lastErr = err
+		}
+	}
+
+	if upstreamResp == nil {
+		// Attempt to turn on camera and retry once if 503 stream off occurred
+		_, _ = s.sendBotQuickCmd(bot, "/cam_on")
+		time.Sleep(200 * time.Millisecond)
+
+		for _, target := range targets {
+			streamURL := fmt.Sprintf("http://%s/stream", strings.TrimPrefix(target, "http://"))
+			req, err := http.NewRequestWithContext(ctx, "GET", streamURL, nil)
+			if err != nil {
+				continue
+			}
+			resp, err := client.Do(req)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				upstreamResp = resp
+				break
+			}
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+		}
+	}
+
+	if upstreamResp == nil {
+		if lastErr != nil {
+			http.Error(w, fmt.Sprintf("Camera stream unavailable: %v", lastErr), http.StatusBadGateway)
+		} else {
+			http.Error(w, "Camera stream unavailable (stream off or camera offline)", http.StatusBadGateway)
+		}
+		return
+	}
+	defer upstreamResp.Body.Close()
+
+	// Forward MJPEG stream headers
+	contentType := upstreamResp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "multipart/x-mixed-replace; boundary=123456789000000000000987654321"
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if ok {
+		flusher.Flush()
+	}
+
+	buf := make([]byte, 16384)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			n, err := upstreamResp.Body.Read(buf)
+			if n > 0 {
+				if _, wErr := w.Write(buf[:n]); wErr != nil {
+					return // Client disconnected
+				}
+				if ok {
+					flusher.Flush()
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+	}
+}
+
+func (s *Server) handleCameraSnapshot(w http.ResponseWriter, r *http.Request) {
+	botID := r.URL.Query().Get("id")
+	bot := s.resolveBot(botID)
+	if bot == nil {
+		http.Error(w, "Camera bot not found", http.StatusNotFound)
+		return
+	}
+
+	body, err := s.sendBotQuickCmd(bot, "/snapshot")
+	if err != nil || len(body) == 0 {
+		http.Error(w, fmt.Sprintf("Snapshot failed: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%s_snap.jpg", bot.ID))
+	_, _ = w.Write(body)
+}
+
+func (s *Server) handleCameraOn(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	botID := r.URL.Query().Get("id")
+	bot := s.resolveBot(botID)
+	if bot == nil {
+		http.Error(w, `{"error":"Camera bot not found"}`, http.StatusNotFound)
+		return
+	}
+
+	_, err := s.sendBotQuickCmd(bot, "/cam_on")
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%v"}`, err), http.StatusBadGateway)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"streaming": true,
+		"id":        bot.ID,
+		"message":   "Camera stream activated",
+	})
+}
+
+func (s *Server) handleCameraOff(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	botID := r.URL.Query().Get("id")
+	bot := s.resolveBot(botID)
+	if bot == nil {
+		http.Error(w, `{"error":"Camera bot not found"}`, http.StatusNotFound)
+		return
+	}
+
+	_, err := s.sendBotQuickCmd(bot, "/cam_off")
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%v"}`, err), http.StatusBadGateway)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"streaming": false,
+		"id":        bot.ID,
+		"message":   "Camera stream stopped",
+	})
+}
+
+func (s *Server) handleCameraStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	botID := r.URL.Query().Get("id")
+	bot := s.resolveBot(botID)
+	if bot == nil {
+		http.Error(w, `{"error":"Camera bot not found"}`, http.StatusNotFound)
+		return
+	}
+
+	body, err := s.sendBotQuickCmd(bot, "/cam_status")
+	if err != nil || len(body) == 0 {
+		// Fallback to /status
+		body, err = s.sendBotQuickCmd(bot, "/status")
+	}
+
+	if err != nil || len(body) == 0 {
+		http.Error(w, fmt.Sprintf(`{"error":"%v"}`, err), http.StatusBadGateway)
+		return
+	}
+
+	_, _ = w.Write(body)
+}
+
+func (s *Server) handleCameraToggle(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	botID := r.URL.Query().Get("id")
+	bot := s.resolveBot(botID)
+	if bot == nil {
+		http.Error(w, `{"error":"Camera bot not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Query status first
+	body, err := s.sendBotQuickCmd(bot, "/cam_status")
+	isStreaming := false
+	if err == nil && len(body) > 0 {
+		var st struct {
+			Streaming bool `json:"streaming"`
+		}
+		if json.Unmarshal(body, &st) == nil {
+			isStreaming = st.Streaming
+		}
+	}
+
+	endpoint := "/cam_on"
+	targetState := true
+	if isStreaming {
+		endpoint = "/cam_off"
+		targetState = false
+	}
+
+	_, err = s.sendBotQuickCmd(bot, endpoint)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%v"}`, err), http.StatusBadGateway)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"streaming": targetState,
+		"id":        bot.ID,
+	})
+}
+
+func (s *Server) handleCameraDrive(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	botID := r.URL.Query().Get("id")
+	bot := s.resolveBot(botID)
+	if bot == nil {
+		http.Error(w, `{"error":"Camera bot not found"}`, http.StatusNotFound)
+		return
+	}
+
+	steer := r.URL.Query().Get("steer")
+	drive := r.URL.Query().Get("drive")
+	stop := r.URL.Query().Get("stop")
+
+	var qs string
+	if stop == "1" || stop == "true" {
+		qs = "/drive?stop=1"
+	} else {
+		qs = fmt.Sprintf("/drive?steer=%s&drive=%s", steer, drive)
+	}
+
+	body, err := s.sendBotQuickCmd(bot, qs)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%v"}`, err), http.StatusBadGateway)
+		return
+	}
+
+	if len(body) == 0 {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+		return
+	}
+
+	_, _ = w.Write(body)
+}
+
 
 
 

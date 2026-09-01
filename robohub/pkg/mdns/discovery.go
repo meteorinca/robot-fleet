@@ -55,6 +55,7 @@ func (s *Scanner) ScanOnce() {
 		platform config.BotPlatform
 	}{
 		{"_http._tcp", config.PlatformDogBot},
+		{"_cambot._tcp", config.PlatformCamBot},
 		{"_dogbot._tcp", config.PlatformDogBot},
 		{"_paulbot._tcp", config.PlatformDogBot},
 		{"_mybot._tcp", config.PlatformMyBot},
@@ -87,7 +88,9 @@ func (s *Scanner) ScanOnce() {
 				platform := plt
 				lowerName := strings.ToLower(name)
 				lowerHost := strings.ToLower(entry.HostName)
-				if strings.Contains(lowerName, "mybot") || strings.Contains(lowerHost, "mybot") {
+				if strings.Contains(lowerName, "cambot") || strings.Contains(lowerHost, "cambot") || strings.Contains(lowerName, "cam") {
+					platform = config.PlatformCamBot
+				} else if strings.Contains(lowerName, "mybot") || strings.Contains(lowerHost, "mybot") {
 					platform = config.PlatformMyBot
 				} else if strings.Contains(lowerName, "paulbot") || strings.Contains(lowerHost, "paulbot") || strings.Contains(lowerName, "dogbot") || strings.Contains(lowerHost, "dogbot") {
 					platform = config.PlatformDogBot
@@ -116,6 +119,16 @@ func (s *Scanner) ScanOnce() {
 					IP:       ip,
 					Port:     entry.Port,
 					Status:   "online",
+				}
+
+				if platform == config.PlatformCamBot {
+					node.Role = "camera"
+					node.Actions = []config.DeviceAction{
+						{Name: "Start Stream", Endpoint: "/cam_on", Method: "GET"},
+						{Name: "Stop Stream", Endpoint: "/cam_off", Method: "GET"},
+						{Name: "Snapshot", Endpoint: "/snapshot", Method: "GET"},
+						{Name: "Toggle Flash", Endpoint: "/toggle", Method: "GET"},
+					}
 				}
 
 				s.cfg.UpsertBot(node)
