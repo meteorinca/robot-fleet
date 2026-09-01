@@ -68,9 +68,10 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Sync config to pi3_deploy
-Write-Host "`n[Config] Syncing fleethub_config.json to pi3_deploy/..." -ForegroundColor Yellow
+Write-Host "`n[Config] Syncing fleethub_config.json and known_devices.json to pi3_deploy/..." -ForegroundColor Yellow
 Copy-Item "fleethub_config.json" "pi3_deploy/fleethub_config.json" -Force
-Write-Host "  Success: fleethub_config.json synced" -ForegroundColor Green
+Copy-Item "known_devices.json" "pi3_deploy/known_devices.json" -Force
+Write-Host "  Success: Configuration synced" -ForegroundColor Green
 
 Write-Host "`n==========================================================" -ForegroundColor Cyan
 Write-Host "  ALL BUILDS COMPLETE AND READY TO DEPLOY!" -ForegroundColor Green

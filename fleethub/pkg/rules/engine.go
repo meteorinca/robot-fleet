@@ -60,7 +60,7 @@ func NewEngine(cfg *config.Config, eventCb func(EventPayload, []string)) *Engine
 		snoozedRules:   make(map[string]time.Time),
 		buttonTrackers: make(map[string]*buttonTracker),
 		client: &http.Client{
-			Timeout: 3 * time.Second,
+			Timeout: 10 * time.Second,
 		},
 	}
 }
@@ -299,23 +299,37 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 		!strings.Contains(event.Gateway, "127.0.0.1") &&
 		!strings.Contains(event.Gateway, "localhost") &&
 		!strings.EqualFold(event.Gateway, "InputButton") {
-		platform := config.PlatformRFBot
-		lower := strings.ToLower(event.Gateway)
-		if strings.Contains(lower, "speaker") {
-			platform = config.PlatformSpeakerBot
-		} else if strings.Contains(lower, "simple") {
-			platform = config.PlatformSimpleBot
-		} else if strings.Contains(lower, "dog") {
-			platform = config.PlatformDogBot
+		if isValidIP(event.Gateway) {
+			platform := config.PlatformRFBot
+			lower := strings.ToLower(event.Gateway)
+			if strings.Contains(lower, "speaker") {
+				platform = config.PlatformSpeakerBot
+			} else if strings.Contains(lower, "simple") {
+				platform = config.PlatformSimpleBot
+			} else if strings.Contains(lower, "dog") {
+				platform = config.PlatformDogBot
+			}
+			e.cfg.UpsertBot(config.RobotNode{
+				ID:       event.Gateway,
+				Name:     event.Gateway,
+				Platform: platform,
+				IP:       event.Gateway,
+				Port:     80,
+				Status:   "online",
+			})
+		} else {
+			// Gateway is a name or hostname (e.g. "RFBot 1 (RX Gateway)")
+			// Update status and LastSeen for the matched bot without overwriting its IP address
+			for i := range e.cfg.Bots {
+				if strings.EqualFold(e.cfg.Bots[i].Name, event.Gateway) ||
+					strings.EqualFold(e.cfg.Bots[i].ID, event.Gateway) ||
+					strings.EqualFold(e.cfg.Bots[i].Hostname, event.Gateway) {
+					e.cfg.Bots[i].Status = "online"
+					e.cfg.Bots[i].LastSeen = time.Now()
+					break
+				}
+			}
 		}
-		e.cfg.UpsertBot(config.RobotNode{
-			ID:       event.Gateway,
-			Name:     event.Gateway,
-			Platform: platform,
-			IP:       event.Gateway,
-			Port:     80,
-			Status:   "online",
-		})
 	}
 
 	// Update sensor state timestamp if mapped
@@ -336,6 +350,11 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 // isValidIP returns true if the string is a valid non-empty IP address.
 func isValidIP(ip string) bool {
 	return ip != "" && net.ParseIP(strings.TrimSpace(ip)) != nil
+}
+
+// ExecuteRuleAction executes a rule action asynchronously.
+func (e *Engine) ExecuteRuleAction(action config.RuleAction) {
+	go e.executeAction(action)
 }
 
 // executeAction dispatches a single HTTP GET/POST or SpeakerBot call using IP-first target routing.

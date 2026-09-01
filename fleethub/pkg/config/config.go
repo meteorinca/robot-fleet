@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -119,9 +120,9 @@ func DefaultConfig(path string) *Config {
 				ID:              "rfbot1",
 				Name:            "RFBot 1 (RX Gateway)",
 				Hostname:        "rfbot1.local",
-				FallbackIP:      "192.168.1.101",
+				FallbackIP:      "10.0.0.42",
 				Platform:        PlatformRFBot,
-				IP:              "rfbot1.local",
+				IP:              "10.0.0.42",
 				Port:            80,
 				Status:          "online",
 				Role:            "receiver",
@@ -133,9 +134,9 @@ func DefaultConfig(path string) *Config {
 				ID:              "speakerbot1",
 				Name:            "SpeakerBot 1 (Audio Output)",
 				Hostname:        "speakerbot1.local",
-				FallbackIP:      "192.168.1.102",
+				FallbackIP:      "10.0.0.40",
 				Platform:        PlatformSpeakerBot,
-				IP:              "speakerbot1.local",
+				IP:              "10.0.0.40",
 				Port:            80,
 				Status:          "online",
 				HomeKitEnabled:  true,
@@ -149,9 +150,9 @@ func DefaultConfig(path string) *Config {
 				ID:              "rfbot6",
 				Name:            "RFBot 6 (TX Gateway)",
 				Hostname:        "rfbot6.local",
-				FallbackIP:      "192.168.1.106",
+				FallbackIP:      "10.0.0.46",
 				Platform:        PlatformRFBot,
-				IP:              "rfbot6.local",
+				IP:              "10.0.0.46",
 				Port:            80,
 				Status:          "online",
 				Role:            "transceiver",
@@ -179,9 +180,9 @@ func DefaultConfig(path string) *Config {
 				ID:              "simplebot1",
 				Name:            "SimpleBot 1 (Kitchen Light Controller)",
 				Hostname:        "simplebot1.local",
-				FallbackIP:      "192.168.1.105",
+				FallbackIP:      "10.0.0.28",
 				Platform:        PlatformSimpleBot,
-				IP:              "simplebot1.local",
+				IP:              "10.0.0.28",
 				Port:            80,
 				Status:          "online",
 				Role:            "kitchen_bot",
@@ -199,9 +200,9 @@ func DefaultConfig(path string) *Config {
 				ID:              "cambot1",
 				Name:            "CamBot 1 (OV2640 Camera)",
 				Hostname:        "cambot1.local",
-				FallbackIP:      "192.168.1.107",
+				FallbackIP:      "10.0.0.66",
 				Platform:        PlatformCamBot,
-				IP:              "cambot1.local",
+				IP:              "10.0.0.66",
 				Port:            80,
 				Status:          "online",
 				Role:            "camera",
@@ -319,6 +320,11 @@ func (c *Config) Save() error {
 	return os.WriteFile(c.filePath, data, 0644)
 }
 
+// IsValidIP returns true if the string is a valid non-empty IP address.
+func IsValidIP(ip string) bool {
+	return ip != "" && net.ParseIP(strings.TrimSpace(ip)) != nil
+}
+
 // UpsertBot adds or updates a discovered or configured robot node in the fleet registry.
 func (c *Config) UpsertBot(node RobotNode) {
 	// Discard loopback or internal junk registrations
@@ -340,7 +346,7 @@ func (c *Config) UpsertBot(node RobotNode) {
 	for i, b := range c.Bots {
 		if (node.ID != "" && b.ID == node.ID) ||
 			(node.Hostname != "" && b.Hostname == node.Hostname) ||
-			(node.IP != "" && b.IP == node.IP && b.Platform == node.Platform) ||
+			(node.IP != "" && IsValidIP(node.IP) && b.IP == node.IP && b.Platform == node.Platform) ||
 			(node.Name != "" && b.Name == node.Name) {
 
 			if node.Name != "" {
@@ -349,10 +355,10 @@ func (c *Config) UpsertBot(node RobotNode) {
 			if node.Hostname != "" {
 				c.Bots[i].Hostname = node.Hostname
 			}
-			if node.FallbackIP != "" {
+			if node.FallbackIP != "" && IsValidIP(node.FallbackIP) {
 				c.Bots[i].FallbackIP = node.FallbackIP
 			}
-			if node.IP != "" {
+			if node.IP != "" && IsValidIP(node.IP) {
 				c.Bots[i].IP = node.IP
 			}
 			if node.Port != 0 && node.Port != 4330 {
@@ -389,6 +395,12 @@ func (c *Config) UpsertBot(node RobotNode) {
 	}
 
 	if !found {
+		if !IsValidIP(node.IP) {
+			node.IP = ""
+		}
+		if !IsValidIP(node.FallbackIP) {
+			node.FallbackIP = ""
+		}
 		if node.Port == 0 || node.Port == 4330 {
 			node.Port = 80
 		}

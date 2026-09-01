@@ -27,8 +27,9 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o pi3_deploy/fl
 echo "  -> Built pi3_deploy/fleethub-pi"
 
 echo ""
-echo "[Config] Syncing fleethub_config.json to pi3_deploy/..."
+echo "[Config] Syncing configuration to pi3_deploy/..."
 cp -f fleethub_config.json pi3_deploy/fleethub_config.json
+cp -f known_devices.json pi3_deploy/known_devices.json 2>/dev/null || true
 echo "  -> Synced configuration"
 
 echo ""

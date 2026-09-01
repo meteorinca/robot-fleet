@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
@@ -30,6 +31,7 @@ func main() {
 	configPath := flag.String("config", "fleethub_config.json", "Path to FleetHub JSON configuration file")
 	homekitPin := flag.String("pin", "11122333", "HomeKit setup PIN (8 digits)")
 	enableHomeKit := flag.Bool("homekit", runtime.GOOS != "windows", "Enable Apple HomeKit HAP Bridge (default true on Linux/macOS)")
+	startupChime := flag.Bool("startup-chime", true, "Play audio confirmation chime on SpeakerBot at startup")
 	flag.Parse()
 
 	log.Printf("[FleetHub] Starting Mothership Daemon v1.0.0 (%s/%s)...", runtime.GOOS, runtime.GOARCH)
@@ -165,7 +167,20 @@ func main() {
 		}
 	}()
 
-	// 11. Graceful Shutdown Listener
+	// 11. Startup Audio Confirmation
+	if *startupChime {
+		go func() {
+			time.Sleep(800 * time.Millisecond)
+			log.Printf("[FleetHub] Startup confirmation: Dispatching test /choola chime to SpeakerBot...")
+			ruleEngine.ExecuteRuleAction(config.RuleAction{
+				Type:   "speakerbot_play",
+				Target: "speakerbot1",
+				Path:   "/choola",
+			})
+		}()
+	}
+
+	// 12. Graceful Shutdown Listener
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, syscall.SIGINT, syscall.SIGTERM)
 	<-stopSig

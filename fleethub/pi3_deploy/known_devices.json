@@ -3,33 +3,33 @@
     "id": "rfbot1",
     "name": "RFBot 1 (RX Gateway)",
     "hostname": "rfbot1.local",
-    "fallback_ip": "192.168.1.101",
+    "fallback_ip": "10.0.0.42",
     "platform": "rfbot",
     "ip": "10.0.0.42",
     "port": 80,
-    "last_seen": "2026-09-01T10:41:34.5949114-04:00",
+    "last_seen": "2026-09-01T12:24:15.4587834-04:00",
     "status": "online",
     "role": "receiver",
     "homekit_enabled": true,
     "homekit_category": "sensor",
     "ping_enabled": true,
-    "latency_ms": 4.687
+    "latency_ms": 98.864
   },
   {
     "id": "speakerbot1",
     "name": "SpeakerBot 1 (Audio Output)",
     "hostname": "speakerbot1.local",
-    "fallback_ip": "192.168.1.102",
+    "fallback_ip": "10.0.0.40",
     "platform": "speakerbot",
     "ip": "10.0.0.40",
     "port": 80,
-    "last_seen": "2026-09-01T10:41:29.8897849-04:00",
+    "last_seen": "2026-09-01T12:24:14.7429282-04:00",
     "status": "online",
     "role": "audio_output",
     "homekit_enabled": true,
     "homekit_category": "speaker",
     "ping_enabled": true,
-    "latency_ms": 54.299,
+    "latency_ms": 100.817,
     "actions": [
       {
         "name": "Play Audio Tone",
@@ -42,21 +42,21 @@
     "id": "rfbot6",
     "name": "RFBot 6 (TX Gateway)",
     "hostname": "rfbot6.local",
-    "fallback_ip": "192.168.1.106",
+    "fallback_ip": "10.0.0.46",
     "platform": "rfbot",
     "ip": "10.0.0.46",
     "port": 80,
-    "last_seen": "2026-09-01T10:41:29.8897849-04:00",
+    "last_seen": "2026-09-01T12:24:14.6460559-04:00",
     "status": "online",
     "role": "transceiver",
     "homekit_enabled": false,
     "homekit_category": "switch",
     "ping_enabled": true,
-    "latency_ms": 49.791,
+    "latency_ms": 4.952,
     "actions": [
       {
         "name": "Send RF Code (123456)",
-        "endpoint": "/rf/send?code=123456&bits=24&proto=1&pulse=185",
+        "endpoint": "/rf/send?code=123456\u0026bits=24\u0026proto=1\u0026pulse=185",
         "method": "GET"
       }
     ]
@@ -65,17 +65,17 @@
     "id": "simplebot1",
     "name": "SimpleBot 1 (Kitchen Light Controller)",
     "hostname": "simplebot1.local",
-    "fallback_ip": "192.168.1.105",
+    "fallback_ip": "10.0.0.28",
     "platform": "simplebot",
     "ip": "10.0.0.28",
     "port": 80,
-    "last_seen": "2026-09-01T10:41:29.8897849-04:00",
+    "last_seen": "2026-09-01T12:24:14.7436345-04:00",
     "status": "online",
     "role": "kitchen_bot",
     "homekit_enabled": true,
     "homekit_category": "switch",
     "ping_enabled": true,
-    "latency_ms": 96.309,
+    "latency_ms": 102.531,
     "actions": [
       {
         "name": "Servo 1 ON",
@@ -95,6 +95,44 @@
       {
         "name": "Servo 2 OFF",
         "endpoint": "/s2off",
+        "method": "GET"
+      }
+    ]
+  },
+  {
+    "id": "cambot1",
+    "name": "CamBot 1 (OV2640 Camera)",
+    "hostname": "cambot1.local",
+    "fallback_ip": "10.0.0.66",
+    "platform": "cambot",
+    "ip": "10.0.0.66",
+    "port": 80,
+    "last_seen": "2026-09-01T12:24:14.6497054-04:00",
+    "status": "online",
+    "role": "camera",
+    "homekit_enabled": false,
+    "homekit_category": "camera",
+    "ping_enabled": true,
+    "latency_ms": 8.602,
+    "actions": [
+      {
+        "name": "Start Stream",
+        "endpoint": "/cam_on",
+        "method": "GET"
+      },
+      {
+        "name": "Stop Stream",
+        "endpoint": "/cam_off",
+        "method": "GET"
+      },
+      {
+        "name": "Snapshot",
+        "endpoint": "/snapshot",
+        "method": "GET"
+      },
+      {
+        "name": "Toggle Flash",
+        "endpoint": "/toggle",
         "method": "GET"
       }
     ]
