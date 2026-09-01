@@ -498,6 +498,8 @@ func (s *Server) handleToggleHomeKit(w http.ResponseWriter, r *http.Request) {
 		HomeKitEnabled: req.Enabled,
 	})
 	_ = s.cfg.Save()
+	_ = s.cfg.SaveRuntimeState()
+
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":          "ok",
@@ -655,6 +657,8 @@ func (s *Server) handleAddDevice(w http.ResponseWriter, r *http.Request) {
 
 	s.cfg.UpsertBot(node)
 	_ = s.cfg.Save()
+	_ = s.cfg.SaveRuntimeState()
+
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "created",

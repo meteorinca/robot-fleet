@@ -205,6 +205,7 @@ func main() {
 	if hkBridge != nil {
 		hkBridge.Stop()
 	}
-	_ = cfg.Save()
+	_ = cfg.SaveRuntimeState()
 	log.Printf("[FleetHub] Stopped.")
 }
+

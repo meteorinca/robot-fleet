@@ -35,6 +35,10 @@ fleethub-fleet/fleethub-fleet
 *.sqlite3
 .fleethub_hk/
 **/.fleethub_hk/
+*.generated.json
+**/*.generated.json
+fleethub_state.generated.json
+
 
 # Python
 __pycache__/

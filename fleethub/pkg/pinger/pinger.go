@@ -39,6 +39,7 @@ func (p *Pinger) Start() {
 	go func() {
 		// Run immediate initial ping sweep
 		p.PingAll()
+		_ = p.cfg.SaveRuntimeState()
 
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
@@ -46,13 +47,16 @@ func (p *Pinger) Start() {
 		for {
 			select {
 			case <-p.stop:
+				_ = p.cfg.SaveRuntimeState()
 				return
 			case <-ticker.C:
 				p.PingAll()
+				_ = p.cfg.SaveRuntimeState()
 			}
 		}
 	}()
 }
+
 
 func isValidIP(ip string) bool {
 	return net.ParseIP(strings.TrimSpace(ip)) != nil
