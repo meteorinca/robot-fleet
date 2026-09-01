@@ -62,10 +62,10 @@ type RFSensor struct {
 
 // RuleAction represents an action triggered by an RF sensor or automation.
 type RuleAction struct {
-	Type      string `json:"type"`       // "http_get", "http_post", "speakerbot_play", "dogbot_action"
-	Target    string `json:"target"`     // URL or target IP/hostname
-	Path      string `json:"path"`       // Endpoint path (e.g., /bark or /api/v1/action)
-	Payload   string `json:"payload"`    // Body or query param
+	Type    string `json:"type"`    // "http_get", "http_post", "speakerbot_play", "dogbot_action"
+	Target  string `json:"target"`  // URL or target IP/hostname
+	Path    string `json:"path"`    // Endpoint path (e.g., /bark or /api/v1/action)
+	Payload string `json:"payload"` // Body or query param
 }
 
 // AutomationRule represents an active rule in the engine.
@@ -75,7 +75,7 @@ type AutomationRule struct {
 	Enabled     bool         `json:"enabled"`
 	TriggerCode uint32       `json:"trigger_code"`
 	CooldownSec int          `json:"cooldown_sec,omitempty"` // Cooldown period in seconds to prevent spam
-	Snoozeable  bool         `json:"snoozeable"`            // Allow rule to be snoozed
+	Snoozeable  bool         `json:"snoozeable"`             // Allow rule to be snoozed
 	Actions     []RuleAction `json:"actions"`
 }
 
@@ -84,11 +84,11 @@ type InputButton struct {
 	ID                 string `json:"id"`
 	Name               string `json:"name"`
 	TriggerCode        uint32 `json:"trigger_code"`
-	ActionType         string `json:"action_type"`           // "snooze_rule", "snooze_all", "trigger_action", "toggle_device"
+	ActionType         string `json:"action_type"` // "snooze_rule", "snooze_all", "trigger_action", "toggle_device"
 	TargetRuleID       string `json:"target_rule_id,omitempty"`
-	MinutesPerClick    int    `json:"minutes_per_click,omitempty"`    // e.g. 15 mins per click for snooze
-	MultiClickWindowMs int    `json:"multi_click_window_ms,omitempty"`// multi-click aggregation window in ms (default 2500ms)
-	FeedbackTarget     string `json:"feedback_target,omitempty"`     // Target device for audio/visual confirmation
+	MinutesPerClick    int    `json:"minutes_per_click,omitempty"`     // e.g. 15 mins per click for snooze
+	MultiClickWindowMs int    `json:"multi_click_window_ms,omitempty"` // multi-click aggregation window in ms (default 2500ms)
+	FeedbackTarget     string `json:"feedback_target,omitempty"`       // Target device for audio/visual confirmation
 }
 
 // Config holds all FleetHub settings and fleet state.
@@ -120,7 +120,7 @@ func DefaultConfig(path string) *Config {
 				FallbackIP:      "192.168.1.101",
 				Platform:        PlatformRFBot,
 				IP:              "rfbot1.local",
-				Port:            4330,
+				Port:            80,
 				Status:          "online",
 				Role:            "receiver",
 				HomeKitEnabled:  true,
@@ -150,7 +150,7 @@ func DefaultConfig(path string) *Config {
 				FallbackIP:      "192.168.1.106",
 				Platform:        PlatformRFBot,
 				IP:              "rfbot6.local",
-				Port:            4330,
+				Port:            80,
 				Status:          "online",
 				Role:            "transceiver",
 				HomeKitEnabled:  false,
@@ -397,7 +397,6 @@ func (c *Config) DeleteSensor(code uint32) bool {
 	return false
 }
 
-
 // UpsertButton adds or updates an InputButton configuration.
 func (c *Config) UpsertButton(btn InputButton) {
 	c.mu.Lock()
@@ -478,4 +477,3 @@ func (c *Config) DeleteRule(id string) bool {
 	}
 	return false
 }
-

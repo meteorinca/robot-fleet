@@ -12,12 +12,14 @@ import (
 	"syscall"
 
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/homekit"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/listener"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/mdns"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/pinger"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rfpoller"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rules"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/telemetry"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/webui"
 	"github.com/meteorinca/robot-fleet/fleethub/web"
 )
@@ -58,7 +60,26 @@ func main() {
 		cfg.HomeKitPIN = *homekitPin
 	}
 
-	// 2. Initialize Web Assets & Server
+	// 2. Initialize Persistent SQLite WAL Database
+	dbPath := filepath.Join(filepath.Dir(*configPath), "fleethub.db")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		log.Printf("[FleetHub] Warning: SQLite database initialization failed: %v", err)
+	} else {
+		log.Printf("[FleetHub] High-Performance SQLite WAL Database active (%s)", dbPath)
+	}
+
+	// 3. Initialize Background Telemetry & Speedtest Service
+	var telemetrySvc *telemetry.Service
+	if database != nil {
+		telemetrySvc = telemetry.NewService(database, func(sr db.SpeedtestRecord) {
+			log.Printf("[FleetHub Telemetry] Speedtest complete: %.1f Mbps down / %.1f Mbps up (Ping: %.1fms)", sr.DownloadMbps, sr.UploadMbps, sr.PingMs)
+		})
+		telemetrySvc.Start()
+		log.Printf("[FleetHub] System Telemetry sampler active (20s interval)")
+	}
+
+	// 4. Initialize Web Assets & Server
 	assets, err := web.Assets()
 	if err != nil {
 		log.Printf("[FleetHub] Warning: Failed to load embedded assets: %v", err)
@@ -67,7 +88,7 @@ func main() {
 	var webServer *webui.Server
 	var hkBridge *homekit.BridgeManager
 
-	// 3. Initialize Rule Engine
+	// 5. Initialize Rule Engine
 	ruleEngine := rules.NewEngine(cfg, func(event rules.EventPayload, executed []string) {
 		if webServer != nil {
 			webServer.BroadcastEvent(event, executed)
@@ -76,15 +97,24 @@ func main() {
 			hkBridge.HandleRFEvent(event)
 		}
 	})
+	if database != nil {
+		ruleEngine.SetDatabase(database)
+	}
 
-	// 4. Initialize & Start Active RF Poller
+	// 6. Initialize & Start Active RF Poller
 	rfPoller := rfpoller.NewRFPoller(cfg, ruleEngine)
 	rfPoller.Start()
 	log.Printf("[FleetHub] Active HTTP RF Poller active (Polling RFBot receiver nodes every 800ms)")
 
 	webServer = webui.NewServer(cfg, ruleEngine, rfPoller, assets)
+	if database != nil {
+		webServer.SetDatabase(database)
+	}
+	if telemetrySvc != nil {
+		webServer.SetTelemetry(telemetrySvc)
+	}
 
-	// 5. Start UDP Listener
+	// 7. Start UDP Listener
 	udpListener := listener.NewUDPListener(cfg, cfg.UDPPort, ruleEngine)
 	if err := udpListener.Start(); err != nil {
 		log.Printf("[FleetHub] Warning: UDP listener bind failed: %v", err)
@@ -92,16 +122,20 @@ func main() {
 		log.Printf("[FleetHub] Sub-50ms UDP RF Ingest listener active on port %d", cfg.UDPPort)
 	}
 
-	// 6. Start mDNS Fleet Scanner & Health Pinger
+	// 8. Start mDNS Fleet Scanner & Health Pinger
 	scanner := mdns.NewScanner(cfg)
 	scanner.Start()
 	log.Printf("[FleetHub] Multi-Bot mDNS Scanner active (rfbot, speakerbot, dogbot_v1, simplebot)")
 
 	devicePinger := pinger.NewPinger(cfg)
+	if database != nil {
+		devicePinger.SetDatabase(database)
+	}
+	webServer.SetPinger(devicePinger)
 	devicePinger.Start()
 	log.Printf("[FleetHub] Device Health Pinger active (Probing with IP fallback)")
 
-	// 7. Start HomeKit HAP Server if enabled
+	// 9. Start HomeKit HAP Server if enabled
 	if *enableHomeKit {
 		dataDir := filepath.Join(filepath.Dir(*configPath), ".fleethub_hk")
 		_ = os.MkdirAll(dataDir, 0755)
@@ -117,7 +151,7 @@ func main() {
 		log.Printf("[FleetHub] HomeKit Bridge disabled (run with -homekit to enable on Linux/macOS)")
 	}
 
-	// 8. Start HTTP Server
+	// 10. Start HTTP Server
 	serverAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
 	server := &http.Server{
 		Addr:    serverAddr,
@@ -131,7 +165,7 @@ func main() {
 		}
 	}()
 
-	// 9. Graceful Shutdown Listener
+	// 11. Graceful Shutdown Listener
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, syscall.SIGINT, syscall.SIGTERM)
 	<-stopSig
@@ -141,6 +175,12 @@ func main() {
 	udpListener.Stop()
 	scanner.Stop()
 	devicePinger.Stop()
+	if telemetrySvc != nil {
+		telemetrySvc.Stop()
+	}
+	if database != nil {
+		_ = database.Close()
+	}
 	if hkBridge != nil {
 		hkBridge.Stop()
 	}

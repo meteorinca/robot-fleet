@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -120,88 +121,108 @@ func (p *RFPoller) pollAllReceivers() {
 }
 
 func (p *RFPoller) pollBot(bot config.RobotNode) {
-	targetHost := bot.Hostname
-	if targetHost == "" {
-		targetHost = bot.IP
-	}
-	if targetHost == "" {
-		targetHost = bot.FallbackIP
-	}
-	if targetHost == "" {
-		return
-	}
-
 	port := bot.Port
 	if port == 0 || port == 4330 {
 		port = 80
 	}
 
-	baseURL := fmt.Sprintf("http://%s:%d", targetHost, port)
+	// Build candidate URLs with IP-first ordering (reliable on Pi and low-latency)
+	var candidateURLs []string
+	if isValidIP(bot.IP) {
+		candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s:%d", bot.IP, port))
+	}
+	if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
+		candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s:%d", bot.FallbackIP, port))
+	}
+	if bot.Hostname != "" {
+		candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s:%d", bot.Hostname, port))
+	}
+	if len(candidateURLs) == 0 {
+		return
+	}
 
-	// Ensure listen mode is started on rfbot
-	startURL := baseURL + "/rf/listen/start"
-	reqStart, err := http.NewRequest("GET", startURL, nil)
-	if err == nil {
-		resp, err := p.client.Do(reqStart)
-		if err == nil {
+	for _, baseURL := range candidateURLs {
+		pollURL := baseURL + "/rf/poll"
+		reqPoll, err := http.NewRequest("GET", pollURL, nil)
+		if err != nil {
+			continue
+		}
+
+		resp, err := p.client.Do(reqPoll)
+		if err != nil {
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
 			_ = resp.Body.Close()
-		}
-	}
-
-	// Poll for received RF packets
-	pollURL := baseURL + "/rf/poll"
-	reqPoll, err := http.NewRequest("GET", pollURL, nil)
-	if err != nil {
-		return
-	}
-
-	resp, err := p.client.Do(reqPoll)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return
-	}
-
-	var pollResp PollResponse
-	if err := json.NewDecoder(resp.Body).Decode(&pollResp); err != nil {
-		return
-	}
-
-	if len(pollResp.Packets) == 0 {
-		return
-	}
-
-	gatewayName := bot.Name
-	if gatewayName == "" {
-		gatewayName = bot.Hostname
-	}
-
-	for _, pkt := range pollResp.Packets {
-		// Filter out noise fragments (valid RF remotes & sensors use >= 20 bits, usually 24)
-		if pkt.Bits > 0 && pkt.Bits < 20 {
 			continue
 		}
 
-		codeUint := parseCode(pkt.Code)
-		if codeUint == 0 {
+		var pollResp PollResponse
+		err = json.NewDecoder(resp.Body).Decode(&pollResp)
+		_ = resp.Body.Close()
+		if err != nil {
 			continue
 		}
 
-		payload := rules.EventPayload{
-			Code:      codeUint,
-			Bits:      pkt.Bits,
-			Protocol:  pkt.Proto,
-			Pulse:     pkt.Pulse,
-			Gateway:   gatewayName,
-			Timestamp: time.Now(),
+		// If the receiver node reports listening is false, turn listen mode ON once.
+		// Never call /rf/listen/start on every tick because rfbot firmware resets the packet buffer on start.
+		if !pollResp.Listening {
+			startURL := baseURL + "/rf/listen/start"
+			reqStart, err := http.NewRequest("GET", startURL, nil)
+			if err == nil {
+				respStart, err := p.client.Do(reqStart)
+				if err == nil {
+					_ = respStart.Body.Close()
+				}
+			}
 		}
 
-		log.Printf("[RFPoller] Captured signal 0x%X (%d) from gateway %s", codeUint, codeUint, gatewayName)
-		p.engine.ProcessEvent(payload)
+		if len(pollResp.Packets) == 0 {
+			// Successfully polled, no packets this tick
+			return
+		}
+
+		gatewayName := bot.Name
+		if gatewayName == "" {
+			gatewayName = bot.Hostname
+		}
+		if gatewayName == "" {
+			gatewayName = bot.ID
+		}
+
+		for _, pkt := range pollResp.Packets {
+			// Filter noise fragments (RC-switch remotes and sensors use >= 12 bits, typically 24)
+			if pkt.Bits > 0 && pkt.Bits < 12 {
+				continue
+			}
+
+			codeUint := parseCode(pkt.Code)
+			if codeUint == 0 {
+				continue
+			}
+
+			payload := rules.EventPayload{
+				Code:      codeUint,
+				Bits:      pkt.Bits,
+				Protocol:  pkt.Proto,
+				Pulse:     pkt.Pulse,
+				Gateway:   gatewayName,
+				Timestamp: time.Now(),
+			}
+
+			log.Printf("[RFPoller] Captured RF signal 0x%X (%d) [%db proto=%d pulse=%dus] from gateway %s",
+				codeUint, codeUint, pkt.Bits, pkt.Proto, pkt.Pulse, gatewayName)
+			p.engine.ProcessEvent(payload)
+		}
+
+		// Successfully polled from this candidate
+		return
 	}
+}
+
+func isValidIP(ip string) bool {
+	return ip != "" && net.ParseIP(strings.TrimSpace(ip)) != nil
 }
 
 // parseCode converts various JSON types (hex string "1E240" from rfbot's %lX format, dec int 123456, etc) to uint32.

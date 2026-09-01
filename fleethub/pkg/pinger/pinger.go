@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
 )
 
 // Pinger periodically checks network accessibility of fleet devices using TCP/HTTP connection probes with fallback IP support.
 type Pinger struct {
-	cfg  *config.Config
-	stop chan struct{}
-	mu   sync.Mutex
+	cfg      *config.Config
+	database *db.DB
+	stop     chan struct{}
+	mu       sync.Mutex
 }
 
 // NewPinger creates a new device ping service.
@@ -23,6 +25,13 @@ func NewPinger(cfg *config.Config) *Pinger {
 		cfg:  cfg,
 		stop: make(chan struct{}),
 	}
+}
+
+// SetDatabase connects the persistent SQLite database for ping latency history.
+func (p *Pinger) SetDatabase(d *db.DB) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.database = d
 }
 
 // Start launches the background health check ticker.
@@ -49,20 +58,43 @@ func isValidIP(ip string) bool {
 	return net.ParseIP(strings.TrimSpace(ip)) != nil
 }
 
-// PingAll iterates through configured bots and tests connectivity with fallback IP support.
-func (p *Pinger) PingAll() {
+// PingResult represents an immediate probe result for a bot.
+type PingResult struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	LatencyMs float64 `json:"latency_ms"`
+	Status    string  `json:"status"`
+	IP        string  `json:"ip"`
+}
+
+// PingAllSync executes a synchronous ping sweep across all fleet devices and returns the results.
+func (p *Pinger) PingAllSync() []PingResult {
 	bots := p.cfg.Bots
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var results []PingResult
 
 	for _, bot := range bots {
 		wg.Add(1)
 		go func(b config.RobotNode) {
 			defer wg.Done()
 			latency, online, discoveredIP := p.PingDevice(b)
-			
+
 			status := "offline"
 			if online {
 				status = "online"
+			}
+
+			ipToRecord := discoveredIP
+			if ipToRecord == "" {
+				ipToRecord = b.IP
+			}
+			if ipToRecord == "" {
+				ipToRecord = b.FallbackIP
+			}
+
+			if p.database != nil {
+				_ = p.database.RecordPing(b.ID, latency, status, ipToRecord)
 			}
 
 			updatedBot := config.RobotNode{
@@ -76,12 +108,27 @@ func (p *Pinger) PingAll() {
 			if discoveredIP != "" && isValidIP(discoveredIP) {
 				updatedBot.IP = discoveredIP
 			}
-
 			p.cfg.UpsertBot(updatedBot)
+
+			mu.Lock()
+			results = append(results, PingResult{
+				ID:        b.ID,
+				Name:      b.Name,
+				LatencyMs: latency,
+				Status:    status,
+				IP:        ipToRecord,
+			})
+			mu.Unlock()
 		}(bot)
 	}
 
 	wg.Wait()
+	return results
+}
+
+// PingAll iterates through configured bots and tests connectivity with fallback IP support.
+func (p *Pinger) PingAll() {
+	_ = p.PingAllSync()
 }
 
 // PingDevice attempts to connect to a bot using its hostname first, and falls back to fallback_ip if hostname fails or times out.

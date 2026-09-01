@@ -500,15 +500,15 @@
           <span class="kpi-val green" id="kpi-online-count">0/0</span>
         </div>
         <div class="kpi-pill">
-          <span>🐕 PaulBots:</span>
+          <span>PaulBots:</span>
           <span class="kpi-val amber" id="kpi-paul-count">0</span>
         </div>
         <div class="kpi-pill">
-          <span>🔌 MyBots:</span>
+          <span>MyBots:</span>
           <span class="kpi-val cyan" id="kpi-my-count">0</span>
         </div>
         <div class="kpi-pill">
-          <span>Hotspot / mDNS:</span>
+          <span>Subnet / mDNS:</span>
           <span class="kpi-val" style="color:var(--text-main);">192.168.4.x</span>
         </div>
       </div>
@@ -516,13 +516,13 @@
       <!-- Header Actions -->
       <div class="header-actions">
         <button class="btn-pill cyan-glow" onclick="triggerPreset('dance_party')">
-          <span>🕺 Dance Party</span>
+          <span>Dance Party</span>
         </button>
         <button class="btn-pill" onclick="triggerSubnetScan()">
-          <span>📡 Scan Subnet</span>
+          <span>Scan Subnet</span>
         </button>
         <button class="btn-pill danger" onclick="triggerPreset('emergency_stop')">
-          <span>🛑 Neutral All</span>
+          <span>Neutral All</span>
         </button>
       </div>
     </header>
@@ -540,8 +540,8 @@
         <div class="target-pills">
           <span style="font-size:0.72rem; color:var(--text-dim); font-weight:700;">TARGET:</span>
           <button class="target-pill active" data-target="all" onclick="setBroadcastTarget('all', this)">All Fleet</button>
-          <button class="target-pill" data-target="paulbot" onclick="setBroadcastTarget('paulbot', this)">🐕 All PaulBots</button>
-          <button class="target-pill" data-target="mybot" onclick="setBroadcastTarget('mybot', this)">🔌 All MyBots</button>
+          <button class="target-pill" data-target="paulbot" onclick="setBroadcastTarget('paulbot', this)">PaulBots</button>
+          <button class="target-pill" data-target="mybot" onclick="setBroadcastTarget('mybot', this)">MyBots</button>
         </div>
       </div>
 
@@ -550,12 +550,12 @@
         <!-- Voice / TTS Broadcaster -->
         <div class="input-action-box">
           <div class="input-label">
-            <span>🗣️ Voice &amp; TTS Synthesizer Broadcast</span>
+            <span>Voice &amp; TTS Synthesizer</span>
             <span style="color:var(--cyan); font-family:var(--font-mono);">GET /tts?say=...</span>
           </div>
           <div class="input-field-wrap">
             <input type="text" id="input-tts-broadcast" class="text-input" placeholder="Type phrase to speak out loud across fleet..." value="Good day Robot Fleet!">
-            <button class="btn-pill cyan-glow" onclick="broadcastTTS()">📢 Speak</button>
+            <button class="btn-pill cyan-glow" onclick="broadcastTTS()">Speak</button>
           </div>
           <div class="quick-chips">
             <span class="chip" onclick="setAndSendTTS('Hello Robot Fleet!')">Hello Fleet</span>
@@ -568,12 +568,12 @@
         <!-- OLED Screen Marquee -->
         <div class="input-action-box">
           <div class="input-label">
-            <span>👁️ OLED Screen Marquee Text Broadcast</span>
+            <span>OLED Screen Marquee Text Broadcast</span>
             <span style="color:var(--green); font-family:var(--font-mono);">GET /oled_text?msg=...</span>
           </div>
           <div class="input-field-wrap">
             <input type="text" id="input-oled-broadcast" class="text-input" placeholder="Display 5x7 text on all screens..." value="FLEET READY">
-            <button class="btn-pill" style="border-color:var(--green); color:var(--green);" onclick="broadcastOLEDText()">📺 Display</button>
+            <button class="btn-pill" style="border-color:var(--green); color:var(--green);" onclick="broadcastOLEDText()">Display</button>
           </div>
           <div class="quick-chips">
             <span class="chip" onclick="setAndSendOLED('READY')">READY</span>
@@ -586,20 +586,20 @@
 
       <!-- Mass Group Action Triggers -->
       <div class="quick-actions-bar">
-        <span style="font-size:0.72rem; color:var(--text-muted); font-weight:700;">1-CLICK FLEET TRIGGERS:</span>
-        <button class="act-btn dog" onclick="broadcastEndpoint('/stand')">🐕 Stand All</button>
-        <button class="act-btn dog" onclick="broadcastEndpoint('/hi')">👋 Wave Hi</button>
-        <button class="act-btn dog" onclick="broadcastEndpoint('/wiggle')">💃 Wiggle Dance</button>
-        <button class="act-btn dog" onclick="broadcastEndpoint('/bark')">🐶 Group Bark</button>
-        <button class="act-btn dog" onclick="broadcastEndpoint('/jump_fwd')">🦘 Group Jump</button>
-        <button class="act-btn dog" onclick="broadcastEndpoint('/anim_fireworks')">🎆 Fireworks OLED</button>
+        <span style="font-size:0.72rem; color:var(--text-muted); font-weight:700;">FLEET ACTIONS:</span>
+        <button class="act-btn dog" onclick="broadcastEndpoint('/stand')">Stand All</button>
+        <button class="act-btn dog" onclick="broadcastEndpoint('/hi')">Wave Hi</button>
+        <button class="act-btn dog" onclick="broadcastEndpoint('/wiggle')">Wiggle Dance</button>
+        <button class="act-btn dog" onclick="broadcastEndpoint('/bark')">Group Bark</button>
+        <button class="act-btn dog" onclick="broadcastEndpoint('/jump_fwd')">Group Jump</button>
+        <button class="act-btn dog" onclick="broadcastEndpoint('/anim_fireworks')">Fireworks OLED</button>
         
-        <button class="act-btn my" onclick="broadcastEndpoint('/demo?type=mario')">🍄 Mario Melody</button>
-        <button class="act-btn my" onclick="broadcastEndpoint('/anim_mario')">🕺 Mario Dance</button>
-        <button class="act-btn my" onclick="broadcastEndpoint('/big_yawn')">🥱 Big Yawn</button>
-        <button class="act-btn my" onclick="broadcastEndpoint('/demo?type=coin')">🪙 Coin Tone</button>
-        <button class="act-btn my" onclick="broadcastEndpoint('/grnon')">💡 Green LEDs</button>
-        <button class="act-btn my" onclick="broadcastEndpoint('/redon')">🔴 Red LEDs</button>
+        <button class="act-btn my" onclick="broadcastEndpoint('/demo?type=mario')">Mario Melody</button>
+        <button class="act-btn my" onclick="broadcastEndpoint('/anim_mario')">Mario Dance</button>
+        <button class="act-btn my" onclick="broadcastEndpoint('/big_yawn')">Big Yawn</button>
+        <button class="act-btn my" onclick="broadcastEndpoint('/demo?type=coin')">Coin Tone</button>
+        <button class="act-btn my" onclick="broadcastEndpoint('/grnon')">Green LEDs</button>
+        <button class="act-btn my" onclick="broadcastEndpoint('/redon')">Red LEDs</button>
       </div>
     </section>
 
@@ -609,15 +609,15 @@
     <nav class="main-nav">
       <div class="nav-tabs">
         <button class="tab-btn active" id="tab-roster-btn" onclick="switchMainTab('roster')">
-          <span>🤖 Multi-Bot Fleet Registry</span>
+          <span>Multi-Bot Fleet Registry</span>
           <span class="tab-badge" id="badge-total-bots">0</span>
         </button>
         <button class="tab-btn" id="tab-pyodide-btn" onclick="switchMainTab('pyodide')">
-          <span>🐍 Python Scripting (Pyodide)</span>
-          <span class="tab-badge" style="color:var(--green); border-color:var(--green);">Interactive</span>
+          <span>Python Scripting</span>
+          <span class="tab-badge" style="color:var(--green); border-color:var(--green);">Pyodide</span>
         </button>
         <button class="tab-btn" id="tab-choreo-btn" onclick="switchMainTab('choreo')">
-          <span>🎬 Choreography Studio</span>
+          <span>Choreography Studio</span>
           <span class="tab-badge">Sequencer</span>
         </button>
       </div>
@@ -637,10 +637,10 @@
       <div class="filter-bar">
         <div class="filter-group">
           <button class="filter-btn active" data-filter="all" onclick="setBotFilter('all', this)">All Bots</button>
-          <button class="filter-btn" data-filter="dogbot_v1" onclick="setBotFilter('dogbot_v1', this)">🐕 PaulBots</button>
-          <button class="filter-btn" data-filter="mybot" onclick="setBotFilter('mybot', this)">🔌 MyBots</button>
-          <button class="filter-btn" data-filter="online" onclick="setBotFilter('online', this)">🟢 Online Only</button>
-          <button class="filter-btn" data-filter="offline" onclick="setBotFilter('offline', this)">🔴 Offline</button>
+          <button class="filter-btn" data-filter="dogbot_v1" onclick="setBotFilter('dogbot_v1', this)">PaulBots</button>
+          <button class="filter-btn" data-filter="mybot" onclick="setBotFilter('mybot', this)">MyBots</button>
+          <button class="filter-btn" data-filter="online" onclick="setBotFilter('online', this)">Online</button>
+          <button class="filter-btn" data-filter="offline" onclick="setBotFilter('offline', this)">Offline</button>
         </div>
 
         <div style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">

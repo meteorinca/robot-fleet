@@ -2,12 +2,15 @@ package rules
 
 import (
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
 )
 
 // EventPayload represents an incoming RF signal or event trigger.
@@ -37,6 +40,7 @@ type buttonTracker struct {
 // Engine evaluates incoming signals against active rules and executes actions.
 type Engine struct {
 	cfg            *config.Config
+	database       *db.DB
 	client         *http.Client
 	onEventCb      func(EventPayload, []string) // callback for WebSockets / HomeKit
 	mu             sync.RWMutex
@@ -59,6 +63,13 @@ func NewEngine(cfg *config.Config, eventCb func(EventPayload, []string)) *Engine
 			Timeout: 3 * time.Second,
 		},
 	}
+}
+
+// SetDatabase attaches the persistent SQLite database to the engine.
+func (e *Engine) SetDatabase(d *db.DB) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.database = d
 }
 
 // SnoozeRule snoozes a rule (or "all") for a specified duration in minutes.
@@ -216,6 +227,7 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 	e.mu.Unlock()
 
 	var executedLogs []string
+	var matchedRuleName string
 
 	// 1. Check matching Input Buttons first
 	for _, btn := range e.cfg.Buttons {
@@ -231,6 +243,8 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 			continue
 		}
 
+		matchedRuleName = rule.Name
+
 		e.mu.RLock()
 		// Check Snooze state
 		if snoozedUntil, snoozed := e.snoozedRules[rule.ID]; snoozed && now.Before(snoozedUntil) {
@@ -239,10 +253,10 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 			continue
 		}
 
-		// Check Rule Cooldown
+		// Check Rule Cooldown (3 seconds default for rapid testing)
 		cooldownSec := rule.CooldownSec
 		if cooldownSec <= 0 {
-			cooldownSec = 30 // Default 30s cooldown to eliminate continuous spamming
+			cooldownSec = 3
 		}
 		if lastExec, exists := e.lastRuleExec[rule.ID]; exists && now.Sub(lastExec) < time.Duration(cooldownSec)*time.Second {
 			e.mu.RUnlock()
@@ -266,8 +280,25 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 		}
 	}
 
-	// Auto-register transceiving gateway bot in Fleet Registry if present
-	if event.Gateway != "" {
+	// Record in SQLite WAL Database if available
+	e.mu.RLock()
+	dbInstance := e.database
+	e.mu.RUnlock()
+	if dbInstance != nil {
+		go func(p EventPayload, rule string) {
+			_, err := dbInstance.RecordRFEvent(p.Code, p.Bits, p.Protocol, p.Pulse, p.Gateway, rule, p.Timestamp)
+			if err != nil {
+				log.Printf("[RuleEngine] DB record error for RF event: %v", err)
+			}
+		}(event, matchedRuleName)
+	}
+
+	// Auto-register transceiving gateway bot in Fleet Registry if present and valid
+	if event.Gateway != "" &&
+		!strings.HasPrefix(event.Gateway, "[") &&
+		!strings.Contains(event.Gateway, "127.0.0.1") &&
+		!strings.Contains(event.Gateway, "localhost") &&
+		!strings.EqualFold(event.Gateway, "InputButton") {
 		platform := config.PlatformRFBot
 		lower := strings.ToLower(event.Gateway)
 		if strings.Contains(lower, "speaker") {
@@ -302,24 +333,72 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 	}
 }
 
-// executeAction dispatches a single HTTP GET/POST or SpeakerBot call.
+// isValidIP returns true if the string is a valid non-empty IP address.
+func isValidIP(ip string) bool {
+	return ip != "" && net.ParseIP(strings.TrimSpace(ip)) != nil
+}
+
+// executeAction dispatches a single HTTP GET/POST or SpeakerBot call using IP-first target routing.
 func (e *Engine) executeAction(action config.RuleAction) {
-	target := action.Target
-	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-		target = "http://" + target
+	cleanTarget := strings.TrimPrefix(strings.TrimPrefix(action.Target, "http://"), "https://")
+	cleanHost := strings.Split(cleanTarget, ":")[0]
+
+	var matchedBot *config.RobotNode
+	for _, b := range e.cfg.Bots {
+		if strings.EqualFold(b.ID, cleanHost) ||
+			strings.EqualFold(b.Hostname, cleanHost) ||
+			strings.EqualFold(strings.TrimSuffix(b.Hostname, ".local"), cleanHost) ||
+			strings.EqualFold(b.Name, cleanHost) ||
+			(b.IP != "" && b.IP == cleanHost) {
+			botCopy := b
+			matchedBot = &botCopy
+			break
+		}
 	}
 
-	fullURL := strings.TrimRight(target, "/") + "/" + strings.TrimLeft(action.Path, "/")
-	req, err := http.NewRequest("GET", fullURL, nil)
-	if err != nil {
-		return
+	var candidates []string
+	port := 80
+	if matchedBot != nil {
+		if matchedBot.Port > 0 && matchedBot.Port != 4330 {
+			port = matchedBot.Port
+		}
+		if isValidIP(matchedBot.IP) {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", matchedBot.IP, port))
+		}
+		if isValidIP(matchedBot.FallbackIP) && matchedBot.FallbackIP != matchedBot.IP {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", matchedBot.FallbackIP, port))
+		}
+		if matchedBot.Hostname != "" {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", matchedBot.Hostname, port))
+		}
 	}
 
-	req.Header.Set("User-Agent", "FleetHub-Mothership/1.0")
-
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return
+	if len(candidates) == 0 {
+		candidates = append(candidates, action.Target)
 	}
-	_ = resp.Body.Close()
+
+	var lastErr error
+	for _, cand := range candidates {
+		targetHost := cand
+		if !strings.HasPrefix(targetHost, "http://") && !strings.HasPrefix(targetHost, "https://") {
+			targetHost = "http://" + targetHost
+		}
+		fullURL := strings.TrimRight(targetHost, "/") + "/" + strings.TrimLeft(action.Path, "/")
+		req, err := http.NewRequest("GET", fullURL, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("User-Agent", "FleetHub-Mothership/1.0")
+
+		resp, err := e.client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			log.Printf("[RuleEngine] Successfully executed action %s -> %s (Target: %s)", action.Type, action.Path, cand)
+			return
+		}
+		lastErr = err
+	}
+
+	log.Printf("[RuleEngine] Action failed %s -> %s across targets %v: %v", action.Type, action.Path, candidates, lastErr)
 }

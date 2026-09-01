@@ -14,9 +14,12 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/listener"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/pinger"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rfpoller"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rules"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/telemetry"
 )
 
 var upgrader = websocket.Upgrader{
@@ -28,6 +31,9 @@ type Server struct {
 	cfg        *config.Config
 	engine     *rules.Engine
 	poller     *rfpoller.RFPoller
+	database   *db.DB
+	telemetry  *telemetry.Service
+	pinger     *pinger.Pinger
 	assets     fs.FS
 	clients    map[*websocket.Conn]bool
 	clientsMu  sync.Mutex
@@ -50,6 +56,21 @@ func NewServer(cfg *config.Config, engine *rules.Engine, poller *rfpoller.RFPoll
 
 	go s.broadcastLoop()
 	return s
+}
+
+// SetDatabase connects the persistent SQLite database.
+func (s *Server) SetDatabase(d *db.DB) {
+	s.database = d
+}
+
+// SetTelemetry attaches the background telemetry metrics service.
+func (s *Server) SetTelemetry(t *telemetry.Service) {
+	s.telemetry = t
+}
+
+// SetPinger attaches the health pinger service for on-demand ping sweeps.
+func (s *Server) SetPinger(p *pinger.Pinger) {
+	s.pinger = p
 }
 
 // Handler returns the http.Handler for all routes.
@@ -75,6 +96,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/devices/control", s.handleDeviceControl)
 	mux.HandleFunc("/api/devices/add", s.handleAddDevice)
 	mux.HandleFunc("/api/v1/rf_event", listener.HTTPHandler(s.engine))
+
+	// Telemetry & Diagnostic Endpoints
+	mux.HandleFunc("/api/telemetry/pings", s.handleTelemetryPings)
+	mux.HandleFunc("/api/telemetry/rf_logs", s.handleTelemetryRFLogs)
+	mux.HandleFunc("/api/telemetry/rf_aggregates", s.handleTelemetryRFAggregates)
+	mux.HandleFunc("/api/telemetry/system", s.handleTelemetrySystem)
+	mux.HandleFunc("/api/telemetry/speedtest", s.handleTelemetrySpeedtest)
+	mux.HandleFunc("/api/telemetry/ping_now", s.handleTelemetryPingNow)
 
 	// Direct Quick Action & Bot Proxy Endpoints
 	mux.HandleFunc("/s1on", s.handleSimpleBotProxy("/s1on"))
@@ -973,6 +1002,135 @@ func (s *Server) handleSpeakerBotProxy(endpoint string) http.HandlerFunc {
 			"error":      fmt.Sprintf("%v", err),
 		})
 	}
+}
+
+// ──────────────────────────────────────────
+// Telemetry & Diagnostic API Handlers
+// ──────────────────────────────────────────
+
+func (s *Server) handleTelemetryPings(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.database == nil {
+		_ = json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	hours := 24
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if val, err := strconv.Atoi(h); err == nil && val > 0 {
+			hours = val
+		}
+	}
+
+	records, err := s.database.GetPingHistory(hours)
+	if err != nil {
+		records = []db.PingRecord{}
+	}
+	_ = json.NewEncoder(w).Encode(records)
+}
+
+func (s *Server) handleTelemetryRFLogs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.database == nil {
+		_ = json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	limit := 100
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 {
+			limit = val
+		}
+	}
+
+	var code uint32
+	if c := r.URL.Query().Get("code"); c != "" {
+		if val, err := strconv.ParseUint(c, 10, 32); err == nil {
+			code = uint32(val)
+		}
+	}
+
+	events, err := s.database.GetRFHistory(code, limit)
+	if err != nil {
+		events = []db.RFEventRecord{}
+	}
+	_ = json.NewEncoder(w).Encode(events)
+}
+
+func (s *Server) handleTelemetryRFAggregates(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.database == nil {
+		_ = json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	aggregates, err := s.database.GetRFCounts()
+	if err != nil {
+		aggregates = []db.RFAggregate{}
+	}
+	_ = json.NewEncoder(w).Encode(aggregates)
+}
+
+func (s *Server) handleTelemetrySystem(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.database == nil {
+		_ = json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	hours := 24
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if val, err := strconv.Atoi(h); err == nil && val > 0 {
+			hours = val
+		}
+	}
+
+	metrics, err := s.database.GetSystemMetrics(hours)
+	if err != nil {
+		metrics = []db.SystemMetricRecord{}
+	}
+	_ = json.NewEncoder(w).Encode(metrics)
+}
+
+func (s *Server) handleTelemetrySpeedtest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	runNow := r.Method == http.MethodPost || r.URL.Query().Get("run") == "true"
+	if runNow && s.telemetry != nil {
+		res, err := s.telemetry.RunSpeedtest()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	if s.database != nil {
+		history, _ := s.database.GetSpeedtestHistory(10)
+		_ = json.NewEncoder(w).Encode(history)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode([]interface{}{})
+}
+
+func (s *Server) handleTelemetryPingNow(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.pinger != nil {
+		results := s.pinger.PingAllSync()
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "ok",
+			"results": results,
+		})
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "idle",
+		"results": []interface{}{},
+	})
 }
 
 
