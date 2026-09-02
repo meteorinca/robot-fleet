@@ -968,6 +968,99 @@
     @keyframes hblink { 0%,100%{opacity:1} 50%{opacity:.2} }
     @keyframes hspin  { to{transform:rotate(360deg)} }
 
+    /* Audio Studio & Soundboard */
+    .btn-sound-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 0.75rem 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #fff;
+      text-align: center;
+    }
+    .btn-sound-tile:hover {
+      background: rgba(168, 85, 247, 0.15);
+      border-color: #a855f7;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.25);
+    }
+    .btn-sound-name {
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .btn-sound-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .audio-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      transition: border-color 0.2s;
+    }
+    .audio-card:hover {
+      border-color: rgba(168, 85, 247, 0.4);
+    }
+    .audio-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    .audio-card-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+      word-break: break-word;
+    }
+    .audio-meta-pills {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .audio-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+    .audio-pill.accent {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+    .audio-card-actions {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: auto;
+      padding-top: 0.3rem;
+    }
+    .audio-drop-area {
+      border: 2px dashed rgba(168, 85, 247, 0.35);
+      background: rgba(168, 85, 247, 0.04);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .audio-drop-area:hover, .audio-drop-area.dragover {
+      border-color: #a855f7;
+      background: rgba(168, 85, 247, 0.08);
+    }
+
     @media (max-width: 1024px) {
       #view-list { flex-direction: column; }
       #sidebar { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 1px solid var(--sidebar-border); }
@@ -1078,6 +1171,7 @@
         <div class="nav-tab-item" onclick="switchNavTab('bots', this)">Bots</div>
         <div class="nav-tab-item" onclick="switchNavTab('telemetry', this)">Telemetry</div>
         <div class="nav-tab-item" onclick="switchNavTab('automations', this)">Automations</div>
+        <div class="nav-tab-item" onclick="switchNavTab('audio', this)" id="nav-tab-audio">Audio Studio</div>
       </div>
 
       <div class="header-controls">
@@ -1323,6 +1417,23 @@
               <div class="tile-sub">Send 123456 RF</div>
             </div>
             <button class="tile-info-btn" onclick="showTileInfo(event, 'Test RF 123456', 'Transmits 433 MHz RF Code 123456 via RFBot 6 Gateway.\nTriggers Rule #1 to play audio alert (/choola) on SpeakerBot 1.\nProtocol: 1 (24-bit, 185µs pulse)')"><i>i</i></button>
+          </div>
+
+          <!-- SpeakerBot Audio Studio Quick Tile -->
+          <div class="dash-tile state-off" id="tile-speakerbot-studio" onclick="switchNavTab('audio', document.getElementById('nav-tab-audio'))">
+            <div class="tile-edit-handle" onclick="editTileLabel(event, this)">Pencil</div>
+            <div class="tile-icon-badge accent-purple">
+              <svg class="tile-icon-svg" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <div class="tile-info">
+              <div class="tile-title">SpeakerBot Studio</div>
+              <div class="tile-sub">Soundboard &amp; Streamer</div>
+              <div class="tile-sub-actions" onclick="event.stopPropagation()">
+                <button class="btn-micro" onclick="playLibrarySound('choola'); event.stopPropagation();">Chime</button>
+                <button class="btn-micro" onclick="triggerAudioStop(); event.stopPropagation();" style="color:#f87171;">Stop</button>
+              </div>
+            </div>
+            <button class="tile-info-btn" onclick="showTileInfo(event, 'SpeakerBot Audio Studio', 'SpeakerBot 1 Chunk Streamer & Soundboard\nTarget: speakerbot1.local (10.0.0.40)\nSupports 16kHz PCM streaming & 7 hardware sounds')"><i>i</i></button>
           </div>
 
         </div>
@@ -2222,6 +2333,173 @@
       </section>
     </div>
 
+    <!-- SECTION: AUDIO STUDIO TAB (SPEAKERBOT CHUNK STREAMING & SOUND LIBRARY) -->
+    <div id="tab-sec-audio" style="display: none;">
+      <section class="dashboard-section">
+        <div class="mesh-card" style="margin-bottom: 1.25rem;">
+          <div class="mesh-toolbar" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <span style="font-weight: 700; font-size: 1.25rem; color: #fff;">SpeakerBot Audio Studio</span>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Mothership audio pre-conversion and chunk streaming engine with backpressure pacing.
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+              <span class="mesh-channel-badge" id="audio-bot-status-badge" style="background: rgba(192, 132, 252, 0.15); border-color: #c084fc; color: #c084fc;">
+                Target: speakerbot1.local (10.0.0.40)
+              </span>
+              <button class="btn-sm" onclick="triggerAudioStop()" style="background: rgba(239, 68, 68, 0.25); border-color: #ef4444; color: #fca5a5; font-weight: 700;">
+                STOP / SILENCE
+              </button>
+            </div>
+          </div>
+
+          <!-- Controls Bar -->
+          <div style="display: flex; gap: 1rem; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Volume Headroom:</span>
+              <input type="range" id="audio-volume-slider" min="0.1" max="1.0" step="0.05" value="0.8" oninput="updateAudioVolumeLabel(this.value)" style="width: 120px; accent-color: #a855f7;">
+              <span id="audio-volume-label" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #fff; min-width: 80px;">80% (-2dB)</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: #fff; cursor: pointer;">
+                <input type="checkbox" id="audio-interrupt-check" checked style="accent-color: #a855f7;">
+                Preempt Playing Audio
+              </label>
+            </div>
+
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
+              <button class="btn-sm btn-secondary" onclick="refreshAudioStudioView()">Refresh Library</button>
+            </div>
+          </div>
+
+          <!-- Active Streaming Monitor -->
+          <div id="audio-stream-monitor" style="display: none; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #a855f7; box-shadow: 0 0 8px #a855f7;"></span>
+                <span id="audio-monitor-title" style="font-size: 0.85rem; font-weight: 700; color: #fff;">Streaming to SpeakerBot</span>
+              </div>
+              <span id="audio-monitor-chunk" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #c084fc;">Chunk 0 / 0 (0%)</span>
+            </div>
+            <div style="background: rgba(0,0,0,0.5); border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 0.4rem;">
+              <div id="audio-monitor-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #a855f7, #06b6d4); transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <!-- Section 1: Onboard Hardware Sounds -->
+          <div style="margin-bottom: 1.5rem;">
+            <div style="font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.4rem;">
+              SpeakerBot Hardware Onboard Sounds (Stored in Device ROM)
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Instant hardware sounds preprogrammed into SpeakerBot firmware. Triggers with zero network latency.
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem;">
+              <button class="btn-sound-tile" onclick="playHardwareSound('choola')">
+                <span class="btn-sound-name">Choola</span>
+                <span class="btn-sound-sub">Default Chime</span>
+              </button>
+              <button class="btn-sound-tile" onclick="playHardwareSound('bark')">
+                <span class="btn-sound-name">Bark</span>
+                <span class="btn-sound-sub">Dog Alert</span>
+              </button>
+              <button class="btn-sound-tile" onclick="playHardwareSound('paulbot')">
+                <span class="btn-sound-name">PaulBot</span>
+                <span class="btn-sound-sub">Robot Voice</span>
+              </button>
+              <button class="btn-sound-tile" onclick="playHardwareSound('huh')">
+                <span class="btn-sound-name">Huh</span>
+                <span class="btn-sound-sub">Curious Tone</span>
+              </button>
+              <button class="btn-sound-tile" onclick="playHardwareSound('yes')">
+                <span class="btn-sound-name">Yes</span>
+                <span class="btn-sound-sub">Confirmation</span>
+              </button>
+              <button class="btn-sound-tile" onclick="playHardwareSound('jump')">
+                <span class="btn-sound-name">Jump</span>
+                <span class="btn-sound-sub">Arcade Jump</span>
+              </button>
+              <button class="btn-sound-tile" onclick="playHardwareSound('ding')">
+                <span class="btn-sound-name">Ding</span>
+                <span class="btn-sound-sub">Service Bell</span>
+              </button>
+              <button class="btn-sound-tile" onclick="playHardwareSound('random')" style="border-color: rgba(168, 85, 247, 0.4);">
+                <span class="btn-sound-name" style="color: #c084fc;">Random</span>
+                <span class="btn-sound-sub">Dice Roll</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 2: FleetHub Pre-converted Sound Library -->
+          <div style="margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <div style="font-size: 0.9rem; font-weight: 700; color: #fff;">
+                  FleetHub Pre-Converted Sound Library (16kHz 16-Bit Mono PCM)
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  Pre-converted audio stored on FleetHub. Paced 4-second chunks prevent looping and buffer underruns.
+                </div>
+              </div>
+              <input type="text" id="audio-search-input" placeholder="Search sounds..." oninput="filterAudioLibraryTable()" style="padding: 0.35rem 0.6rem; border-radius: 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 0.8rem; width: 160px;">
+            </div>
+
+            <div id="audio-library-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem;">
+              <div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-muted);">
+                Loading sound library...
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Audio File Converter & Uploader -->
+          <div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.4rem;">
+              Audio File Converter &amp; Chunk Streamer
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Upload MP3, WAV, M4A, OGG, or FLAC files. FleetHub converts them to 16kHz 16-bit mono PCM and streams them to SpeakerBot.
+            </div>
+
+            <div class="audio-drop-area" id="audio-drop-zone">
+              <input type="file" id="audio-file-input" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac" style="display: none;" onchange="handleAudioFileSelected(this.files[0])">
+              <div style="cursor: pointer;" onclick="document.getElementById('audio-file-input').click()">
+                <div style="font-size: 0.9rem; font-weight: 600; color: #fff; margin-bottom: 0.2rem;">
+                  Select or Drop Audio File
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  Supports MP3, WAV, M4A, OGG, FLAC (Max 32MB)
+                </div>
+              </div>
+              <div id="audio-file-selected-name" style="margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #a855f7; display: none;"></div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap;">
+              <button class="btn-sm" onclick="convertAndStreamActiveFile()" style="background: rgba(168, 85, 247, 0.25); border-color: #a855f7; color: #fff; font-weight: 700; padding: 0.5rem 1rem;">
+                Convert &amp; Stream to SpeakerBot Now
+              </button>
+              <button class="btn-sm btn-secondary" onclick="convertAndSaveActiveFile()" style="padding: 0.5rem 1rem;">
+                Convert &amp; Save to FleetHub Library
+              </button>
+            </div>
+            <div id="audio-upload-status-msg" style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);"></div>
+          </div>
+
+          <!-- Section 4: Live Audio Streaming Terminal Log -->
+          <div style="margin-top: 1.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #fff; margin-bottom: 0.4rem;">
+              Audio Activity Terminal
+            </div>
+            <div id="audio-terminal-log" style="height: 120px; overflow-y: auto; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 0.5rem 0.75rem; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #a0a0d0;">
+              <div style="color: #666;">Audio terminal standby. Ready for playback commands.</div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+
     <!-- System Metrics Overview (Always available below) -->
     <section class="dashboard-section" style="margin-top: 2rem;">
       <div class="section-title">System Metrics Overview</div>
@@ -2565,7 +2843,7 @@
   window.switchNavTab = function(tabName, el) {
     document.querySelectorAll('.nav-tab-item').forEach(function(t) { t.classList.remove('active'); });
     if (el) el.classList.add('active');
-    var tabs = ['home', 'entities', 'cameras', 'rfbots', 'bots', 'telemetry', 'automations'];
+    var tabs = ['home', 'entities', 'cameras', 'rfbots', 'bots', 'telemetry', 'automations', 'audio'];
     tabs.forEach(function(t) {
       var sec = document.getElementById('tab-sec-' + t);
       if (sec) sec.style.display = (t === tabName) ? 'block' : 'none';
@@ -2578,6 +2856,8 @@
       if (typeof window.refreshCameraGridView === 'function') window.refreshCameraGridView();
     } else if (tabName === 'automations') {
       if (typeof window.initFleetFlowView === 'function') window.initFleetFlowView();
+    } else if (tabName === 'audio') {
+      if (typeof window.refreshAudioStudioView === 'function') window.refreshAudioStudioView();
     }
   };
 
@@ -3408,6 +3688,12 @@
 
   function handleTrafficMessage(msg) {
     if (!msg) return;
+    if (msg.type === 'audio_stream_status') {
+      if (typeof window.handleAudioStreamUpdate === 'function') {
+        window.handleAudioStreamUpdate(msg.status);
+      }
+      return;
+    }
     if (msg.type === 'rf_event') {
       var timeStr = new Date().toLocaleTimeString();
       var codeDec = msg.code || 0;
@@ -5204,6 +5490,341 @@
       animate();
     }, 500);
   };
+
+  /* =========================================================================
+     AUDIO STUDIO & SPEAKERBOT CHUNK STREAMING CONTROLLER
+     ========================================================================= */
+
+  var activeAudioPreview = null;
+  var cachedAudioLibrary = [];
+  var selectedAudioFile = null;
+
+  window.updateAudioVolumeLabel = function(val) {
+    var pct = Math.round(val * 100);
+    var db = Math.round(20 * Math.log10(val));
+    var lbl = document.getElementById('audio-volume-label');
+    if (lbl) lbl.textContent = pct + '% (' + (db > 0 ? '+' : '') + db + 'dB)';
+  };
+
+  window.appendAudioTerminalLog = function(text, isError) {
+    var term = document.getElementById('audio-terminal-log');
+    if (!term) return;
+    var line = document.createElement('div');
+    line.style.marginBottom = '3px';
+    if (isError) line.style.color = '#f87171';
+    var timeStr = new Date().toLocaleTimeString();
+    line.innerHTML = '<span style="color:#64748b;">[' + timeStr + ']</span> ' + text;
+    term.insertBefore(line, term.firstChild);
+    if (term.children.length > 50) term.removeChild(term.lastChild);
+  };
+
+  window.triggerAudioStop = async function() {
+    if (activeAudioPreview) {
+      activeAudioPreview.pause();
+      activeAudioPreview = null;
+    }
+    window.appendAudioTerminalLog('Emergency STOP sent: halting SpeakerBot playback and stream pacing');
+    try {
+      var res = await fetch('/api/audio/stop', { method: 'POST' });
+      var data = await res.json();
+      window.appendAudioTerminalLog('Stop acknowledged by ' + (data.target_bot || 'SpeakerBot'));
+    } catch(err) {
+      window.appendAudioTerminalLog('Stop command dispatch error: ' + err.message, true);
+    }
+    var mon = document.getElementById('audio-stream-monitor');
+    if (mon) mon.style.display = 'none';
+  };
+
+  window.playHardwareSound = async function(soundName) {
+    var intr = document.getElementById('audio-interrupt-check') ? (document.getElementById('audio-interrupt-check').checked ? 1 : 0) : 1;
+    window.appendAudioTerminalLog('Triggering hardware sound: ' + soundName + ' (ROM preset)');
+    try {
+      var res = await fetch('/api/audio/hardware_sound?name=' + encodeURIComponent(soundName) + '&repeat=1&interrupt=' + intr);
+      var data = await res.json();
+      window.appendAudioTerminalLog('Hardware sound [' + soundName + '] triggered (' + data.status + ')');
+    } catch(err) {
+      window.appendAudioTerminalLog('Failed to trigger hardware sound: ' + err.message, true);
+    }
+  };
+
+  window.playLibrarySound = async function(soundName) {
+    var volSlider = document.getElementById('audio-volume-slider');
+    var vol = volSlider ? parseFloat(volSlider.value) : 0.8;
+    var intr = document.getElementById('audio-interrupt-check') ? document.getElementById('audio-interrupt-check').checked : true;
+
+    window.appendAudioTerminalLog('Dispatching library sound: ' + soundName + ' (vol ' + Math.round(vol * 100) + '%)');
+    var mon = document.getElementById('audio-stream-monitor');
+    if (mon) {
+      mon.style.display = 'block';
+      document.getElementById('audio-monitor-title').textContent = 'Streaming ' + soundName + ' to SpeakerBot';
+      document.getElementById('audio-monitor-chunk').textContent = 'Starting stream...';
+      document.getElementById('audio-monitor-bar').style.width = '10%';
+    }
+
+    try {
+      var res = await fetch('/api/audio/play?name=' + encodeURIComponent(soundName) + '&volume=' + vol + '&interrupt=' + intr, {
+        method: 'POST'
+      });
+      var data = await res.json();
+      window.appendAudioTerminalLog('Streaming started for ' + soundName + ' -> ' + data.target_bot);
+    } catch(err) {
+      window.appendAudioTerminalLog('Play error: ' + err.message, true);
+      if (mon) mon.style.display = 'none';
+    }
+  };
+
+  window.previewSoundInBrowser = function(soundName) {
+    if (activeAudioPreview) {
+      activeAudioPreview.pause();
+      activeAudioPreview = null;
+    }
+    window.appendAudioTerminalLog('Previewing WAV in browser: ' + soundName);
+    var audio = new Audio('/api/audio/preview?name=' + encodeURIComponent(soundName) + '&t=' + Date.now());
+    activeAudioPreview = audio;
+    audio.play().then(function() {
+      window.appendAudioTerminalLog('Browser playback started for ' + soundName);
+    }).catch(function(err) {
+      window.appendAudioTerminalLog('Preview failed: ' + err.message, true);
+    });
+    audio.onended = function() {
+      window.appendAudioTerminalLog('Browser playback completed for ' + soundName);
+      activeAudioPreview = null;
+    };
+  };
+
+  window.deleteLibrarySound = async function(soundName) {
+    if (!confirm('Delete sound "' + soundName + '" from FleetHub library?')) return;
+    try {
+      var res = await fetch('/api/audio/delete?name=' + encodeURIComponent(soundName), { method: 'POST' });
+      var data = await res.json();
+      window.appendAudioTerminalLog('Sound deleted: ' + soundName);
+      window.refreshAudioStudioView();
+    } catch(err) {
+      window.appendAudioTerminalLog('Delete failed: ' + err.message, true);
+    }
+  };
+
+  window.refreshAudioStudioView = async function() {
+    // 1. Check SpeakerBot node status
+    try {
+      var bRes = await fetch('/api/bots');
+      var bots = await bRes.json();
+      var spk = bots.find(function(b) { return b.id === 'speakerbot1' || b.platform === 'speakerbot'; });
+      var badge = document.getElementById('audio-bot-status-badge');
+      if (badge && spk) {
+        var isOnline = (spk.status === 'online');
+        badge.textContent = 'Target: ' + spk.hostname + ' (' + (spk.ip || spk.fallback_ip || '10.0.0.40') + ') - ' + (isOnline ? 'Online' : 'Standby');
+        badge.style.borderColor = isOnline ? '#10b981' : '#f59e0b';
+        badge.style.color = isOnline ? '#6ee7b7' : '#fcd34d';
+      }
+    } catch(e){}
+
+    // 2. Fetch Sound Library
+    try {
+      var res = await fetch('/api/audio/library');
+      cachedAudioLibrary = await res.json();
+      window.renderAudioLibraryGrid(cachedAudioLibrary);
+    } catch(err) {
+      var grid = document.getElementById('audio-library-grid');
+      if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1rem;color:#f87171;">Failed to load library: ' + err.message + '</div>';
+    }
+  };
+
+  window.filterAudioLibraryTable = function() {
+    var input = document.getElementById('audio-search-input');
+    var q = input ? input.value.trim().toLowerCase() : '';
+    if (!q) {
+      window.renderAudioLibraryGrid(cachedAudioLibrary);
+      return;
+    }
+    var filtered = cachedAudioLibrary.filter(function(s) {
+      return (s.name && s.name.toLowerCase().includes(q)) || (s.original_filename && s.original_filename.toLowerCase().includes(q));
+    });
+    window.renderAudioLibraryGrid(filtered);
+  };
+
+  window.renderAudioLibraryGrid = function(sounds) {
+    var grid = document.getElementById('audio-library-grid');
+    if (!grid) return;
+    if (!sounds || sounds.length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-muted);">No sound files found in library. Upload an audio file below.</div>';
+      return;
+    }
+
+    var html = '';
+    sounds.forEach(function(s) {
+      var kb = Math.round(s.byte_size / 1024);
+      var dur = s.duration_sec ? s.duration_sec.toFixed(1) + 's' : '--';
+      var chunks = s.chunks ? (s.chunks + (s.chunks === 1 ? ' chunk' : ' chunks')) : '1 chunk';
+      var isPreset = Boolean(s.is_preset);
+
+      html += '<div class="audio-card">';
+      html += '  <div class="audio-card-header">';
+      html += '    <div class="audio-card-title">' + escapeHtml(s.name) + '</div>';
+      if (isPreset) {
+        html += '    <span class="audio-pill accent">PRESET</span>';
+      }
+      html += '  </div>';
+
+      html += '  <div class="audio-meta-pills">';
+      html += '    <span class="audio-pill">' + dur + '</span>';
+      html += '    <span class="audio-pill">' + kb + ' KB</span>';
+      html += '    <span class="audio-pill">' + chunks + '</span>';
+      html += '    <span class="audio-pill">16kHz PCM</span>';
+      html += '  </div>';
+
+      html += '  <div class="audio-card-actions">';
+      html += '    <button class="btn-sm" style="flex:1;background:rgba(168,85,247,0.2);border-color:#a855f7;color:#fff;font-weight:600;" onclick="playLibrarySound(\'' + escapeHtml(s.name) + '\')">Play on Bot</button>';
+      html += '    <button class="btn-sm btn-secondary" onclick="previewSoundInBrowser(\'' + escapeHtml(s.name) + '\')" title="Preview audio locally in browser">Preview</button>';
+      if (!isPreset) {
+        html += '    <button class="btn-sm btn-secondary" style="color:#fca5a5;border-color:rgba(239,68,68,0.3);" onclick="deleteLibrarySound(\'' + escapeHtml(s.name) + '\')" title="Delete from FleetHub">Delete</button>';
+      }
+      html += '  </div>';
+      html += '</div>';
+    });
+
+    grid.innerHTML = html;
+  };
+
+  window.handleAudioFileSelected = function(file) {
+    selectedAudioFile = file;
+    var nameEl = document.getElementById('audio-file-selected-name');
+    var statusEl = document.getElementById('audio-upload-status-msg');
+    if (file && nameEl) {
+      var kb = Math.round(file.size / 1024);
+      nameEl.textContent = 'Selected: ' + file.name + ' (' + kb + ' KB)';
+      nameEl.style.display = 'block';
+      if (statusEl) statusEl.textContent = 'Ready to convert or stream.';
+    }
+  };
+
+  window.convertAndStreamActiveFile = async function() {
+    if (!selectedAudioFile) {
+      alert('Please select or drag an audio file first.');
+      return;
+    }
+    var statusEl = document.getElementById('audio-upload-status-msg');
+    var volSlider = document.getElementById('audio-volume-slider');
+    var vol = volSlider ? parseFloat(volSlider.value) : 0.8;
+    var intr = document.getElementById('audio-interrupt-check') ? (document.getElementById('audio-interrupt-check').checked ? 1 : 0) : 1;
+
+    if (statusEl) statusEl.textContent = 'Transcoding and streaming to SpeakerBot...';
+    window.appendAudioTerminalLog('Uploading & streaming: ' + selectedAudioFile.name);
+
+    var formData = new FormData();
+    formData.append('file', selectedAudioFile);
+    formData.append('volume', vol);
+    formData.append('interrupt', intr);
+
+    try {
+      var res = await fetch('/api/audio/stream_upload', {
+        method: 'POST',
+        body: formData
+      });
+      var data = await res.json();
+      if (res.ok) {
+        if (statusEl) statusEl.textContent = 'Streaming initiated for ' + selectedAudioFile.name;
+        window.appendAudioTerminalLog('Streaming started for ' + selectedAudioFile.name + ' -> ' + data.target_bot);
+      } else {
+        throw new Error(data.error || 'Server error ' + res.status);
+      }
+    } catch(err) {
+      window.appendAudioTerminalLog('Stream upload error: ' + err.message, true);
+      if (statusEl) statusEl.textContent = 'Streaming failed: ' + err.message;
+    }
+  };
+
+  window.convertAndSaveActiveFile = async function() {
+    if (!selectedAudioFile) {
+      alert('Please select or drag an audio file first.');
+      return;
+    }
+    var statusEl = document.getElementById('audio-upload-status-msg');
+    var volSlider = document.getElementById('audio-volume-slider');
+    var vol = volSlider ? parseFloat(volSlider.value) : 0.8;
+
+    if (statusEl) statusEl.textContent = 'Converting and saving to library...';
+    window.appendAudioTerminalLog('Converting & saving: ' + selectedAudioFile.name);
+
+    var formData = new FormData();
+    formData.append('file', selectedAudioFile);
+    formData.append('volume', vol);
+
+    try {
+      var res = await fetch('/api/audio/upload', {
+        method: 'POST',
+        body: formData
+      });
+      var data = await res.json();
+      if (res.ok) {
+        if (statusEl) statusEl.textContent = 'Saved sound "' + data.sound.name + '" to FleetHub library (' + data.sound.chunks + ' chunks)';
+        window.appendAudioTerminalLog('Sound saved: ' + data.sound.name);
+        window.refreshAudioStudioView();
+      } else {
+        throw new Error(data.error || 'Server error ' + res.status);
+      }
+    } catch(err) {
+      window.appendAudioTerminalLog('Save error: ' + err.message, true);
+      if (statusEl) statusEl.textContent = 'Conversion failed: ' + err.message;
+    }
+  };
+
+  window.handleAudioStreamUpdate = function(st) {
+    var mon = document.getElementById('audio-stream-monitor');
+    if (!mon) return;
+
+    if (st && st.active) {
+      mon.style.display = 'block';
+      var titleEl = document.getElementById('audio-monitor-title');
+      if (titleEl) titleEl.textContent = 'Streaming ' + (st.sound || 'Audio') + ' to ' + (st.target_bot || 'SpeakerBot');
+
+      var total = st.total_chunks || 1;
+      var sent = st.chunks_sent || 0;
+      var pct = Math.min(100, Math.round((sent / total) * 100));
+
+      var chunkEl = document.getElementById('audio-monitor-chunk');
+      if (chunkEl) chunkEl.textContent = 'Chunk ' + sent + ' / ' + total + ' (' + pct + '%)';
+
+      var barEl = document.getElementById('audio-monitor-bar');
+      if (barEl) barEl.style.width = Math.max(5, pct) + '%';
+    } else {
+      var barEl = document.getElementById('audio-monitor-bar');
+      if (barEl) barEl.style.width = '100%';
+      var chunkEl = document.getElementById('audio-monitor-chunk');
+      if (chunkEl) chunkEl.textContent = 'Stream complete (100%)';
+      setTimeout(function() {
+        if (mon && (!st || !st.active)) {
+          mon.style.display = 'none';
+        }
+      }, 1800);
+    }
+  };
+
+  // Setup Drag and Drop listeners
+  (function initAudioDropZone() {
+    var dropZone = document.getElementById('audio-drop-zone');
+    if (!dropZone) return;
+    ['dragenter', 'dragover'].forEach(function(eventName) {
+      dropZone.addEventListener(eventName, function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('dragover');
+      }, false);
+    });
+    ['dragleave', 'drop'].forEach(function(eventName) {
+      dropZone.addEventListener(eventName, function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('dragover');
+      }, false);
+    });
+    dropZone.addEventListener('drop', function(e) {
+      var dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length > 0) {
+        window.handleAudioFileSelected(dt.files[0]);
+      }
+    }, false);
+  })();
 
   /* If setView('pretty') was already called before this module loaded, boot now */
   if (window._hudBooted && !window._threeInited) {

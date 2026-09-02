@@ -1,0 +1,12 @@
+{
+  "name": "jump",
+  "filename": "jump.pcm",
+  "duration_sec": 1.776,
+  "total_samples": 28416,
+  "size_bytes": 56832,
+  "sample_rate": 16000,
+  "channels": 1,
+  "created_at": "2026-09-01T21:22:24.3643142-04:00",
+  "source_format": "raw_8bit",
+  "is_preset": true
+}

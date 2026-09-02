@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -44,6 +45,9 @@ type Engine struct {
 	cfg            *config.Config
 	database       *db.DB
 	env            *environment.Service
+	audio          interface {
+		PlaySound(ctx context.Context, name string, targetBot config.RobotNode, volume float64, interrupt bool) error
+	}
 	client         *http.Client
 	onEventCb      func(EventPayload, []string) // callback for WebSockets / HomeKit
 	mu             sync.RWMutex
@@ -66,6 +70,15 @@ func NewEngine(cfg *config.Config, eventCb func(EventPayload, []string)) *Engine
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+// SetAudio attaches the audio chunk streaming service.
+func (e *Engine) SetAudio(a interface {
+	PlaySound(ctx context.Context, name string, targetBot config.RobotNode, volume float64, interrupt bool) error
+}) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.audio = a
 }
 
 // SetEnvironment attaches the weather and solar elevation tracker.
@@ -415,6 +428,20 @@ func (e *Engine) executeAction(action config.RuleAction) {
 
 	if len(candidates) == 0 {
 		candidates = append(candidates, action.Target)
+	}
+
+	if (action.Type == "speakerbot_audio" || action.Type == "speakerbot_play") && e.audio != nil && matchedBot != nil {
+		soundName := "choola"
+		if action.Payload != "" {
+			soundName = action.Payload
+		} else if action.Path != "" && action.Path != "/choola" {
+			soundName = strings.TrimPrefix(action.Path, "/")
+		}
+		botCopy := *matchedBot
+		go func() {
+			_ = e.audio.PlaySound(context.Background(), soundName, botCopy, 0.8, true)
+		}()
+		return
 	}
 
 	if strings.HasPrefix(action.Type, "wled") {

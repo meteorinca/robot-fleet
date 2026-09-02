@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/audio"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/environment"
@@ -122,7 +123,21 @@ func main() {
 		webServer.SetTelemetry(telemetrySvc)
 	}
 
-	// 7. Start UDP Listener
+	// 7. Initialize Audio Subsystem & SpeakerBot Sound Studio
+	soundsDir := filepath.Join(filepath.Dir(*configPath), "sounds")
+	audioSvc, err := audio.NewService(soundsDir, func(st audio.StreamStatus) {
+		if webServer != nil {
+			webServer.BroadcastAudioStatus(st)
+		}
+	})
+	if err != nil {
+		log.Printf("[FleetHub] Warning: Audio subsystem initialization failed: %v", err)
+	} else {
+		ruleEngine.SetAudio(audioSvc)
+		webServer.SetAudio(audioSvc)
+	}
+
+	// 8. Start UDP Listener
 	udpListener := listener.NewUDPListener(cfg, cfg.UDPPort, ruleEngine)
 	if err := udpListener.Start(); err != nil {
 		log.Printf("[FleetHub] Warning: UDP listener bind failed: %v", err)

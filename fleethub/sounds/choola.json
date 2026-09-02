@@ -1,0 +1,12 @@
+{
+  "name": "choola",
+  "filename": "choola.pcm",
+  "duration_sec": 3.092,
+  "total_samples": 49472,
+  "size_bytes": 98944,
+  "sample_rate": 16000,
+  "channels": 1,
+  "created_at": "2026-09-01T21:22:24.3376896-04:00",
+  "source_format": "raw_8bit",
+  "is_preset": true
+}

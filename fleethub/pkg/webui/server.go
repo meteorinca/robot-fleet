@@ -9,12 +9,14 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/audio"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/environment"
@@ -38,6 +40,7 @@ type Server struct {
 	telemetry  *telemetry.Service
 	pinger     *pinger.Pinger
 	env        *environment.Service
+	audio      *audio.Service
 	assets     fs.FS
 	clients    map[*websocket.Conn]bool
 	clientsMu  sync.Mutex
@@ -82,6 +85,23 @@ func (s *Server) SetEnvironment(e *environment.Service) {
 	s.env = e
 }
 
+// SetAudio attaches the audio pre-conversion and streaming service.
+func (s *Server) SetAudio(a *audio.Service) {
+	s.audio = a
+}
+
+// BroadcastAudioStatus sends audio streaming updates to connected WebSocket clients.
+func (s *Server) BroadcastAudioStatus(status audio.StreamStatus) {
+	msg := map[string]interface{}{
+		"type":   "audio_stream_status",
+		"status": status,
+	}
+	select {
+	case s.broadcast <- msg:
+	default:
+	}
+}
+
 // Handler returns the http.Handler for all routes.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -116,6 +136,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/camera/toggle", s.handleCameraToggle)
 	mux.HandleFunc("/api/camera/drive", s.handleCameraDrive)
 	mux.HandleFunc("/api/camera/list", s.handleCameraList)
+
+	// Audio Subsystem & SpeakerBot Studio Endpoints
+	mux.HandleFunc("/api/audio/library", s.handleAudioLibrary)
+	mux.HandleFunc("/api/audio/play", s.handleAudioPlay)
+	mux.HandleFunc("/api/audio/upload", s.handleAudioUpload)
+	mux.HandleFunc("/api/audio/stream_upload", s.handleAudioStreamUpload)
+	mux.HandleFunc("/api/audio/upload_pcm", s.handleAudioUploadPCM)
+	mux.HandleFunc("/api/audio/stop", s.handleAudioStop)
+	mux.HandleFunc("/api/audio/status", s.handleAudioStatus)
+	mux.HandleFunc("/api/audio/preview", s.handleAudioPreview)
+	mux.HandleFunc("/api/audio/delete", s.handleAudioDelete)
+	mux.HandleFunc("/api/audio/hardware_sound", s.handleAudioHardwareSound)
 
 	// Telemetry & Diagnostic Endpoints
 	mux.HandleFunc("/api/telemetry/pings", s.handleTelemetryPings)
@@ -1029,6 +1061,359 @@ func (s *Server) handleSpeakerBotProxy(endpoint string) http.HandlerFunc {
 			"error":      fmt.Sprintf("%v", err),
 		})
 	}
+}
+
+// ──────────────────────────────────────────
+// Audio Subsystem & SpeakerBot Handlers
+// ──────────────────────────────────────────
+
+func (s *Server) findSpeakerBotNode(id string) config.RobotNode {
+	if id != "" {
+		for _, b := range s.cfg.Bots {
+			if strings.EqualFold(b.ID, id) || strings.EqualFold(b.Hostname, id) {
+				return b
+			}
+		}
+	}
+	return s.findBotByPlatformOrID(config.PlatformSpeakerBot, "speakerbot1")
+}
+
+func (s *Server) handleAudioLibrary(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.audio == nil {
+		_ = json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+	sounds := s.audio.Library().ListSounds()
+	_ = json.NewEncoder(w).Encode(sounds)
+}
+
+func (s *Server) handleAudioPlay(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.audio == nil {
+		http.Error(w, `{"error":"audio subsystem not initialized"}`, http.StatusInternalServerError)
+		return
+	}
+
+	name := r.URL.Query().Get("name")
+	if name == "" && r.Method == "POST" {
+		var req struct {
+			Name      string  `json:"name"`
+			Target    string  `json:"target"`
+			Volume    float64 `json:"volume"`
+			Interrupt bool    `json:"interrupt"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			name = req.Name
+			if req.Target != "" {
+				r.URL.RawQuery += "&bot=" + req.Target
+			}
+		}
+	}
+
+	if name == "" {
+		http.Error(w, `{"error":"missing sound name parameter"}`, http.StatusBadRequest)
+		return
+	}
+
+	targetBotID := r.URL.Query().Get("bot")
+	if targetBotID == "" {
+		targetBotID = r.URL.Query().Get("target")
+	}
+	bot := s.findSpeakerBotNode(targetBotID)
+
+	volume := 0.8
+	if vStr := r.URL.Query().Get("volume"); vStr != "" {
+		if val, err := strconv.ParseFloat(vStr, 64); err == nil && val > 0 {
+			volume = val
+		}
+	}
+
+	interrupt := true
+	if intStr := r.URL.Query().Get("interrupt"); intStr != "" {
+		interrupt = (intStr == "1" || strings.EqualFold(intStr, "true"))
+	}
+
+	go func() {
+		_ = s.audio.PlaySound(context.Background(), name, bot, volume, interrupt)
+	}()
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "streaming",
+		"sound":      name,
+		"target_bot": bot.Hostname,
+	})
+}
+
+func (s *Server) handleAudioUpload(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.audio == nil {
+		http.Error(w, `{"error":"audio subsystem not initialized"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to parse multipart form: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, `{"error":"missing file field"}`, http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to read file: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	soundName := r.FormValue("name")
+	if soundName == "" {
+		soundName = strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
+	}
+
+	volume := 0.8
+	if vStr := r.FormValue("volume"); vStr != "" {
+		if val, err := strconv.ParseFloat(vStr, 64); err == nil && val > 0 {
+			volume = val
+		}
+	}
+
+	ext := filepath.Ext(header.Filename)
+	meta, err := s.audio.ConvertAndSave(soundName, fileBytes, ext, volume)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"conversion and save failed: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "saved",
+		"sound":  meta,
+	})
+}
+
+func (s *Server) handleAudioStreamUpload(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.audio == nil {
+		http.Error(w, `{"error":"audio subsystem not initialized"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to parse multipart form: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, `{"error":"missing file field"}`, http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to read file: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	soundName := r.FormValue("name")
+	if soundName == "" {
+		soundName = strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
+	}
+
+	targetBotID := r.FormValue("target")
+	bot := s.findSpeakerBotNode(targetBotID)
+
+	volume := 0.8
+	if vStr := r.FormValue("volume"); vStr != "" {
+		if val, err := strconv.ParseFloat(vStr, 64); err == nil && val > 0 {
+			volume = val
+		}
+	}
+
+	interrupt := true
+	if intStr := r.FormValue("interrupt"); intStr != "" {
+		interrupt = (intStr == "1" || strings.EqualFold(intStr, "true"))
+	}
+
+	saveToLib := (r.FormValue("save") == "1" || strings.EqualFold(r.FormValue("save"), "true"))
+	ext := filepath.Ext(header.Filename)
+
+	go func() {
+		_ = s.audio.ConvertAndStream(context.Background(), soundName, fileBytes, ext, bot, volume, interrupt, saveToLib)
+	}()
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "streaming",
+		"sound":      soundName,
+		"target_bot": bot.Hostname,
+	})
+}
+
+func (s *Server) handleAudioUploadPCM(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.audio == nil {
+		http.Error(w, `{"error":"audio subsystem not initialized"}`, http.StatusInternalServerError)
+		return
+	}
+
+	pcmBytes, err := io.ReadAll(r.Body)
+	if err != nil || len(pcmBytes) == 0 {
+		http.Error(w, `{"error":"empty or invalid PCM payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	soundName := r.URL.Query().Get("name")
+	if soundName == "" {
+		soundName = fmt.Sprintf("pcm_clip_%d", time.Now().Unix())
+	}
+
+	save := r.URL.Query().Get("save") == "1" || strings.EqualFold(r.URL.Query().Get("save"), "true")
+	stream := r.URL.Query().Get("stream") != "false"
+	interrupt := r.URL.Query().Get("interrupt") != "false"
+
+	var meta audio.SoundMetadata
+	if save {
+		meta, err = s.audio.Library().SaveSound(soundName, pcmBytes, "raw_pcm", false)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"failed to save PCM: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	targetBotID := r.URL.Query().Get("target")
+	bot := s.findSpeakerBotNode(targetBotID)
+
+	if stream {
+		go func() {
+			_ = s.audio.PlayRawPCM(context.Background(), soundName, bot, pcmBytes, interrupt)
+		}()
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "processed",
+		"sound":      soundName,
+		"stream":     stream,
+		"saved":      save,
+		"meta":       meta,
+		"target_bot": bot.Hostname,
+	})
+}
+
+func (s *Server) handleAudioStop(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	targetBotID := r.URL.Query().Get("target")
+	bot := s.findSpeakerBotNode(targetBotID)
+
+	if s.audio != nil {
+		_ = s.audio.Stop(bot)
+	} else {
+		_ = s.dispatchToBot(bot, "/stop")
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "stopped",
+		"target_bot": bot.Hostname,
+	})
+}
+
+func (s *Server) handleAudioStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.audio == nil {
+		_ = json.NewEncoder(w).Encode(audio.StreamStatus{Active: false})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(s.audio.GetStatus())
+}
+
+func (s *Server) handleAudioPreview(w http.ResponseWriter, r *http.Request) {
+	if s.audio == nil {
+		http.Error(w, "audio subsystem not initialized", http.StatusInternalServerError)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, "missing name parameter", http.StatusBadRequest)
+		return
+	}
+
+	wavBytes, err := s.audio.Library().GetPreviewWAV(name)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get audio preview: %v", err), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "audio/wav")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s.wav\"", name))
+	w.Header().Set("Content-Length", strconv.Itoa(len(wavBytes)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(wavBytes)
+}
+
+func (s *Server) handleAudioDelete(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.audio == nil {
+		http.Error(w, `{"error":"audio subsystem not initialized"}`, http.StatusInternalServerError)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" && r.Method == "POST" {
+		_ = r.ParseForm()
+		name = r.FormValue("name")
+	}
+	if name == "" {
+		http.Error(w, `{"error":"missing name parameter"}`, http.StatusBadRequest)
+		return
+	}
+
+	err := s.audio.Library().DeleteSound(name)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to delete sound: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "deleted",
+		"sound":  name,
+	})
+}
+
+func (s *Server) handleAudioHardwareSound(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		name = "choola"
+	}
+	repeat := "1"
+	if rep := r.URL.Query().Get("repeat"); rep != "" {
+		repeat = rep
+	}
+	interrupt := "1"
+	if intr := r.URL.Query().Get("interrupt"); intr != "" {
+		interrupt = intr
+	}
+
+	targetBotID := r.URL.Query().Get("target")
+	bot := s.findSpeakerBotNode(targetBotID)
+
+	endpoint := fmt.Sprintf("/sound?name=%s&repeat=%s&interrupt=%s", name, repeat, interrupt)
+	err := s.dispatchToBot(bot, endpoint)
+	dispatchStatus := "success"
+	if err != nil {
+		dispatchStatus = "dispatched_offline_sim"
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     dispatchStatus,
+		"sound":      name,
+		"endpoint":   endpoint,
+		"target_bot": bot.Hostname,
+		"error":      fmt.Sprintf("%v", err),
+	})
 }
 
 // ──────────────────────────────────────────
