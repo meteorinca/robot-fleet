@@ -187,3 +187,71 @@ func TestSetBotHomeKit(t *testing.T) {
 	}
 }
 
+func TestDeleteBot(t *testing.T) {
+	cfg := &Config{
+		Bots: []RobotNode{
+			{ID: "bot-1", Name: "Bot One"},
+			{ID: "bot-2", Name: "Bot Two"},
+		},
+	}
+
+	deleted := cfg.DeleteBot("bot-1")
+	if !deleted {
+		t.Fatalf("Expected DeleteBot to return true for bot-1")
+	}
+	if len(cfg.Bots) != 1 || cfg.Bots[0].ID != "bot-2" {
+		t.Fatalf("Expected only bot-2 to remain, got %+v", cfg.Bots)
+	}
+
+	// Delete non-existent
+	if cfg.DeleteBot("bot-999") {
+		t.Fatalf("Expected DeleteBot to return false for bot-999")
+	}
+}
+
+func TestUpsertMultipleRules(t *testing.T) {
+	cfg := &Config{
+		Rules: []AutomationRule{
+			{ID: "rule-1", Name: "Initial Rule", TriggerCode: 123456},
+		},
+	}
+
+	// Add second rule with same trigger code (e.g. sensor 123456 triggers another action)
+	cfg.UpsertRule(AutomationRule{
+		ID:          "rule-2",
+		Name:        "Second Rule",
+		TriggerCode: 123456,
+	})
+
+	if len(cfg.Rules) != 2 {
+		t.Fatalf("Expected 2 rules, got %d. Rules should not be clobbered by same TriggerCode!", len(cfg.Rules))
+	}
+
+	// Add third rule with empty ID (should auto-generate ID)
+	cfg.UpsertRule(AutomationRule{
+		Name:        "Third Auto ID Rule",
+		TriggerCode: 123456,
+	})
+
+	if len(cfg.Rules) != 3 {
+		t.Fatalf("Expected 3 rules, got %d", len(cfg.Rules))
+	}
+	if cfg.Rules[2].ID == "" {
+		t.Fatalf("Expected generated ID on third rule")
+	}
+
+	// Updating rule-1 by ID should update it without creating a new rule
+	cfg.UpsertRule(AutomationRule{
+		ID:          "rule-1",
+		Name:        "Updated Initial Rule",
+		TriggerCode: 999999,
+	})
+	if len(cfg.Rules) != 3 {
+		t.Fatalf("Expected still 3 rules after updating rule-1, got %d", len(cfg.Rules))
+	}
+	if cfg.Rules[0].Name != "Updated Initial Rule" {
+		t.Fatalf("Expected rule-1 to be updated")
+	}
+}
+
+

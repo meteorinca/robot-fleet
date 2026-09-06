@@ -46,9 +46,28 @@ func NewService(lat, lon float64) *Service {
 			Timeout: 6 * time.Second,
 		},
 	}
-	// Initial async fetch
-	go s.RefreshWeather()
+	// Initial async fetch and conservative 15-minute background refresh (96 requests/day)
+	go func() {
+		s.RefreshWeather()
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			s.RefreshWeather()
+		}
+	}()
 	return s
+}
+
+// GetTemperature returns the latest temperature reading in Celsius.
+func (s *Service) GetTemperature() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.temperature
+}
+
+// IsDay returns true if solar elevation is above horizon.
+func (s *Service) IsDay() bool {
+	return !s.IsSunDown()
 }
 
 // SetCoordinates updates geographic position for solar and weather tracking.

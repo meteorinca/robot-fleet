@@ -22,6 +22,8 @@ const (
 	PlatformCarBot     BotPlatform = "carbot"
 	PlatformCamBot     BotPlatform = "cambot"
 	PlatformMyBot      BotPlatform = "mybot"
+	PlatformWLED       BotPlatform = "wled"
+	PlatformKlipper    BotPlatform = "klipper"
 )
 
 // DeviceAction represents an executable action on a known robot device.
@@ -570,6 +572,48 @@ func (c *Config) SetBotHomeKit(botID string, enabled bool) bool {
 	return false
 }
 
+// DeleteBot removes a bot from the fleet registry by ID and purges from known_devices.json if present.
+func (c *Config) DeleteBot(id string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	found := false
+	for i, b := range c.Bots {
+		if b.ID == id {
+			c.Bots = append(c.Bots[:i], c.Bots[i+1:]...)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false
+	}
+
+	knownDevicesPath := filepath.Join(filepath.Dir(c.filePath), "known_devices.json")
+	if _, err := os.Stat(knownDevicesPath); os.IsNotExist(err) {
+		knownDevicesPath = "known_devices.json"
+	}
+	if data, err := os.ReadFile(knownDevicesPath); err == nil {
+		var knownBots []RobotNode
+		if err := json.Unmarshal(data, &knownBots); err == nil {
+			modified := false
+			for i, b := range knownBots {
+				if b.ID == id {
+					knownBots = append(knownBots[:i], knownBots[i+1:]...)
+					modified = true
+					break
+				}
+			}
+			if modified {
+				if out, err := json.MarshalIndent(knownBots, "", "  "); err == nil {
+					_ = os.WriteFile(knownDevicesPath, out, 0644)
+				}
+			}
+		}
+	}
+	return true
+}
+
 // UpsertSensor adds or updates a mapped RF sensor.
 func (c *Config) UpsertSensor(sensor RFSensor) {
 	c.mu.Lock()
@@ -656,11 +700,13 @@ func (c *Config) UpsertRule(rule AutomationRule) {
 	}
 
 	found := false
-	for i, r := range c.Rules {
-		if (rule.ID != "" && r.ID == rule.ID) || (rule.TriggerCode != 0 && r.TriggerCode == rule.TriggerCode) {
-			c.Rules[i] = rule
-			found = true
-			break
+	if rule.ID != "" {
+		for i, r := range c.Rules {
+			if r.ID == rule.ID {
+				c.Rules[i] = rule
+				found = true
+				break
+			}
 		}
 	}
 	if !found {

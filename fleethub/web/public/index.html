@@ -2110,7 +2110,15 @@
     <!-- SECTION: BOTS TAB -->
     <div id="tab-sec-bots" style="display: none;">
       <section class="dashboard-section">
-        <div class="section-title">Multi-Bot Fleet Registry</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+          <div class="section-title" style="margin-bottom:0;">Multi-Bot Fleet Registry</div>
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <button class="btn-sm" onclick="scanFleetNow()" id="btn-scan-fleet" style="background:rgba(6,182,212,0.2); border-color:var(--accent-cyan); color:#fff; display:flex; align-items:center; gap:0.4rem;">
+              <span>🔍 Scan Now</span>
+            </button>
+            <button class="btn-sm btn-secondary" onclick="showAddDeviceModal()">+ Manual Add</button>
+          </div>
+        </div>
         <div id="bot-list"></div>
       </section>
     </div>
@@ -2261,9 +2269,16 @@
             </div>
             <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
               <span class="mesh-channel-badge" id="flow-status-badge" style="color:var(--accent-green); border-color:rgba(16,185,129,0.3);">READY</span>
-              <button class="btn-sm btn-secondary" onclick="loadSampleRainFlow()" title="Load sample: If Rain AND Sun Down -> WLED Pink and Chime">
-                Load Rain &amp; Sunset Example
-              </button>
+              <div style="display:flex; align-items:center; gap:0.4rem; background:rgba(0,0,0,0.35); border:1px solid var(--panel-border); border-radius:6px; padding:3px 8px;">
+                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Template:</span>
+                <select id="flow-example-select" onchange="loadSelectedFlowExample(this.value)" style="background:transparent; color:#fff; border:none; outline:none; font-size:0.75rem; cursor:pointer; font-weight:500;">
+                  <option value="rain_sunset" style="background:#1e293b; color:#fff;">1. Sunset &amp; Rain Alert (WLED Pink + Chime)</option>
+                  <option value="sunrise_morning" style="background:#1e293b; color:#fff;">2. Sunrise Morning Arrival (WLED Warm Light + Blinds)</option>
+                  <option value="storm_warning" style="background:#1e293b; color:#fff;">3. Severe Storm Warning (WLED Amber-Red + Siren)</option>
+                  <option value="night_security" style="background:#1e293b; color:#fff;">4. Night Perimeter Security (Cam Flash + Cyan WLED)</option>
+                  <option value="freeze_alert" style="background:#1e293b; color:#fff;">5. Freeze &amp; Snow Precipitation (Ice Blue WLED)</option>
+                </select>
+              </div>
               <button class="btn-sm" onclick="testSimulateFlow()" id="flow-test-btn" title="Simulate execution flow through connecting wires">
                 Simulate / Test Flow
               </button>
@@ -3291,9 +3306,10 @@
                   <input type="checkbox" ${b.homekit_enabled?'checked':''} onchange="toggleHomeKit('${b.id}',this.checked)" style="width:auto;">
                   <span>HomeKit</span>
                 </label>
-                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
                   ${b.platform === 'cambot' ? `<button class="btn-sm" style="background:rgba(0,212,255,0.18);border-color:#00d4ff;color:#00d4ff;" onclick="switchNavTab('cameras'); expandCamModal('${b.id}')">📷 View Stream</button>` : ''}
                   ${(b.actions||[]).map((act,i)=>`<button class="btn-sm" onclick="triggerAction('${b.id}',${i})">${act.name}</button>`).join('')}
+                  <button class="btn-sm btn-red" style="padding:2px 7px;" onclick="deleteBot('${b.id}')" title="Delete device from fleet">Delete</button>
                 </div>
               </div>
             </div>`;
@@ -3584,6 +3600,36 @@
   window.deleteButton = async function(id) { if(confirm('Delete RF trigger?')) { await fetch('/api/buttons?id='+id,{method:'DELETE'}); fetchStatus(); } };
   window.deleteRule = async function(id) { if(confirm('Delete automation rule?')) { await fetch('/api/rules?id='+id,{method:'DELETE'}); fetchStatus(); } };
   window.deleteSensor = async function(code) { if(confirm('Delete sensor?')) { await fetch('/api/sensors?code='+code,{method:'DELETE'}); fetchStatus(); } };
+  window.deleteBot = async function(id) {
+    if (confirm('Remove device "' + id + '" from the Fleet Registry?')) {
+      await fetch('/api/devices/delete?id=' + encodeURIComponent(id), { method: 'POST' });
+      fetchStatus();
+    }
+  };
+  window.scanFleetNow = async function() {
+    const btn = document.getElementById('btn-scan-fleet');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Scanning LAN...</span>';
+    }
+    try {
+      const res = await fetch('/api/devices/scan', { method: 'POST' });
+      const data = await res.json();
+      if (btn) {
+        btn.innerHTML = `<span>✓ Found ${data.count || 0} Bots</span>`;
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<span>🔍 Scan Now</span>';
+        }, 2500);
+      }
+      fetchStatus();
+    } catch(e) {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🔍 Scan Now</span>';
+      }
+    }
+  };
   window.toggleHomeKit = async function(id, enabled) { await fetch('/api/devices/homekit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,enabled})}); };
   window.triggerAction = async function(id, idx) { await fetch('/api/devices/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action_index:idx})}); };
   window.testRFTrigger = async function() { await fetch('/api/v1/rf_event?code=123456'); fetchStatus(); };
@@ -3601,7 +3647,7 @@
     const target_rule_id = document.getElementById('btn-target-rule').value;
     const minutes_per_click = parseInt(document.getElementById('btn-mins').value)||15;
     if(!name||isNaN(code)) return;
-    await fetch('/api/buttons',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,trigger_code:code,action_type,target_rule_id,minutes_per_click})});
+    await fetch('/api/buttons',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id: 'btn-' + Date.now(), name,trigger_code:code,action_type,target_rule_id,minutes_per_click})});
     closeModal('add-button-modal'); fetchStatus();
   };
 
@@ -3612,7 +3658,15 @@
     const target = document.getElementById('rule-target').value;
     const path = document.getElementById('rule-path').value;
     if(!name||isNaN(code)||!target) return;
-    await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,enabled:true,trigger_code:code,cooldown_sec,snoozeable:true,actions:[{type:'http_get',target,path}]})});
+    await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      id: 'rule-' + Date.now(),
+      name,
+      enabled:true,
+      trigger_code:code,
+      cooldown_sec,
+      snoozeable:true,
+      actions:[{type:'http_get',target,path}]
+    })});
     closeModal('add-rule-modal'); fetchStatus();
   };
 
@@ -4877,9 +4931,35 @@
     document.addEventListener('mouseup', onMouseUp);
   };
 
+  let currentFlowTemplate = 'Sunset & Rain to WLED Pink';
+  let currentFlowCode = 123456;
+
+  window.loadSelectedFlowExample = function(key) {
+    switch (key) {
+      case 'sunrise_morning':
+        window.loadSampleMorningFlow();
+        break;
+      case 'storm_warning':
+        window.loadSampleStormFlow();
+        break;
+      case 'night_security':
+        window.loadSampleNightPerimeterFlow();
+        break;
+      case 'freeze_alert':
+        window.loadSampleColdAlertFlow();
+        break;
+      case 'rain_sunset':
+      default:
+        window.loadSampleRainFlow();
+        break;
+    }
+  };
+
   window.loadSampleRainFlow = function() {
     flowNodes = [];
     flowWires = [];
+    currentFlowTemplate = 'Sunset & Rain to WLED Pink';
+    currentFlowCode = 123456;
 
     var n1 = window.addFlowNode('rf_sensor', 40, 40, { code: 123456, label: 'Sensor Trigger (123456)' });
     var n2 = window.addFlowNode('weather', 40, 200, { operator: 'is_raining', desc: 'Rain Detected (Open-Meteo)' });
@@ -4895,6 +4975,88 @@
     window.connectFlowNodes(nAnd.id, nSpk.id);
 
     updateFlowStatus('RAIN & SUNSET FLOW LOADED', '#00e5a0');
+  };
+
+  window.loadSampleMorningFlow = function() {
+    flowNodes = [];
+    flowWires = [];
+    currentFlowTemplate = 'Sunrise Morning Arrival (WLED + Blinds)';
+    currentFlowCode = 122222;
+
+    var n1 = window.addFlowNode('rf_sensor', 40, 40, { code: 122222, label: 'Front Door Arrival (122222)' });
+    var n2 = window.addFlowNode('sun', 40, 200, { operator: 'is_up', desc: 'Sun Up (Sunrise Passed)' });
+    var n3 = window.addFlowNode('weather', 40, 360, { operator: 'is_clear', desc: 'Clear Skies (Open-Meteo)' });
+    var nAnd = window.addFlowNode('logic_and', 340, 195, { desc: 'Daytime & Clear Weather' });
+    var nWLED = window.addFlowNode('wled', 640, 105, { color: '#FFF2A3', label: 'Warm Light (#FFF2A3)', target: 'wled.local' });
+    var nBot = window.addFlowNode('bot_action', 640, 295, { path: '/s1on', target: 'simplebot1.local', label: 'Open Blinds (Servo 1 ON)' });
+
+    window.connectFlowNodes(n1.id, nAnd.id);
+    window.connectFlowNodes(n2.id, nAnd.id);
+    window.connectFlowNodes(n3.id, nAnd.id);
+    window.connectFlowNodes(nAnd.id, nWLED.id);
+    window.connectFlowNodes(nAnd.id, nBot.id);
+
+    updateFlowStatus('SUNRISE MORNING FLOW LOADED', '#38bdf8');
+  };
+
+  window.loadSampleStormFlow = function() {
+    flowNodes = [];
+    flowWires = [];
+    currentFlowTemplate = 'Severe Storm Warning (Flash Amber-Red)';
+    currentFlowCode = 888123;
+
+    var n1 = window.addFlowNode('rf_sensor', 40, 60, { code: 888123, label: 'Patio Weather Sensor (888123)' });
+    var n2 = window.addFlowNode('weather', 40, 260, { operator: 'is_storm', desc: 'Storm/Rain (Open-Meteo)' });
+    var nOr = window.addFlowNode('logic_or', 340, 160, { desc: 'Sensor OR Storm Active' });
+    var nWLED = window.addFlowNode('wled', 640, 90, { color: '#FF4500', label: 'Alert Red-Amber (#FF4500)', target: 'wled.local' });
+    var nSpk = window.addFlowNode('speakerbot', 640, 270, { path: '/choola', target: 'speakerbot1.local', label: 'Siren Chime' });
+
+    window.connectFlowNodes(n1.id, nOr.id);
+    window.connectFlowNodes(n2.id, nOr.id);
+    window.connectFlowNodes(nOr.id, nWLED.id);
+    window.connectFlowNodes(nOr.id, nSpk.id);
+
+    updateFlowStatus('SEVERE STORM FLOW LOADED', '#f59e0b');
+  };
+
+  window.loadSampleNightPerimeterFlow = function() {
+    flowNodes = [];
+    flowWires = [];
+    currentFlowTemplate = 'Night Perimeter Security (Cam Flash + Cyan)';
+    currentFlowCode = 123456;
+
+    var n1 = window.addFlowNode('rf_sensor', 40, 80, { code: 123456, label: 'Perimeter Motion (123456)' });
+    var n2 = window.addFlowNode('sun', 40, 280, { operator: 'is_down', desc: 'Night / Sun Down' });
+    var nAnd = window.addFlowNode('logic_and', 340, 180, { desc: 'Motion at Night Active' });
+    var nCam = window.addFlowNode('bot_action', 640, 90, { path: '/toggle', target: 'cambot1.local', label: 'CamBot Flashlight Toggle' });
+    var nWLED = window.addFlowNode('wled', 640, 270, { color: '#00D4FF', label: 'Cyan Strobe (#00D4FF)', target: 'wled.local' });
+
+    window.connectFlowNodes(n1.id, nAnd.id);
+    window.connectFlowNodes(n2.id, nAnd.id);
+    window.connectFlowNodes(nAnd.id, nCam.id);
+    window.connectFlowNodes(nAnd.id, nWLED.id);
+
+    updateFlowStatus('NIGHT PERIMETER FLOW LOADED', '#a855f7');
+  };
+
+  window.loadSampleColdAlertFlow = function() {
+    flowNodes = [];
+    flowWires = [];
+    currentFlowTemplate = 'Freeze & Snow Alert (Ice Blue WLED)';
+    currentFlowCode = 445566;
+
+    var n1 = window.addFlowNode('rf_sensor', 40, 80, { code: 445566, label: 'Outdoor RF Sensor (445566)' });
+    var n2 = window.addFlowNode('weather', 40, 280, { operator: 'is_snow', desc: 'Snow / Freezing Weather' });
+    var nAnd = window.addFlowNode('logic_and', 340, 180, { desc: 'Sensor & Freezing Precip' });
+    var nWLED = window.addFlowNode('wled', 640, 90, { color: '#00BFFF', label: 'Ice Blue Pulse (#00BFFF)', target: 'wled.local' });
+    var nSpk = window.addFlowNode('speakerbot', 640, 270, { path: '/choola', target: 'speakerbot1.local', label: 'Chime Alert' });
+
+    window.connectFlowNodes(n1.id, nAnd.id);
+    window.connectFlowNodes(n2.id, nAnd.id);
+    window.connectFlowNodes(nAnd.id, nWLED.id);
+    window.connectFlowNodes(nAnd.id, nSpk.id);
+
+    updateFlowStatus('FREEZE ALERT FLOW LOADED', '#06b6d4');
   };
 
   window.testSimulateFlow = async function() {
@@ -4913,8 +5075,8 @@
     } catch(e){}
 
     setTimeout(function() {
-      updateFlowStatus('FLOW EXECUTED (WLED Pink + /choola Tone)', '#00e5a0');
-      window.showTileInfo(null, 'Automation Flow Executed', 'Triggered Rain + Sunset rule logic.\nActuators dispatched: WLED Pink (#FF1493) and SpeakerBot /choola.');
+      updateFlowStatus('FLOW EXECUTED (' + currentFlowTemplate + ')', '#00e5a0');
+      window.showTileInfo(null, 'Automation Flow Executed', 'Triggered flow: ' + currentFlowTemplate + '.\nSignal propagated through logic nodes to actuators successfully.');
     }, 800);
   };
 
@@ -4959,10 +5121,10 @@
 
     var rulePayload = {
       id: 'fleetflow-' + Date.now(),
-      name: 'FleetFlow: Rain & Sunset to WLED Pink',
+      name: 'FleetFlow: ' + (currentFlowTemplate || 'Custom Flow'),
       enabled: true,
       trigger_type: 'rf_code',
-      trigger_code: (triggerNode && triggerNode.config.code) ? triggerNode.config.code : 123456,
+      trigger_code: (triggerNode && triggerNode.config.code) ? triggerNode.config.code : (currentFlowCode || 123456),
       logic_mode: (logicNode && logicNode.type === 'logic_or') ? 'OR' : 'AND',
       conditions: conditions,
       actions: actions,
@@ -4978,7 +5140,7 @@
       });
       if (res.ok) {
         updateFlowStatus('AUTOMATION SAVED SUCCESSFULLY', '#00e5a0');
-        window.showTileInfo(null, 'Automation Saved', 'Successfully saved FleetFlow rule to FleetHub engine and persisted to fleethub_config.json.');
+        window.showTileInfo(null, 'Automation Saved', 'Successfully saved "' + rulePayload.name + '" to FleetHub engine and persisted to fleethub_config.json.');
         fetchStatus();
       }
     } catch(e) {

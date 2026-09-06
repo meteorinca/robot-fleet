@@ -21,6 +21,7 @@ import (
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/environment"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/listener"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/mdns"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/pinger"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rfpoller"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/rules"
@@ -41,6 +42,7 @@ type Server struct {
 	pinger     *pinger.Pinger
 	env        *environment.Service
 	audio      *audio.Service
+	scanner    *mdns.Scanner
 	assets     fs.FS
 	clients    map[*websocket.Conn]bool
 	clientsMu  sync.Mutex
@@ -90,6 +92,11 @@ func (s *Server) SetAudio(a *audio.Service) {
 	s.audio = a
 }
 
+// SetScanner attaches the mDNS & LAN scanner instance.
+func (s *Server) SetScanner(sc *mdns.Scanner) {
+	s.scanner = sc
+}
+
 // BroadcastAudioStatus sends audio streaming updates to connected WebSocket clients.
 func (s *Server) BroadcastAudioStatus(status audio.StreamStatus) {
 	msg := map[string]interface{}{
@@ -124,6 +131,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/devices/homekit", s.handleToggleHomeKit)
 	mux.HandleFunc("/api/devices/control", s.handleDeviceControl)
 	mux.HandleFunc("/api/devices/add", s.handleAddDevice)
+	mux.HandleFunc("/api/devices/scan", s.handleScanDevices)
+	mux.HandleFunc("/api/devices/delete", s.handleDeleteDevice)
 	mux.HandleFunc("/api/v1/rf_event", listener.HTTPHandler(s.engine))
 	mux.HandleFunc("/api/environment/status", s.handleEnvironmentStatus)
 
@@ -695,6 +704,56 @@ func (s *Server) handleAddDevice(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "created",
 		"device": node,
+	})
+}
+
+func (s *Server) handleScanDevices(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.scanner != nil {
+		s.scanner.ScanOnce()
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"bots":   s.cfg.Bots,
+		"count":  len(s.cfg.Bots),
+	})
+}
+
+func (s *Server) handleDeleteDevice(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		var req struct {
+			ID string `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		id = req.ID
+	}
+
+	if id == "" {
+		http.Error(w, "Missing device id", http.StatusBadRequest)
+		return
+	}
+
+	deleted := s.cfg.DeleteBot(id)
+	_ = s.cfg.Save()
+	_ = s.cfg.SaveRuntimeState()
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "deleted",
+		"id":      id,
+		"success": deleted,
 	})
 }
 

@@ -564,12 +564,31 @@ func (e *Engine) evaluateConditions(rule config.AutomationRule) (bool, string) {
 		case "weather":
 			if e.env != nil {
 				isRaining := e.env.IsRaining()
-				state, _, _ := e.env.GetWeatherState()
-				switch strings.ToLower(c.Operator) {
+				state, temp, _ := e.env.GetWeatherState()
+				op := strings.ToLower(c.Operator)
+				switch op {
 				case "is_raining", "raining":
 					condPassed = isRaining
+				case "is_clear", "clear":
+					condPassed = strings.EqualFold(state, "clear")
+				case "is_storm", "storm", "thunderstorm":
+					condPassed = strings.EqualFold(state, "thunderstorm") || (isRaining && strings.EqualFold(state, "thunderstorm"))
+				case "is_cloudy", "cloudy":
+					condPassed = strings.EqualFold(state, "cloudy")
+				case "is_snow", "snow":
+					condPassed = strings.EqualFold(state, "snow")
 				case "equals", "is":
 					condPassed = strings.EqualFold(state, c.Value)
+				case "temp_below":
+					var targetTemp float64
+					if _, err := fmt.Sscanf(c.Value, "%f", &targetTemp); err == nil {
+						condPassed = temp < targetTemp
+					}
+				case "temp_above":
+					var targetTemp float64
+					if _, err := fmt.Sscanf(c.Value, "%f", &targetTemp); err == nil {
+						condPassed = temp > targetTemp
+					}
 				default:
 					condPassed = isRaining || strings.EqualFold(state, c.Value)
 				}

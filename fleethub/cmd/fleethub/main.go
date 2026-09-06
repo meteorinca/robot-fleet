@@ -147,8 +147,9 @@ func main() {
 
 	// 8. Start mDNS Fleet Scanner & Health Pinger
 	scanner := mdns.NewScanner(cfg)
+	webServer.SetScanner(scanner)
 	scanner.Start()
-	log.Printf("[FleetHub] Multi-Bot mDNS Scanner active (rfbot, speakerbot, dogbot_v1, simplebot)")
+	log.Printf("[FleetHub] Multi-Bot mDNS & LAN Scanner active (rfbot, speakerbot, wled, klipper, dogbot, simplebot)")
 
 	devicePinger := pinger.NewPinger(cfg)
 	if database != nil {
