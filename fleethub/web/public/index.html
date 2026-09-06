@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FleetHub Mothership — Command &amp; Automation Deck</title>
   <meta name="description" content="FleetHub Mothership: multi-bot fleet management, camera video streams, RF mesh gateway, 3D Command Deck, and home automation dashboard.">
-  <link rel="icon" type="image/gif" href="zergRefinery.gif">
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="icon" type="image/png" href="favico_mothership.png">
+  <link rel="shortcut icon" href="favico_mothership.png" type="image/png">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -652,6 +652,21 @@
     .mesh-node:hover {
       border-color: var(--accent-cyan); transform: translate(-50%, -50%) scale(1.03);
       box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+    }
+    .mesh-node.dragging {
+      transition: none !important;
+      cursor: grabbing !important;
+      z-index: 50 !important;
+      box-shadow: 0 0 30px rgba(0, 212, 255, 0.8) !important;
+      border-color: var(--accent-cyan) !important;
+    }
+    .mesh-topology-view.move-mode .mesh-node {
+      cursor: grab;
+      border-style: dashed;
+      box-shadow: 0 0 14px rgba(0, 212, 255, 0.35);
+    }
+    .mesh-topology-view.move-mode .mesh-node:hover {
+      box-shadow: 0 0 24px rgba(0, 212, 255, 0.65);
     }
     .mesh-node.active-tx {
       border-color: #00e5a0 !important;
@@ -1983,7 +1998,13 @@
               <span class="mesh-channel-badge">433.92 MHz &bull; OOK / ASK</span>
               <span class="mesh-channel-badge" id="mesh-active-badge" style="color:var(--accent-green); border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.1);">MESH ACTIVE</span>
             </div>
-            <div style="display:flex; align-items:center; gap:0.6rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+              <button class="btn-sm btn-secondary" onclick="toggleMeshMoveMode()" id="mesh-move-btn" title="Toggle interactive Move Nodes mode to freely reposition gateways and devices">
+                Move Nodes: OFF
+              </button>
+              <button class="btn-sm btn-secondary" onclick="resetMeshNodePositions()" id="mesh-reset-pos-btn" title="Reset all topology node positions to default responsive layout" style="display:none;">
+                Reset Layout
+              </button>
               <button class="btn-sm btn-secondary" onclick="toggleMeshListen()" id="mesh-listen-btn" title="Toggle active listening on receiver gateways">
                 Listen: Checking...
               </button>
@@ -2027,7 +2048,7 @@
 
             <!-- HTML Nodes placed over SVG -->
             <!-- RFBot 6 (TX Gateway) -->
-            <div class="mesh-node" id="node-rfbot6" style="left: 200px; top: 150px;" onclick="triggerMeshTransmission(123456, 24, 1, 185)">
+            <div class="mesh-node" id="node-rfbot6" data-node-key="rfbot6" style="left: 200px; top: 150px;" onclick="if(window._suppressMeshClick||window.meshMoveModeActive)return; triggerMeshTransmission(123456, 24, 1, 185)">
               <div class="mesh-node-header">
                 <span class="mesh-node-title">RFBot 6</span>
                 <span class="status-dot" style="width:7px;height:7px;border-radius:50%;background:#00e5a0;box-shadow:0 0 8px #00e5a0;"></span>
@@ -2037,7 +2058,7 @@
             </div>
 
             <!-- RFBot 1 (RX Gateway) -->
-            <div class="mesh-node" id="node-rfbot1" style="left: 700px; top: 150px;" onclick="toggleMeshListen()">
+            <div class="mesh-node" id="node-rfbot1" data-node-key="rfbot1" style="left: 700px; top: 150px;" onclick="if(window._suppressMeshClick||window.meshMoveModeActive)return; toggleMeshListen()">
               <div class="mesh-node-header">
                 <span class="mesh-node-title">RFBot 1</span>
                 <span class="status-dot" style="width:7px;height:7px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;"></span>
@@ -2047,7 +2068,7 @@
             </div>
 
             <!-- SpeakerBot 1 (Audio Output Relay) -->
-            <div class="mesh-node" id="node-speakerbot1" style="left: 750px; top: 50px;" onclick="triggerDirectSpeakerbotTest()">
+            <div class="mesh-node" id="node-speakerbot1" data-node-key="speakerbot1" style="left: 750px; top: 50px;" onclick="if(window._suppressMeshClick||window.meshMoveModeActive)return; triggerDirectSpeakerbotTest()">
               <div class="mesh-node-header">
                 <span class="mesh-node-title">SpeakerBot 1</span>
                 <span class="status-dot" style="width:7px;height:7px;border-radius:50%;background:#c084fc;box-shadow:0 0 8px #c084fc;"></span>
@@ -2057,7 +2078,7 @@
             </div>
 
             <!-- SimpleBot 1 (Kitchen Bot) -->
-            <div class="mesh-node" id="node-simplebot1" style="left: 150px; top: 280px;" onclick="triggerAction('simplebot1',0)">
+            <div class="mesh-node" id="node-simplebot1" data-node-key="simplebot1" style="left: 150px; top: 280px;" onclick="if(window._suppressMeshClick||window.meshMoveModeActive)return; triggerAction('simplebot1',0)">
               <div class="mesh-node-header">
                 <span class="mesh-node-title">SimpleBot 1</span>
                 <span class="status-dot" style="width:7px;height:7px;border-radius:50%;background:#00e5a0;"></span>
@@ -2067,7 +2088,7 @@
             </div>
 
             <!-- FleetHub Daemon (Mothership Coordinator) -->
-            <div class="mesh-node" id="node-fleethub" style="left: 450px; top: 310px; border-color:var(--accent-cyan); background:rgba(10,30,65,0.9); min-width:140px;">
+            <div class="mesh-node" id="node-fleethub" data-node-key="fleethub" style="left: 450px; top: 310px; border-color:var(--accent-cyan); background:rgba(10,30,65,0.9); min-width:140px;" onclick="if(window._suppressMeshClick||window.meshMoveModeActive)return;">
               <div class="mesh-node-header" style="justify-content:center; gap:0.5rem;">
                 <span class="mesh-node-title" style="color:var(--accent-cyan);">FleetHub Daemon</span>
                 <span class="status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent-cyan);box-shadow:0 0 8px var(--accent-cyan);"></span>
@@ -3773,9 +3794,59 @@
      RF MESH GATEWAY NETWORK & ANIMATIONS
   ────────────────────────────────────────── */
   var meshListenActive = false;
+  window.meshMoveModeActive = false;
+  window._suppressMeshClick = false;
+  window.meshNodePositions = null;
+
+  window.toggleMeshMoveMode = function() {
+    window.meshMoveModeActive = !window.meshMoveModeActive;
+    var btn = document.getElementById('mesh-move-btn');
+    var container = document.getElementById('mesh-topology-container');
+    if (btn) {
+      btn.textContent = window.meshMoveModeActive ? 'Move Nodes: ON' : 'Move Nodes: OFF';
+      btn.classList.toggle('btn-secondary', !window.meshMoveModeActive);
+      if (window.meshMoveModeActive) {
+        btn.style.background = 'rgba(0, 212, 255, 0.25)';
+        btn.style.borderColor = '#00d4ff';
+        btn.style.color = '#fff';
+      } else {
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }
+    }
+    if (container) {
+      container.classList.toggle('move-mode', window.meshMoveModeActive);
+    }
+    var resetBtn = document.getElementById('mesh-reset-pos-btn');
+    if (resetBtn) {
+      var hasCustom = false;
+      try { hasCustom = Boolean(localStorage.getItem('fleethub_mesh_positions')); } catch(e){}
+      resetBtn.style.display = (window.meshMoveModeActive || hasCustom) ? 'inline-block' : 'none';
+    }
+  };
+
+  window.resetMeshNodePositions = function() {
+    try {
+      localStorage.removeItem('fleethub_mesh_positions');
+    } catch(e){}
+    window.meshNodePositions = null;
+    updateMeshNodePositions(true);
+    var resetBtn = document.getElementById('mesh-reset-pos-btn');
+    if (resetBtn && !window.meshMoveModeActive) {
+      resetBtn.style.display = 'none';
+    }
+  };
 
   window.initRFMeshView = async function() {
     updateMeshNodePositions();
+    initMeshNodeDragging();
+    var resetBtn = document.getElementById('mesh-reset-pos-btn');
+    if (resetBtn) {
+      var hasCustom = false;
+      try { hasCustom = Boolean(localStorage.getItem('fleethub_mesh_positions')); } catch(e){}
+      resetBtn.style.display = (window.meshMoveModeActive || hasCustom) ? 'inline-block' : 'none';
+    }
     try {
       var res = await fetch('/api/rfbots/poll_status');
       var data = await res.json();
@@ -3789,7 +3860,7 @@
     } catch(e) {}
   };
 
-  function updateMeshNodePositions() {
+  function updateMeshNodePositions(forceDefault) {
     var container = document.getElementById('mesh-topology-container');
     if (!container) return;
     var w = container.clientWidth || 900;
@@ -3801,35 +3872,146 @@
     var nSpk = document.getElementById('node-speakerbot1');
     var nSmp = document.getElementById('node-simplebot1');
 
-    var txX = Math.round(w * 0.22), txY = Math.round(h * 0.42);
-    var rxX = Math.round(w * 0.76), rxY = Math.round(h * 0.42);
-    var hubX = Math.round(w * 0.50), hubY = Math.round(h * 0.82);
-    var spkX = Math.round(w * 0.80), spkY = Math.round(h * 0.16);
-    var smpX = Math.round(w * 0.16), smpY = Math.round(h * 0.76);
+    var defaultPositions = {
+      rfbot6: { x: Math.round(w * 0.22), y: Math.round(h * 0.42) },
+      rfbot1: { x: Math.round(w * 0.76), y: Math.round(h * 0.42) },
+      fleethub: { x: Math.round(w * 0.50), y: Math.round(h * 0.82) },
+      speakerbot1: { x: Math.round(w * 0.80), y: Math.round(h * 0.16) },
+      simplebot1: { x: Math.round(w * 0.16), y: Math.round(h * 0.76) }
+    };
 
-    if (nTX) { nTX.style.left = txX + 'px'; nTX.style.top = txY + 'px'; }
-    if (nRX) { nRX.style.left = rxX + 'px'; nRX.style.top = rxY + 'px'; }
-    if (nHub) { nHub.style.left = hubX + 'px'; nHub.style.top = hubY + 'px'; }
-    if (nSpk) { nSpk.style.left = spkX + 'px'; nSpk.style.top = spkY + 'px'; }
-    if (nSmp) { nSmp.style.left = smpX + 'px'; nSmp.style.top = smpY + 'px'; }
-
-    // Update SVG connection lines
-    var svg = document.getElementById('mesh-svg-lines');
-    if (svg) {
-      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-      var lines = svg.querySelectorAll('line');
-      if (lines.length >= 4) {
-        lines[0].setAttribute('x1', hubX); lines[0].setAttribute('y1', hubY); lines[0].setAttribute('x2', txX); lines[0].setAttribute('y2', txY);
-        lines[1].setAttribute('x1', hubX); lines[1].setAttribute('y1', hubY); lines[1].setAttribute('x2', rxX); lines[1].setAttribute('y2', rxY);
-        lines[2].setAttribute('x1', hubX); lines[2].setAttribute('y1', hubY); lines[2].setAttribute('x2', spkX); lines[2].setAttribute('y2', spkY);
-        lines[3].setAttribute('x1', hubX); lines[3].setAttribute('y1', hubY); lines[3].setAttribute('x2', smpX); lines[3].setAttribute('y2', smpY);
+    if (!window.meshNodePositions || forceDefault) {
+      var saved = null;
+      if (!forceDefault) {
+        try { saved = JSON.parse(localStorage.getItem('fleethub_mesh_positions')); } catch(e){}
       }
-      var rfPath = document.getElementById('rf-radio-channel');
-      if (rfPath) {
-        var midY = Math.round(Math.min(txY, rxY) - 50);
-        rfPath.setAttribute('d', `M ${txX} ${txY} Q ${w/2} ${midY} ${rxX} ${rxY}`);
+      if (saved && saved.rfbot6 && saved.rfbot1 && saved.fleethub && saved.speakerbot1 && saved.simplebot1) {
+        window.meshNodePositions = saved;
+      } else {
+        window.meshNodePositions = defaultPositions;
       }
     }
+
+    var p = window.meshNodePositions;
+    if (nTX && p.rfbot6) { nTX.style.left = p.rfbot6.x + 'px'; nTX.style.top = p.rfbot6.y + 'px'; }
+    if (nRX && p.rfbot1) { nRX.style.left = p.rfbot1.x + 'px'; nRX.style.top = p.rfbot1.y + 'px'; }
+    if (nHub && p.fleethub) { nHub.style.left = p.fleethub.x + 'px'; nHub.style.top = p.fleethub.y + 'px'; }
+    if (nSpk && p.speakerbot1) { nSpk.style.left = p.speakerbot1.x + 'px'; nSpk.style.top = p.speakerbot1.y + 'px'; }
+    if (nSmp && p.simplebot1) { nSmp.style.left = p.simplebot1.x + 'px'; nSmp.style.top = p.simplebot1.y + 'px'; }
+
+    renderMeshLines();
+  }
+
+  function renderMeshLines() {
+    var container = document.getElementById('mesh-topology-container');
+    if (!container) return;
+    var w = container.clientWidth || 900;
+    var h = container.clientHeight || 380;
+    var svg = document.getElementById('mesh-svg-lines');
+    if (!svg) return;
+
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    var p = window.meshNodePositions;
+    if (!p || !p.fleethub || !p.rfbot6 || !p.rfbot1 || !p.speakerbot1 || !p.simplebot1) return;
+
+    var lines = svg.querySelectorAll('line');
+    if (lines.length >= 4) {
+      lines[0].setAttribute('x1', p.fleethub.x); lines[0].setAttribute('y1', p.fleethub.y); lines[0].setAttribute('x2', p.rfbot6.x); lines[0].setAttribute('y2', p.rfbot6.y);
+      lines[1].setAttribute('x1', p.fleethub.x); lines[1].setAttribute('y1', p.fleethub.y); lines[1].setAttribute('x2', p.rfbot1.x); lines[1].setAttribute('y2', p.rfbot1.y);
+      lines[2].setAttribute('x1', p.fleethub.x); lines[2].setAttribute('y1', p.fleethub.y); lines[2].setAttribute('x2', p.speakerbot1.x); lines[2].setAttribute('y2', p.speakerbot1.y);
+      lines[3].setAttribute('x1', p.fleethub.x); lines[3].setAttribute('y1', p.fleethub.y); lines[3].setAttribute('x2', p.simplebot1.x); lines[3].setAttribute('y2', p.simplebot1.y);
+    }
+    var rfPath = document.getElementById('rf-radio-channel');
+    if (rfPath) {
+      var midY = Math.round(Math.min(p.rfbot6.y, p.rfbot1.y) - 50);
+      var midX = Math.round((p.rfbot6.x + p.rfbot1.x) / 2);
+      rfPath.setAttribute('d', `M ${p.rfbot6.x} ${p.rfbot6.y} Q ${midX} ${midY} ${p.rfbot1.x} ${p.rfbot1.y}`);
+    }
+  }
+
+  function initMeshNodeDragging() {
+    var container = document.getElementById('mesh-topology-container');
+    if (!container || container._dragInited) return;
+    container._dragInited = true;
+
+    var nodes = container.querySelectorAll('.mesh-node');
+    nodes.forEach(function(nodeEl) {
+      var key = nodeEl.getAttribute('data-node-key');
+      if (!key) return;
+
+      var startX = 0, startY = 0;
+      var origX = 0, origY = 0;
+      var hasMoved = false;
+
+      function onPointerDown(e) {
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        var clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+        var clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+        if (clientX === undefined) return;
+
+        startX = clientX;
+        startY = clientY;
+        if (!window.meshNodePositions || !window.meshNodePositions[key]) return;
+        origX = window.meshNodePositions[key].x;
+        origY = window.meshNodePositions[key].y;
+        hasMoved = false;
+
+        nodeEl.classList.add('dragging');
+
+        function onPointerMove(moveEvt) {
+          var curX = (moveEvt.touches && moveEvt.touches.length > 0) ? moveEvt.touches[0].clientX : moveEvt.clientX;
+          var curY = (moveEvt.touches && moveEvt.touches.length > 0) ? moveEvt.touches[0].clientY : moveEvt.clientY;
+          if (curX === undefined) return;
+
+          var dx = curX - startX;
+          var dy = curY - startY;
+          if (!hasMoved && Math.hypot(dx, dy) > 4) {
+            hasMoved = true;
+          }
+
+          if (hasMoved) {
+            if (moveEvt.cancelable && moveEvt.preventDefault) moveEvt.preventDefault();
+            var cRect = container.getBoundingClientRect();
+            var newX = Math.max(60, Math.min(cRect.width - 60, origX + dx));
+            var newY = Math.max(30, Math.min(cRect.height - 30, origY + dy));
+
+            window.meshNodePositions[key].x = Math.round(newX);
+            window.meshNodePositions[key].y = Math.round(newY);
+
+            nodeEl.style.left = window.meshNodePositions[key].x + 'px';
+            nodeEl.style.top = window.meshNodePositions[key].y + 'px';
+
+            renderMeshLines();
+          }
+        }
+
+        function onPointerUp() {
+          nodeEl.classList.remove('dragging');
+          window.removeEventListener('mousemove', onPointerMove);
+          window.removeEventListener('mouseup', onPointerUp);
+          window.removeEventListener('touchmove', onPointerMove);
+          window.removeEventListener('touchend', onPointerUp);
+
+          if (hasMoved) {
+            window._suppressMeshClick = true;
+            setTimeout(function() { window._suppressMeshClick = false; }, 200);
+            try {
+              localStorage.setItem('fleethub_mesh_positions', JSON.stringify(window.meshNodePositions));
+            } catch(e) {}
+            var resetBtn = document.getElementById('mesh-reset-pos-btn');
+            if (resetBtn) resetBtn.style.display = 'inline-block';
+          }
+        }
+
+        window.addEventListener('mousemove', onPointerMove, { passive: false });
+        window.addEventListener('mouseup', onPointerUp);
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp);
+      }
+
+      nodeEl.addEventListener('mousedown', onPointerDown);
+      nodeEl.addEventListener('touchstart', onPointerDown, { passive: true });
+    });
   }
 
   window.addEventListener('resize', function() {
@@ -5498,6 +5680,16 @@
   var activeAudioPreview = null;
   var cachedAudioLibrary = [];
   var selectedAudioFile = null;
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   window.updateAudioVolumeLabel = function(val) {
     var pct = Math.round(val * 100);
