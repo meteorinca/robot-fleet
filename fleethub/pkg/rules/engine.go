@@ -95,11 +95,8 @@ func (e *Engine) SetDatabase(d *db.DB) {
 	e.database = d
 }
 
-// SnoozeRule snoozes a rule (or "all") for a specified duration in minutes.
-func (e *Engine) SnoozeRule(ruleID string, durationMinutes int) time.Time {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
+// snoozeRuleLocked sets a snooze. Caller must hold e.mu.
+func (e *Engine) snoozeRuleLocked(ruleID string, durationMinutes int) time.Time {
 	until := time.Now().Add(time.Duration(durationMinutes) * time.Minute)
 
 	if ruleID == "all" || ruleID == "" {
@@ -111,6 +108,13 @@ func (e *Engine) SnoozeRule(ruleID string, durationMinutes int) time.Time {
 	}
 
 	return until
+}
+
+// SnoozeRule snoozes a rule (or "all") for a specified duration in minutes.
+func (e *Engine) SnoozeRule(ruleID string, durationMinutes int) time.Time {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.snoozeRuleLocked(ruleID, durationMinutes)
 }
 
 // CancelSnooze removes snooze for a rule (or "all").
@@ -192,7 +196,6 @@ func (e *Engine) finalizeButtonClick(buttonID string) {
 	delete(e.buttonTrackers, buttonID)
 	btn := tracker.button
 	clicks := tracker.count
-	e.mu.Unlock()
 
 	minsPerClick := btn.MinutesPerClick
 	if minsPerClick <= 0 {
@@ -205,18 +208,19 @@ func (e *Engine) finalizeButtonClick(buttonID string) {
 	switch btn.ActionType {
 	case "snooze_rule", "snooze":
 		ruleID := btn.TargetRuleID
-		until := e.SnoozeRule(ruleID, totalMins)
+		until := e.snoozeRuleLocked(ruleID, totalMins)
 		executedLogs = append(executedLogs, fmt.Sprintf("🔘 Button '%s' clicked %dx -> Snoozed rule '%s' for %dm (until %s)",
 			btn.Name, clicks, ruleID, totalMins, until.Format("15:04:05")))
 
 	case "snooze_all":
-		until := e.SnoozeRule("all", totalMins)
+		until := e.snoozeRuleLocked("all", totalMins)
 		executedLogs = append(executedLogs, fmt.Sprintf("🔘 Button '%s' clicked %dx -> Snoozed ALL rules for %dm (until %s)",
 			btn.Name, clicks, totalMins, until.Format("15:04:05")))
 
 	default:
 		executedLogs = append(executedLogs, fmt.Sprintf("🔘 Button '%s' clicked %dx -> Executing default trigger", btn.Name, clicks))
 	}
+	e.mu.Unlock()
 
 	// Dispatch audio/visual feedback if target set
 	if btn.FeedbackTarget != "" {
@@ -471,7 +475,6 @@ func (e *Engine) executeAction(action config.RuleAction) {
 		var err error
 		if bodyReader != nil {
 			req, err = http.NewRequest(method, fullURL, bodyReader)
-			req.Header.Set("Content-Type", "application/json")
 		} else {
 			req, err = http.NewRequest(method, fullURL, nil)
 		}
@@ -479,6 +482,9 @@ func (e *Engine) executeAction(action config.RuleAction) {
 		if err != nil {
 			lastErr = err
 			continue
+		}
+		if bodyReader != nil {
+			req.Header.Set("Content-Type", "application/json")
 		}
 		req.Header.Set("User-Agent", "FleetHub-Mothership/1.0")
 

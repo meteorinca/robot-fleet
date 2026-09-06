@@ -149,3 +149,41 @@ func TestConfigRuntimeStateSeparation(t *testing.T) {
 		}
 	}
 }
+
+func TestSetBotHomeKit(t *testing.T) {
+	cfg := &Config{
+		Bots: []RobotNode{
+			{
+				ID:             "bot-hk-test",
+				Name:           "Living Room Bot",
+				Hostname:       "living-room.local",
+				Platform:       PlatformSimpleBot,
+				HomeKitEnabled: true,
+			},
+		},
+	}
+
+	// Disable HomeKit
+	ok := cfg.SetBotHomeKit("bot-hk-test", false)
+	if !ok {
+		t.Fatalf("Expected SetBotHomeKit to return true for existing bot")
+	}
+	if cfg.Bots[0].HomeKitEnabled {
+		t.Fatalf("Expected HomeKitEnabled to be false after disabling")
+	}
+	if cfg.Bots[0].Name != "Living Room Bot" || cfg.Bots[0].Hostname != "living-room.local" {
+		t.Fatalf("Expected bot metadata to remain intact, got: %+v", cfg.Bots[0])
+	}
+
+	// Re-enable HomeKit
+	ok = cfg.SetBotHomeKit("bot-hk-test", true)
+	if !ok || !cfg.Bots[0].HomeKitEnabled {
+		t.Fatalf("Expected HomeKitEnabled to be re-enabled")
+	}
+
+	// Non-existent bot
+	if cfg.SetBotHomeKit("non-existent", true) {
+		t.Fatalf("Expected SetBotHomeKit to return false for non-existent bot")
+	}
+}
+

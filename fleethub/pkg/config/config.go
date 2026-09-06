@@ -556,6 +556,20 @@ func (c *Config) UpsertBot(node RobotNode) {
 	}
 }
 
+// SetBotHomeKit sets the HomeKitEnabled status for a specific bot by ID.
+func (c *Config) SetBotHomeKit(botID string, enabled bool) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i := range c.Bots {
+		if c.Bots[i].ID == botID {
+			c.Bots[i].HomeKitEnabled = enabled
+			return true
+		}
+	}
+	return false
+}
+
 // UpsertSensor adds or updates a mapped RF sensor.
 func (c *Config) UpsertSensor(sensor RFSensor) {
 	c.mu.Lock()

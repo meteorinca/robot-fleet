@@ -481,6 +481,9 @@ func (s *Server) handleSnooze(w http.ResponseWriter, r *http.Request) {
 	}
 
 	activeSnoozes := s.engine.GetActiveSnoozes()
+	if activeSnoozes == nil {
+		activeSnoozes = []rules.SnoozeInfo{}
+	}
 	_ = json.NewEncoder(w).Encode(activeSnoozes)
 }
 
@@ -525,10 +528,7 @@ func (s *Server) handleToggleHomeKit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.cfg.UpsertBot(config.RobotNode{
-		ID:             req.ID,
-		HomeKitEnabled: req.Enabled,
-	})
+	s.cfg.SetBotHomeKit(req.ID, req.Enabled)
 	_ = s.cfg.Save()
 	_ = s.cfg.SaveRuntimeState()
 
@@ -888,13 +888,20 @@ func (s *Server) handleDirectOutlet(w http.ResponseWriter, r *http.Request) {
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":     dispatchStatus,
-		"outlet":     strings.Title(nameLower),
+		"outlet":     titleCase(nameLower),
 		"state":      strings.ToUpper(stateLower),
 		"code":       code,
 		"code_hex":   fmt.Sprintf("0x%X", code),
 		"target_bot": bot.Hostname,
 		"error":      fmt.Sprintf("%v", err),
 	})
+}
+
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func (s *Server) handleMothershipRFSend(w http.ResponseWriter, r *http.Request) {

@@ -3560,6 +3560,26 @@
     } catch(e){}
   };
 
+  window.extendSnooze = async function(ruleId, minutes) {
+    await fetch('/api/snooze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rule_id: ruleId, duration_min: minutes, action: 'set'})
+    });
+    fetchSnoozes();
+    fetchStatus();
+  };
+
+  window.cancelSnooze = async function(ruleId) {
+    await fetch('/api/snooze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rule_id: ruleId, action: 'cancel'})
+    });
+    fetchSnoozes();
+    fetchStatus();
+  };
+
   window.pressButton = async function(id) { await fetch('/api/buttons/press',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); fetchStatus(); };
   window.deleteButton = async function(id) { if(confirm('Delete RF trigger?')) { await fetch('/api/buttons?id='+id,{method:'DELETE'}); fetchStatus(); } };
   window.deleteRule = async function(id) { if(confirm('Delete automation rule?')) { await fetch('/api/rules?id='+id,{method:'DELETE'}); fetchStatus(); } };
