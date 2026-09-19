@@ -111,16 +111,17 @@ type InputButton struct {
 
 // Config holds all FleetHub settings and fleet state.
 type Config struct {
-	HTTPPort   int              `json:"http_port"`
-	UDPPort    int              `json:"udp_port"`
-	HomeKitPIN string           `json:"homekit_pin"`
-	Mode       string           `json:"mode"` // "home_automation" or "stem_classroom"
-	Bots       []RobotNode      `json:"bots"`
-	Sensors    []RFSensor       `json:"sensors"`
-	Rules      []AutomationRule `json:"rules"`
-	Buttons    []InputButton    `json:"buttons"`
-	filePath   string
-	mu         sync.RWMutex
+	HTTPPort    int              `json:"http_port"`
+	UDPPort     int              `json:"udp_port"`
+	HomeKitPIN  string           `json:"homekit_pin"`
+	Mode        string           `json:"mode"` // "home_automation" or "stem_classroom"
+	PreferMDNS  bool             `json:"prefer_mdns"` // When true, mDNS hostname is tried before IP (default true)
+	Bots        []RobotNode      `json:"bots"`
+	Sensors     []RFSensor       `json:"sensors"`
+	Rules       []AutomationRule `json:"rules"`
+	Buttons     []InputButton    `json:"buttons"`
+	filePath    string
+	mu          sync.RWMutex
 }
 
 // DefaultConfig returns reasonable defaults.
@@ -130,6 +131,7 @@ func DefaultConfig(path string) *Config {
 		UDPPort:    4330,
 		HomeKitPIN: "11122333",
 		Mode:       "home_automation",
+		PreferMDNS: true,
 		Bots: []RobotNode{
 			{
 				ID:              "rfbot1",
@@ -302,11 +304,94 @@ func (c *Config) CleanBots() []RobotNode {
 		clean[i] = b
 		clean[i].LatencyMs = 0
 		clean[i].LastSeen = time.Time{}
-		if clean[i].Status == "" {
-			clean[i].Status = "online"
-		}
+		clean[i].Status = "" // runtime-only; not persisted to static config
 	}
 	return clean
+}
+
+// ResolveAddress returns the best address to use for a bot based on the PreferMDNS setting.
+// When PreferMDNS is true (default), returns hostname:port first if hostname is set.
+// Falls back to IP:port when hostname is unavailable or PreferMDNS is false.
+func (c *Config) ResolveAddress(bot RobotNode) string {
+	port := bot.Port
+	if port == 0 || port == 4330 {
+		port = 80
+	}
+	if c.PreferMDNS && bot.Hostname != "" {
+		return fmt.Sprintf("%s:%d", bot.Hostname, port)
+	}
+	if IsValidIP(bot.IP) {
+		return fmt.Sprintf("%s:%d", bot.IP, port)
+	}
+	if bot.Hostname != "" {
+		return fmt.Sprintf("%s:%d", bot.Hostname, port)
+	}
+	return fmt.Sprintf("%s:%d", bot.FallbackIP, port)
+}
+
+// BuildTargetCandidates returns an ordered list of host:port strings for connection attempts.
+// When PreferMDNS is true: hostname first, then IP, then fallback IP.
+// When PreferMDNS is false: IP first, then fallback IP, then hostname.
+// This centralises all target-ordering logic used across pinger, poller, rules, webui, and audio.
+func (c *Config) BuildTargetCandidates(bot RobotNode) []string {
+	port := bot.Port
+	if port == 0 || port == 4330 {
+		port = 80
+	}
+
+	var candidates []string
+
+	if c.PreferMDNS {
+		// mDNS hostname first — heals stale IPs automatically
+		if bot.Hostname != "" {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", bot.Hostname, port))
+		}
+		if IsValidIP(bot.IP) {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", bot.IP, port))
+		}
+		if IsValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", bot.FallbackIP, port))
+		}
+	} else {
+		// IP-first — reliable on Raspberry Pi where mDNS may not resolve
+		if IsValidIP(bot.IP) {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", bot.IP, port))
+		}
+		if IsValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", bot.FallbackIP, port))
+		}
+		if bot.Hostname != "" {
+			candidates = append(candidates, fmt.Sprintf("%s:%d", bot.Hostname, port))
+		}
+	}
+
+	return candidates
+}
+
+// SaveKnownDevices writes a clean, human-editable device registry to known_devices.json.
+// Runtime-only fields (last_seen, status, latency_ms) are stripped so the file stays
+// as a pure static configuration source. The generated runtime state is kept in
+// fleethub_state.generated.json instead.
+func (c *Config) SaveKnownDevices() error {
+	c.mu.RLock()
+	cleanBots := c.CleanBots()
+	c.mu.RUnlock()
+
+	// Only persist bots that were intentionally configured (have a hostname or valid IP)
+	var toSave []RobotNode
+	for _, b := range cleanBots {
+		if b.Hostname != "" || IsValidIP(b.IP) || IsValidIP(b.FallbackIP) {
+			toSave = append(toSave, b)
+		}
+	}
+
+	data, err := json.MarshalIndent(toSave, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	knownDevicesPath := filepath.Join(filepath.Dir(c.filePath), "known_devices.json")
+	return os.WriteFile(knownDevicesPath, data, 0644)
 }
 
 // CleanSensors returns sensors with transient trigger timestamps stripped for static config storage.

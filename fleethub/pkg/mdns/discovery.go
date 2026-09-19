@@ -197,10 +197,12 @@ func (s *Scanner) probeLANCandidates() {
 	}
 
 	for _, c := range candidates {
-		ip := ""
-		ips, err := net.LookupIP(c.host)
-		if err == nil && len(ips) > 0 {
-			ip = ips[0].String()
+		ip, _ := ResolveHostname(c.host, 400*time.Millisecond)
+		if ip == "" {
+			ips, err := net.LookupIP(c.host)
+			if err == nil && len(ips) > 0 {
+				ip = ips[0].String()
+			}
 		}
 
 		// Try quick HTTP probe if DNS didn't resolve

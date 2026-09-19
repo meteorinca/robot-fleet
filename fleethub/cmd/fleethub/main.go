@@ -38,6 +38,9 @@ func main() {
 
 	log.Printf("[FleetHub] Starting Mothership Daemon v1.0.0 (%s/%s)...", runtime.GOOS, runtime.GOARCH)
 
+	// Install mDNS HTTP resolver for transparent .local domain resolution across all HTTP clients
+	mdns.InstallHTTPResolver()
+
 	// 1. Load Configuration
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
@@ -125,7 +128,7 @@ func main() {
 
 	// 7. Initialize Audio Subsystem & SpeakerBot Sound Studio
 	soundsDir := filepath.Join(filepath.Dir(*configPath), "sounds")
-	audioSvc, err := audio.NewService(soundsDir, func(st audio.StreamStatus) {
+	audioSvc, err := audio.NewService(cfg, soundsDir, func(st audio.StreamStatus) {
 		if webServer != nil {
 			webServer.BroadcastAudioStatus(st)
 		}

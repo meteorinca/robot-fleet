@@ -10,13 +10,15 @@ import (
 
 // Service provides a unified audio management and chunk streaming interface for FleetHub.
 type Service struct {
+	cfg       *config.Config
 	converter *Converter
 	library   *Library
 	streamer  *Streamer
 }
 
 // NewService initializes Converter, Library, and Streamer.
-func NewService(storageDir string, onProgress func(status StreamStatus)) (*Service, error) {
+// cfg is used to resolve mDNS-first target ordering when streaming to bots.
+func NewService(cfg *config.Config, storageDir string, onProgress func(status StreamStatus)) (*Service, error) {
 	conv := NewConverter()
 	lib, err := NewLibrary(storageDir, conv)
 	if err != nil {
@@ -26,6 +28,7 @@ func NewService(storageDir string, onProgress func(status StreamStatus)) (*Servi
 	streamer := NewStreamer(onProgress)
 
 	svc := &Service{
+		cfg:       cfg,
 		converter: conv,
 		library:   lib,
 		streamer:  streamer,
@@ -64,12 +67,21 @@ func (s *Service) PlaySound(ctx context.Context, name string, targetBot config.R
 		pcmData = scalePCMVolume(pcmData, volume)
 	}
 
-	return s.streamer.StreamPCM(ctx, meta.Name, targetBot, pcmData, interrupt)
+	// Use cfg to build mDNS-first (or IP-first) candidate list, keeping the streamer decoupled from config
+	var candidates []string
+	if s.cfg != nil {
+		candidates = s.cfg.BuildTargetCandidates(targetBot)
+	}
+	return s.streamer.StreamPCMToTargets(ctx, meta.Name, targetBot, candidates, pcmData, interrupt)
 }
 
 // PlayRawPCM streams arbitrary 16kHz 16-bit mono PCM bytes to SpeakerBot.
 func (s *Service) PlayRawPCM(ctx context.Context, soundName string, targetBot config.RobotNode, pcmData []byte, interrupt bool) error {
-	return s.streamer.StreamPCM(ctx, soundName, targetBot, pcmData, interrupt)
+	var candidates []string
+	if s.cfg != nil {
+		candidates = s.cfg.BuildTargetCandidates(targetBot)
+	}
+	return s.streamer.StreamPCMToTargets(ctx, soundName, targetBot, candidates, pcmData, interrupt)
 }
 
 // ConvertAndSave converts an uploaded audio file into 16kHz PCM and stores it in the library.
@@ -92,12 +104,20 @@ func (s *Service) ConvertAndStream(ctx context.Context, name string, fileBytes [
 		_, _ = s.library.SaveSound(name, pcm, fileExt, false)
 	}
 
-	return s.streamer.StreamPCM(ctx, name, targetBot, pcm, interrupt)
+	var candidates []string
+	if s.cfg != nil {
+		candidates = s.cfg.BuildTargetCandidates(targetBot)
+	}
+	return s.streamer.StreamPCMToTargets(ctx, name, targetBot, candidates, pcm, interrupt)
 }
 
 // Stop halts ongoing streaming on FleetHub and dispatches /stop to SpeakerBot.
 func (s *Service) Stop(targetBot config.RobotNode) error {
-	return s.streamer.Stop(targetBot)
+	var candidates []string
+	if s.cfg != nil {
+		candidates = s.cfg.BuildTargetCandidates(targetBot)
+	}
+	return s.streamer.StopWithTargets(targetBot, candidates)
 }
 
 // GetStatus returns the current streaming status.

@@ -611,27 +611,11 @@ func (s *Server) handleDeviceControl(w http.ResponseWriter, r *http.Request) {
 		port = 80
 	}
 
-	// Build target list. On Linux (Raspberry Pi), Go's pure-Go DNS resolver
-	// cannot resolve .local mDNS hostnames. So we prioritise the known IP and
-	// fallback_ip FIRST, then attempt the mDNS hostname as a last resort.
-	targets := []string{}
-
-	// 1. Known resolved IP (fastest, always works on Pi)
-	if isValidIP(bot.IP) {
-		targets = append(targets, fmt.Sprintf("%s:%d", bot.IP, port))
-	}
-	// 2. Fallback static IP
-	if bot.FallbackIP != "" && bot.FallbackIP != bot.IP {
-		if isValidIP(bot.FallbackIP) {
-			targets = append(targets, fmt.Sprintf("%s:%d", bot.FallbackIP, port))
-		}
-	}
-	// 3. mDNS hostname — works on Windows/macOS, may fail on Pi without avahi
-	if bot.Hostname != "" {
-		targets = append(targets, fmt.Sprintf("%s:%d", bot.Hostname, port))
-	} else if bot.IP == "" && bot.FallbackIP == "" {
-		// Last resort: use raw bot name as host
-		targets = append(targets, fmt.Sprintf("%s:%d", bot.ID+".local", port))
+	// Use centralised mDNS-first (or IP-first) target ordering from config
+	targets := s.cfg.BuildTargetCandidates(*bot)
+	if len(targets) == 0 {
+		// Absolute fallback: derive from bot ID
+		targets = append(targets, fmt.Sprintf("%s.local:%d", bot.ID, port))
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -699,7 +683,7 @@ func (s *Server) handleAddDevice(w http.ResponseWriter, r *http.Request) {
 	s.cfg.UpsertBot(node)
 	_ = s.cfg.Save()
 	_ = s.cfg.SaveRuntimeState()
-
+	_ = s.cfg.SaveKnownDevices()
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "created",
@@ -749,6 +733,7 @@ func (s *Server) handleDeleteDevice(w http.ResponseWriter, r *http.Request) {
 	deleted := s.cfg.DeleteBot(id)
 	_ = s.cfg.Save()
 	_ = s.cfg.SaveRuntimeState()
+	_ = s.cfg.SaveKnownDevices()
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "deleted",
@@ -843,33 +828,19 @@ func (s *Server) findTXGatewayBot() config.RobotNode {
 }
 
 func (s *Server) dispatchToBot(bot config.RobotNode, endpoint string) error {
-	port := bot.Port
-	if port == 0 || port == 4330 {
-		port = 80
-	}
-
-	// Build ordered list of targets: IP-direct first (reliable on Pi),
-	// then mDNS hostname as fallback (works on Windows/macOS).
-	type candidate struct{ host string }
-	var candidates []candidate
-
-	if isValidIP(bot.IP) {
-		candidates = append(candidates, candidate{fmt.Sprintf("%s:%d", bot.IP, port)})
-	}
-	if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
-		candidates = append(candidates, candidate{fmt.Sprintf("%s:%d", bot.FallbackIP, port)})
-	}
-	if bot.Hostname != "" {
-		candidates = append(candidates, candidate{fmt.Sprintf("%s:%d", bot.Hostname, port)})
-	}
-	if len(candidates) == 0 {
-		candidates = append(candidates, candidate{fmt.Sprintf("rfbot6.local:%d", port)})
+	// Use centralised mDNS-first (or IP-first) ordering from config
+	candidateHosts := s.cfg.BuildTargetCandidates(bot)
+	if len(candidateHosts) == 0 {
+		port := bot.Port
+		if port == 0 || port == 4330 {
+			port = 80
+		}
+		candidateHosts = []string{fmt.Sprintf("rfbot6.local:%d", port)}
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	var lastErr error
-	for _, c := range candidates {
-		host := c.host
+	for _, host := range candidateHosts {
 		if !strings.HasPrefix(host, "http") {
 			host = "http://" + host
 		}

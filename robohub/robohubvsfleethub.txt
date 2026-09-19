@@ -1,0 +1,1 @@
+Robohub is similar in most respects to FleetHub, with the exception of the fact that is is made to control a robot fleet of dogs, etc for classrooms and demos etc, and fleethub is more homeautomation and universal sensors, etc. But robohub hasn't been updated in a while so a lot of amazing updates have been made to fleethub that if RELEVANT need to also be added to robohub.

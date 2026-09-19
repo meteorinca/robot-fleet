@@ -69,7 +69,16 @@ func (s *Streamer) Stop(targetBot config.RobotNode) error {
 }
 
 // StreamPCM streams raw 16kHz 16-bit mono PCM bytes to SpeakerBot in paced chunks.
+// Uses the bot's own address fields to build candidates (fallback when no pre-built candidates are available).
 func (s *Streamer) StreamPCM(ctx context.Context, soundName string, targetBot config.RobotNode, pcmData []byte, interrupt bool) error {
+	return s.StreamPCMToTargets(ctx, soundName, targetBot, nil, pcmData, interrupt)
+}
+
+// StreamPCMToTargets streams raw PCM to SpeakerBot using a pre-built ordered candidate list.
+// When candidates is non-empty, it overrides the bot's own address fields for target ordering.
+// This allows the caller (audio.Service) to inject cfg.BuildTargetCandidates() ordering
+// without coupling the Streamer to config.
+func (s *Streamer) StreamPCMToTargets(ctx context.Context, soundName string, targetBot config.RobotNode, candidates []string, pcmData []byte, interrupt bool) error {
 	if len(pcmData) == 0 {
 		return errors.New("cannot stream empty audio data")
 	}
@@ -90,7 +99,7 @@ func (s *Streamer) StreamPCM(ctx context.Context, soundName string, targetBot co
 		totalChunks = 1
 	}
 
-	targetAddr := s.resolveTargetAddress(targetBot)
+	targetAddr := s.resolveTargetAddressFromCandidates(targetBot, candidates)
 	s.status = StreamStatus{
 		Active:         true,
 		SoundName:      soundName,
@@ -146,7 +155,7 @@ func (s *Streamer) StreamPCM(ctx context.Context, soundName string, targetBot co
 
 		// First chunk carries ?interrupt=1 if interrupt is true
 		useInterrupt := (i == 0 && interrupt)
-		err := s.postChunk(streamCtx, targetBot, chunk, useInterrupt)
+		err := s.postChunkToTargets(streamCtx, targetBot, candidates, chunk, useInterrupt)
 		if err != nil {
 			if streamCtx.Err() != nil {
 				return nil
@@ -189,7 +198,13 @@ func (s *Streamer) StreamPCM(ctx context.Context, soundName string, targetBot co
 }
 
 func (s *Streamer) postChunk(ctx context.Context, bot config.RobotNode, chunk []byte, interrupt bool) error {
-	candidates := s.buildTargetCandidates(bot)
+	return s.postChunkToTargets(ctx, bot, nil, chunk, interrupt)
+}
+
+func (s *Streamer) postChunkToTargets(ctx context.Context, bot config.RobotNode, candidates []string, chunk []byte, interrupt bool) error {
+	if len(candidates) == 0 {
+		candidates = s.buildTargetCandidates(bot)
+	}
 	var lastErr error
 
 	endpoint := "/audio"
@@ -222,7 +237,31 @@ func (s *Streamer) postChunk(ctx context.Context, bot config.RobotNode, chunk []
 }
 
 func (s *Streamer) sendStopCommand(bot config.RobotNode) error {
-	candidates := s.buildTargetCandidates(bot)
+	return s.sendStopCommandToTargets(bot, nil)
+}
+
+// StopWithTargets halts active streaming and sends /stop to the target robot using pre-built candidates.
+func (s *Streamer) StopWithTargets(targetBot config.RobotNode, candidates []string) error {
+	s.mu.Lock()
+	if s.cancelFunc != nil {
+		s.cancelFunc()
+		s.cancelFunc = nil
+	}
+	s.status.Active = false
+	s.status.ProgressPct = 0
+	s.mu.Unlock()
+
+	if s.onProgress != nil {
+		s.onProgress(s.GetStatus())
+	}
+
+	return s.sendStopCommandToTargets(targetBot, candidates)
+}
+
+func (s *Streamer) sendStopCommandToTargets(bot config.RobotNode, candidates []string) error {
+	if len(candidates) == 0 {
+		candidates = s.buildTargetCandidates(bot)
+	}
 	var lastErr error
 
 	for _, cand := range candidates {
@@ -268,6 +307,13 @@ func (s *Streamer) buildTargetCandidates(bot config.RobotNode) []string {
 }
 
 func (s *Streamer) resolveTargetAddress(bot config.RobotNode) string {
+	return s.resolveTargetAddressFromCandidates(bot, nil)
+}
+
+func (s *Streamer) resolveTargetAddressFromCandidates(bot config.RobotNode, candidates []string) string {
+	if len(candidates) > 0 {
+		return candidates[0]
+	}
 	cands := s.buildTargetCandidates(bot)
 	if len(cands) > 0 {
 		return cands[0]

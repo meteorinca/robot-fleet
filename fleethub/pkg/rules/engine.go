@@ -414,20 +414,9 @@ func (e *Engine) executeAction(action config.RuleAction) {
 	}
 
 	var candidates []string
-	port := 80
 	if matchedBot != nil {
-		if matchedBot.Port > 0 && matchedBot.Port != 4330 {
-			port = matchedBot.Port
-		}
-		if isValidIP(matchedBot.IP) {
-			candidates = append(candidates, fmt.Sprintf("%s:%d", matchedBot.IP, port))
-		}
-		if isValidIP(matchedBot.FallbackIP) && matchedBot.FallbackIP != matchedBot.IP {
-			candidates = append(candidates, fmt.Sprintf("%s:%d", matchedBot.FallbackIP, port))
-		}
-		if matchedBot.Hostname != "" {
-			candidates = append(candidates, fmt.Sprintf("%s:%d", matchedBot.Hostname, port))
-		}
+		// Use centralised mDNS-first (or IP-first) ordering from config
+		candidates = e.cfg.BuildTargetCandidates(*matchedBot)
 	}
 
 	if len(candidates) == 0 {

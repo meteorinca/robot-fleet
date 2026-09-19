@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -126,19 +125,19 @@ func (p *RFPoller) pollBot(bot config.RobotNode) {
 		port = 80
 	}
 
-	// Build candidate URLs with IP-first ordering (reliable on Pi and low-latency)
+	// Use centralised mDNS-first (or IP-first) target ordering from config
+	candidateHosts := p.cfg.BuildTargetCandidates(bot)
 	var candidateURLs []string
-	if isValidIP(bot.IP) {
-		candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s:%d", bot.IP, port))
-	}
-	if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
-		candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s:%d", bot.FallbackIP, port))
-	}
-	if bot.Hostname != "" {
-		candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s:%d", bot.Hostname, port))
+	for _, host := range candidateHosts {
+		candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s", host))
 	}
 	if len(candidateURLs) == 0 {
-		return
+		// Absolute fallback: try hostname directly
+		if bot.Hostname != "" {
+			candidateURLs = append(candidateURLs, fmt.Sprintf("http://%s:%d", bot.Hostname, port))
+		} else {
+			return
+		}
 	}
 
 	for _, baseURL := range candidateURLs {
@@ -221,9 +220,7 @@ func (p *RFPoller) pollBot(bot config.RobotNode) {
 	}
 }
 
-func isValidIP(ip string) bool {
-	return ip != "" && net.ParseIP(strings.TrimSpace(ip)) != nil
-}
+
 
 // parseCode converts various JSON types (hex string "1E240" from rfbot's %lX format, dec int 123456, etc) to uint32.
 func parseCode(raw interface{}) uint32 {

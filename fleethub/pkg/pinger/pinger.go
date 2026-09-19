@@ -2,6 +2,7 @@ package pinger
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/config"
 	"github.com/meteorinca/robot-fleet/fleethub/pkg/db"
+	"github.com/meteorinca/robot-fleet/fleethub/pkg/mdns"
 )
 
 // Pinger periodically checks network accessibility of fleet devices using TCP/HTTP connection probes with fallback IP support.
@@ -34,29 +36,86 @@ func (p *Pinger) SetDatabase(d *db.DB) {
 	p.database = d
 }
 
-// Start launches the background health check ticker.
+// Start launches the background health check ticker and hourly IP resolver.
 func (p *Pinger) Start() {
 	go func() {
+		// Run immediate initial mDNS resolution to heal stale IPs on startup
+		p.ResolveAndUpdateIPs()
+
 		// Run immediate initial ping sweep
 		p.PingAll()
 		_ = p.cfg.SaveRuntimeState()
 
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
+		pingTicker := time.NewTicker(15 * time.Second)
+		defer pingTicker.Stop()
+
+		// Hourly ticker re-resolves all mDNS hostnames to fresh IPs, healing stale DHCP entries
+		resolveTicker := time.NewTicker(1 * time.Hour)
+		defer resolveTicker.Stop()
 
 		for {
 			select {
 			case <-p.stop:
 				_ = p.cfg.SaveRuntimeState()
 				return
-			case <-ticker.C:
+			case <-pingTicker.C:
 				p.PingAll()
+				_ = p.cfg.SaveRuntimeState()
+			case <-resolveTicker.C:
+				p.ResolveAndUpdateIPs()
 				_ = p.cfg.SaveRuntimeState()
 			}
 		}
 	}()
 }
 
+// ResolveAndUpdateIPs re-resolves all bot hostnames via direct pure-Go mDNS and updates the stored IP
+// if the resolved address differs. This heals stale IPs after DHCP lease changes without
+// requiring a restart, working reliably on Raspberry Pi without Avahi.
+func (p *Pinger) ResolveAndUpdateIPs() {
+	bots := p.cfg.Bots
+	var hostnames []string
+	for _, bot := range bots {
+		if bot.Hostname != "" {
+			hostnames = append(hostnames, bot.Hostname)
+		}
+	}
+	if len(hostnames) == 0 {
+		return
+	}
+
+	resolvedMap := mdns.ResolveAll(hostnames, 800*time.Millisecond)
+	updated := false
+
+	for _, bot := range bots {
+		if bot.Hostname == "" {
+			continue
+		}
+		cleanHost := mdns.CleanHostname(bot.Hostname)
+		resolvedIP, found := resolvedMap[cleanHost]
+		if !found {
+			resolvedIP, found = resolvedMap[bot.Hostname]
+		}
+		if !found || resolvedIP == "" || !config.IsValidIP(resolvedIP) {
+			continue
+		}
+		if resolvedIP != bot.IP {
+			log.Printf("[Pinger] IP change detected for %s: %s -> %s (mDNS resolved)", bot.Hostname, bot.IP, resolvedIP)
+			p.cfg.UpsertBot(config.RobotNode{
+				ID:       bot.ID,
+				Name:     bot.Name,
+				Hostname: bot.Hostname,
+				Platform: bot.Platform,
+				IP:       resolvedIP,
+				Status:   "online",
+			})
+			updated = true
+		}
+	}
+	if updated {
+		_ = p.cfg.SaveRuntimeState()
+	}
+}
 
 func isValidIP(ip string) bool {
 	return net.ParseIP(strings.TrimSpace(ip)) != nil
@@ -102,15 +161,19 @@ func (p *Pinger) PingAllSync() []PingResult {
 			}
 
 			updatedBot := config.RobotNode{
-				ID:        b.ID,
-				Name:      b.Name,
-				Hostname:  b.Hostname,
-				Platform:  b.Platform,
-				Status:    status,
+				ID:       b.ID,
+				Name:     b.Name,
+				Hostname: b.Hostname,
+				Platform: b.Platform,
+				Status:   status,
 				LatencyMs: latency,
 			}
-			if discoveredIP != "" && isValidIP(discoveredIP) {
+			// If the pinger reached the bot via mDNS and discovered a fresh IP, persist it
+			if discoveredIP != "" && isValidIP(discoveredIP) && discoveredIP != b.IP {
+				log.Printf("[Pinger] Updating stored IP for %s: %s -> %s (live ping)", b.Hostname, b.IP, discoveredIP)
 				updatedBot.IP = discoveredIP
+			} else if isValidIP(b.IP) {
+				updatedBot.IP = b.IP
 			}
 			p.cfg.UpsertBot(updatedBot)
 
@@ -135,24 +198,22 @@ func (p *Pinger) PingAll() {
 	_ = p.PingAllSync()
 }
 
-// PingDevice attempts to connect to a bot using its hostname first, and falls back to fallback_ip if hostname fails or times out.
+// PingDevice attempts to connect to a bot using mDNS hostname first (when PreferMDNS is set),
+// then falls back to stored IP and fallback_ip.
 func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool, string) {
 	port := bot.Port
 	if port == 0 {
 		port = 80
 	}
 
-	// Try resolving hostname to IPv4 address via DNS/mDNS lookup
+	// Try resolving hostname to IPv4 address via pure-Go mDNS lookup
 	var resolvedIP string
 	if bot.Hostname != "" {
-		cleanHost := strings.TrimSuffix(bot.Hostname, ".local")
-		if ips, err := net.LookupHost(cleanHost + ".local"); err == nil && len(ips) > 0 {
-			resolvedIP = ips[0]
-		} else if ips, err := net.LookupHost(cleanHost); err == nil && len(ips) > 0 {
-			resolvedIP = ips[0]
-		}
+		resolvedIP, _ = mdns.ResolveHostname(bot.Hostname, 500*time.Millisecond)
 	}
 
+	// Use cfg.BuildTargetCandidates for ordering, but the pinger also needs to track
+	// the IP that corresponds to each target for update purposes.
 	type targetItem struct {
 		addr string
 		ip   string
@@ -160,24 +221,53 @@ func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool, string) {
 
 	targets := []targetItem{}
 
-	if resolvedIP != "" && isValidIP(resolvedIP) {
-		targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", resolvedIP, port), ip: resolvedIP})
-	}
-	if isValidIP(bot.IP) {
-		targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.IP, port), ip: bot.IP})
-	}
-	if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP && bot.FallbackIP != resolvedIP {
-		targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.FallbackIP, port), ip: bot.FallbackIP})
-	}
-	if bot.Hostname != "" {
-		hostAddr := fmt.Sprintf("%s:%d", strings.TrimSuffix(bot.Hostname, ".local")+".local", port)
-		targets = append(targets, targetItem{addr: hostAddr, ip: resolvedIP})
+	if p.cfg.PreferMDNS {
+		// mDNS-first: resolved IP from hostname lookup, then stored IP, then fallback
+		if resolvedIP != "" && isValidIP(resolvedIP) {
+			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", resolvedIP, port), ip: resolvedIP})
+		}
+		if isValidIP(bot.IP) && bot.IP != resolvedIP {
+			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.IP, port), ip: bot.IP})
+		}
+		if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP && bot.FallbackIP != resolvedIP {
+			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.FallbackIP, port), ip: bot.FallbackIP})
+		}
+		if bot.Hostname != "" {
+			hostAddr := fmt.Sprintf("%s:%d", mdns.CleanHostname(bot.Hostname), port)
+			targets = append(targets, targetItem{addr: hostAddr, ip: resolvedIP})
+		}
+	} else {
+		// IP-first: reliable on Raspberry Pi where mDNS may not resolve
+		if isValidIP(bot.IP) {
+			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.IP, port), ip: bot.IP})
+		}
+		if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
+			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.FallbackIP, port), ip: bot.FallbackIP})
+		}
+		if resolvedIP != "" && isValidIP(resolvedIP) {
+			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", resolvedIP, port), ip: resolvedIP})
+		}
+		if bot.Hostname != "" {
+			hostAddr := fmt.Sprintf("%s:%d", mdns.CleanHostname(bot.Hostname), port)
+			targets = append(targets, targetItem{addr: hostAddr, ip: resolvedIP})
+		}
 	}
 
 	// Try each target in sequence
 	for _, target := range targets {
 		start := time.Now()
-		conn, err := net.DialTimeout("tcp", target.addr, 1200*time.Millisecond)
+		dialAddr := target.addr
+		host, portStr, err := net.SplitHostPort(dialAddr)
+		if err == nil && strings.HasSuffix(strings.ToLower(host), ".local") {
+			if ip, err := mdns.ResolveHostname(host, 400*time.Millisecond); err == nil && ip != "" {
+				dialAddr = net.JoinHostPort(ip, portStr)
+				if target.ip == "" {
+					target.ip = ip
+				}
+			}
+		}
+
+		conn, err := net.DialTimeout("tcp", dialAddr, 1200*time.Millisecond)
 		if err == nil {
 			latency := float64(time.Since(start).Microseconds()) / 1000.0 // ms
 			_ = conn.Close()
@@ -197,4 +287,3 @@ func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool, string) {
 func (p *Pinger) Stop() {
 	close(p.stop)
 }
-

@@ -7,13 +7,10 @@
     "platform": "rfbot",
     "ip": "10.0.0.42",
     "port": 80,
-    "last_seen": "2026-09-01T12:24:15.4587834-04:00",
-    "status": "online",
     "role": "receiver",
     "homekit_enabled": true,
     "homekit_category": "sensor",
-    "ping_enabled": true,
-    "latency_ms": 98.864
+    "ping_enabled": true
   },
   {
     "id": "speakerbot1",
@@ -23,13 +20,9 @@
     "platform": "speakerbot",
     "ip": "10.0.0.40",
     "port": 80,
-    "last_seen": "2026-09-01T12:24:14.7429282-04:00",
-    "status": "online",
-    "role": "audio_output",
     "homekit_enabled": true,
     "homekit_category": "speaker",
     "ping_enabled": true,
-    "latency_ms": 100.817,
     "actions": [
       {
         "name": "Play Audio Tone",
@@ -46,13 +39,10 @@
     "platform": "rfbot",
     "ip": "10.0.0.46",
     "port": 80,
-    "last_seen": "2026-09-01T12:24:14.6460559-04:00",
-    "status": "online",
     "role": "transceiver",
     "homekit_enabled": false,
     "homekit_category": "switch",
     "ping_enabled": true,
-    "latency_ms": 4.952,
     "actions": [
       {
         "name": "Send RF Code (123456)",
@@ -69,13 +59,10 @@
     "platform": "simplebot",
     "ip": "10.0.0.28",
     "port": 80,
-    "last_seen": "2026-09-01T12:24:14.7436345-04:00",
-    "status": "online",
     "role": "kitchen_bot",
     "homekit_enabled": true,
     "homekit_category": "switch",
     "ping_enabled": true,
-    "latency_ms": 102.531,
     "actions": [
       {
         "name": "Servo 1 ON",
@@ -107,13 +94,10 @@
     "platform": "cambot",
     "ip": "10.0.0.66",
     "port": 80,
-    "last_seen": "2026-09-01T12:24:14.6497054-04:00",
-    "status": "online",
     "role": "camera",
     "homekit_enabled": false,
     "homekit_category": "camera",
     "ping_enabled": true,
-    "latency_ms": 8.602,
     "actions": [
       {
         "name": "Start Stream",
@@ -145,13 +129,10 @@
     "platform": "cambot",
     "ip": "10.0.0.68",
     "port": 80,
-    "last_seen": "2026-09-01T12:24:14.6497054-04:00",
-    "status": "online",
     "role": "camera",
     "homekit_enabled": false,
     "homekit_category": "camera",
     "ping_enabled": true,
-    "latency_ms": 9.5,
     "actions": [
       {
         "name": "Start Stream",
