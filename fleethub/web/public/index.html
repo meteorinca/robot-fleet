@@ -2270,6 +2270,10 @@
             <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
               <span class="mesh-channel-badge" id="flow-status-badge" style="color:var(--accent-green); border-color:rgba(16,185,129,0.3);">READY</span>
               <div style="display:flex; align-items:center; gap:0.4rem; background:rgba(0,0,0,0.35); border:1px solid var(--panel-border); border-radius:6px; padding:3px 8px;">
+                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Name:</span>
+                <input type="text" id="flow-rule-name" placeholder="Automation Name (e.g. Motion Choola Alert)" style="background:transparent; color:#fff; border:none; outline:none; font-size:0.75rem; width:190px;">
+              </div>
+              <div style="display:flex; align-items:center; gap:0.4rem; background:rgba(0,0,0,0.35); border:1px solid var(--panel-border); border-radius:6px; padding:3px 8px;">
                 <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Template:</span>
                 <select id="flow-example-select" onchange="loadSelectedFlowExample(this.value)" style="background:transparent; color:#fff; border:none; outline:none; font-size:0.75rem; cursor:pointer; font-weight:500;">
                   <option value="rain_sunset" style="background:#1e293b; color:#fff;">1. Sunset &amp; Rain Alert (WLED Pink + Chime)</option>
@@ -2365,6 +2369,17 @@
               <div id="flow-nodes-layer" style="position:absolute; inset:0; width:100%; height:100%;"></div>
             </div>
           </div>
+        <div class="mesh-card" style="margin-top:1rem;">
+          <div class="mesh-toolbar" style="margin-bottom:0.75rem;">
+            <div>
+              <span style="font-weight:700; font-size:1.1rem; color:#fff;">Saved Automations &amp; Engine Rules</span>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                Active RF automations with cooldown repeat-suppression. Rename, test, snooze, or delete rules.
+              </div>
+            </div>
+            <button class="btn-sm btn-secondary" onclick="showAddRuleModal()">+ New Quick Rule</button>
+          </div>
+          <div id="automations-rule-list"></div>
         </div>
       </section>
     </div>
@@ -3377,9 +3392,11 @@
 
   function renderRules(rules) {
     const container = document.getElementById('rule-list');
+    const autContainer = document.getElementById('automations-rule-list');
     const hudContainer = document.getElementById('hud-rule-list');
     if (!rules || rules.length === 0) {
       if (container) container.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No active rules configured.</div>`;
+      if (autContainer) autContainer.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No active rules configured.</div>`;
       if (hudContainer) hudContainer.innerHTML = `<div style="font-size:0.75rem;color:var(--hdim);padding:0.5rem 0;">No rules.</div>`;
       return;
     }
@@ -3397,20 +3414,26 @@
         </div>`).join('');
     }
 
-    if (!container) return;
-    container.innerHTML = rules.map(r => `
+    const html = rules.map(r => `
       <div style="background:rgba(255,255,255,0.035);border:1px solid var(--panel-border);border-left:4px solid var(--accent-green);padding:0.9rem 1.1rem;border-radius:12px;margin-bottom:0.65rem;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(12px);">
         <div>
-          <div style="font-weight:700;font-size:0.95rem;color:#fff;">${r.name}</div>
-          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;">
-            Trigger Code: <span style="color:var(--accent-cyan);font-family:'JetBrains Mono',monospace;font-weight:700;">${r.trigger_code}</span> &bull; Cooldown: <span style="color:var(--accent-green);font-weight:600;">${r.cooldown_sec||10}s</span>
+          <div style="font-weight:700;font-size:0.95rem;color:#fff;display:flex;align-items:center;gap:0.5rem;">
+            <span>${r.name}</span>
+            <button class="btn-micro" onclick="renameRule('${r.id}', '${(r.name||'').replace(/'/g, "\\'")}')" title="Rename Automation" style="padding:2px 7px;font-size:0.72rem;background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:4px;cursor:pointer;">✏️ Rename</button>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">
+            Trigger Code: <span style="color:var(--accent-cyan);font-family:'JetBrains Mono',monospace;font-weight:700;">${r.trigger_code}</span> &bull; Cooldown / Debounce: <span style="color:var(--accent-green);font-weight:600;">${r.cooldown_sec||3}s (ignores repeats)</span>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem;">
+          <button class="btn-sm btn-secondary" onclick="renameRule('${r.id}', '${(r.name||'').replace(/'/g, "\\'")}')" title="Rename Automation">✏️ Rename</button>
           <button class="btn-sm btn-amber" onclick="extendSnooze('${r.id}',15)">Snooze 15m</button>
           <button class="btn-sm btn-red" onclick="deleteRule('${r.id}')">Delete</button>
         </div>
       </div>`).join('');
+
+    if (container) container.innerHTML = html;
+    if (autContainer) autContainer.innerHTML = html;
   }
 
   /* Live HUD Camera & Sensor Data Synchronization */
@@ -3599,6 +3622,26 @@
   window.pressButton = async function(id) { await fetch('/api/buttons/press',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); fetchStatus(); };
   window.deleteButton = async function(id) { if(confirm('Delete RF trigger?')) { await fetch('/api/buttons?id='+id,{method:'DELETE'}); fetchStatus(); } };
   window.deleteRule = async function(id) { if(confirm('Delete automation rule?')) { await fetch('/api/rules?id='+id,{method:'DELETE'}); fetchStatus(); } };
+  window.renameRule = async function(id, currentName) {
+    const newName = prompt('Enter new automation name:', currentName || '');
+    if (!newName) return;
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === currentName) return;
+    try {
+      const res = await fetch('/api/rules/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: trimmed })
+      });
+      if (res.ok) {
+        fetchStatus();
+      } else {
+        alert('Failed to rename automation');
+      }
+    } catch(e) {
+      alert('Error renaming automation: ' + e);
+    }
+  };
   window.deleteSensor = async function(code) { if(confirm('Delete sensor?')) { await fetch('/api/sensors?code='+code,{method:'DELETE'}); fetchStatus(); } };
   window.deleteBot = async function(id) {
     if (confirm('Remove device "' + id + '" from the Fleet Registry?')) {
@@ -3654,10 +3697,13 @@
   window.saveRule = async function() {
     const name = document.getElementById('rule-name').value;
     const code = parseInt(document.getElementById('rule-code').value);
-    const cooldown_sec = parseInt(document.getElementById('rule-cooldown').value)||30;
+    const cooldown_sec = parseInt(document.getElementById('rule-cooldown').value)||3;
     const target = document.getElementById('rule-target').value;
-    const path = document.getElementById('rule-path').value;
+    let path = document.getElementById('rule-path').value;
     if(!name||isNaN(code)||!target) return;
+    if(path.includes('choola') && !path.includes('interrupt=')) {
+      path += (path.includes('?') ? '&' : '?') + 'interrupt=1';
+    }
     await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       id: 'rule-' + Date.now(),
       name,
@@ -3783,6 +3829,10 @@
 
   function handleTrafficMessage(msg) {
     if (!msg) return;
+    if (msg.type === 'rule_renamed' || msg.type === 'rules_updated') {
+      fetchStatus();
+      return;
+    }
     if (msg.type === 'audio_stream_status') {
       if (typeof window.handleAudioStreamUpdate === 'function') {
         window.handleAudioStreamUpdate(msg.status);
@@ -4748,7 +4798,7 @@
         node.badgeColor = '#f59e0b';
         node.hasIn = true;
         node.hasOut = true;
-        if (!node.config.seconds) node.config.seconds = 5;
+        if (!node.config.seconds) node.config.seconds = 3;
         break;
       case 'wled':
         node.title = 'WLED Controller';
@@ -4808,6 +4858,8 @@
         bodyContent = `<div>Position: <strong style="color:#f59e0b;">${n.config.desc}</strong></div>`;
       } else if (n.type === 'logic_and' || n.type === 'logic_or') {
         bodyContent = `<div>Mode: <strong style="color:#fff;">${n.config.desc}</strong></div>`;
+      } else if (n.type === 'delay') {
+        bodyContent = `<div>Cooldown: <strong style="color:#f59e0b;">${n.config.seconds || 3}s (Ignores Repeats)</strong></div>`;
       } else if (n.type === 'wled') {
         bodyContent = `<div style="display:flex;align-items:center;gap:0.4rem;">Color: <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${n.config.color};"></span> <strong style="color:#fff;">${n.config.label}</strong></div><div>Target: <span style="font-family:'JetBrains Mono',monospace;">${n.config.target}</span></div>`;
       } else if (n.type === 'speakerbot') {
@@ -4960,6 +5012,8 @@
     flowWires = [];
     currentFlowTemplate = 'Sunset & Rain to WLED Pink';
     currentFlowCode = 123456;
+    var nameIn = document.getElementById('flow-rule-name');
+    if (nameIn) nameIn.value = currentFlowTemplate;
 
     var n1 = window.addFlowNode('rf_sensor', 40, 40, { code: 123456, label: 'Sensor Trigger (123456)' });
     var n2 = window.addFlowNode('weather', 40, 200, { operator: 'is_raining', desc: 'Rain Detected (Open-Meteo)' });
@@ -4982,6 +5036,8 @@
     flowWires = [];
     currentFlowTemplate = 'Sunrise Morning Arrival (WLED + Blinds)';
     currentFlowCode = 122222;
+    var nameIn = document.getElementById('flow-rule-name');
+    if (nameIn) nameIn.value = currentFlowTemplate;
 
     var n1 = window.addFlowNode('rf_sensor', 40, 40, { code: 122222, label: 'Front Door Arrival (122222)' });
     var n2 = window.addFlowNode('sun', 40, 200, { operator: 'is_up', desc: 'Sun Up (Sunrise Passed)' });
@@ -5004,6 +5060,8 @@
     flowWires = [];
     currentFlowTemplate = 'Severe Storm Warning (Flash Amber-Red)';
     currentFlowCode = 888123;
+    var nameIn = document.getElementById('flow-rule-name');
+    if (nameIn) nameIn.value = currentFlowTemplate;
 
     var n1 = window.addFlowNode('rf_sensor', 40, 60, { code: 888123, label: 'Patio Weather Sensor (888123)' });
     var n2 = window.addFlowNode('weather', 40, 260, { operator: 'is_storm', desc: 'Storm/Rain (Open-Meteo)' });
@@ -5024,6 +5082,8 @@
     flowWires = [];
     currentFlowTemplate = 'Night Perimeter Security (Cam Flash + Cyan)';
     currentFlowCode = 123456;
+    var nameIn = document.getElementById('flow-rule-name');
+    if (nameIn) nameIn.value = currentFlowTemplate;
 
     var n1 = window.addFlowNode('rf_sensor', 40, 80, { code: 123456, label: 'Perimeter Motion (123456)' });
     var n2 = window.addFlowNode('sun', 40, 280, { operator: 'is_down', desc: 'Night / Sun Down' });
@@ -5044,6 +5104,8 @@
     flowWires = [];
     currentFlowTemplate = 'Freeze & Snow Alert (Ice Blue WLED)';
     currentFlowCode = 445566;
+    var nameIn = document.getElementById('flow-rule-name');
+    if (nameIn) nameIn.value = currentFlowTemplate;
 
     var n1 = window.addFlowNode('rf_sensor', 40, 80, { code: 445566, label: 'Outdoor RF Sensor (445566)' });
     var n2 = window.addFlowNode('weather', 40, 280, { operator: 'is_snow', desc: 'Snow / Freezing Weather' });
@@ -5083,6 +5145,7 @@
   window.saveFleetFlowRule = async function() {
     var triggerNode = flowNodes.find(function(n) { return n.type === 'rf_sensor'; });
     var logicNode = flowNodes.find(function(n) { return n.type === 'logic_and' || n.type === 'logic_or'; });
+    var delayNode = flowNodes.find(function(n) { return n.type === 'delay'; });
     var conditionNodes = flowNodes.filter(function(n) { return n.type === 'weather' || n.type === 'sun'; });
     var actuatorNodes = flowNodes.filter(function(n) { return n.type === 'wled' || n.type === 'speakerbot' || n.type === 'bot_action'; });
 
@@ -5103,10 +5166,14 @@
           payload: an.config.color || '#FF1493'
         };
       } else if (an.type === 'speakerbot') {
+        var spkPath = an.config.path || '/choola';
+        if (!spkPath.includes('interrupt=')) {
+          spkPath += (spkPath.includes('?') ? '&' : '?') + 'interrupt=1';
+        }
         return {
           type: 'speakerbot_play',
           target: an.config.target || 'speakerbot1.local',
-          path: an.config.path || '/choola',
+          path: spkPath,
           payload: ''
         };
       } else {
@@ -5119,16 +5186,21 @@
       }
     });
 
+    var nameInput = document.getElementById('flow-rule-name');
+    var customName = (nameInput && nameInput.value.trim()) || ('FleetFlow: ' + (currentFlowTemplate || 'Custom Flow'));
+    var cooldownSec = (delayNode && delayNode.config && delayNode.config.seconds) ? parseInt(delayNode.config.seconds) : 3;
+    if (isNaN(cooldownSec) || cooldownSec <= 0) cooldownSec = 3;
+
     var rulePayload = {
       id: 'fleetflow-' + Date.now(),
-      name: 'FleetFlow: ' + (currentFlowTemplate || 'Custom Flow'),
+      name: customName,
       enabled: true,
       trigger_type: 'rf_code',
       trigger_code: (triggerNode && triggerNode.config.code) ? triggerNode.config.code : (currentFlowCode || 123456),
       logic_mode: (logicNode && logicNode.type === 'logic_or') ? 'OR' : 'AND',
       conditions: conditions,
       actions: actions,
-      cooldown_sec: 5,
+      cooldown_sec: cooldownSec,
       canvas_data: JSON.stringify({ nodes: flowNodes, wires: flowWires })
     };
 

@@ -118,6 +118,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/bots", s.handleBots)
 	mux.HandleFunc("/api/sensors", s.handleSensors)
 	mux.HandleFunc("/api/rules", s.handleRules)
+	mux.HandleFunc("/api/rules/rename", s.handleRuleRename)
 	mux.HandleFunc("/api/buttons", s.handleButtons)
 	mux.HandleFunc("/api/buttons/press", s.handleButtonPress)
 	mux.HandleFunc("/api/snooze", s.handleSnooze)
@@ -338,6 +339,11 @@ func (s *Server) handleSensors(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	if r.Method == http.MethodPatch {
+		s.handleRuleRename(w, r)
+		return
+	}
+
 	if r.Method == http.MethodPost {
 		var rule config.AutomationRule
 		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
@@ -370,6 +376,53 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = json.NewEncoder(w).Encode(s.cfg.Rules)
+}
+
+func (s *Server) handleRuleRename(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost && r.Method != http.MethodPatch && r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	trimmed := strings.TrimSpace(payload.Name)
+	if payload.ID == "" || trimmed == "" {
+		http.Error(w, "Missing rule id or name", http.StatusBadRequest)
+		return
+	}
+
+	ok := s.cfg.RenameRule(payload.ID, trimmed)
+	if !ok {
+		http.Error(w, "Rule not found", http.StatusNotFound)
+		return
+	}
+	_ = s.cfg.Save()
+
+	// Broadcast update to all WebSockets
+	select {
+	case s.broadcast <- map[string]interface{}{
+		"type":  "rule_renamed",
+		"id":    payload.ID,
+		"name":  trimmed,
+		"rules": s.cfg.Rules,
+	}:
+	default:
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "renamed",
+		"id":     payload.ID,
+		"name":   trimmed,
+	})
 }
 
 func (s *Server) handleButtons(w http.ResponseWriter, r *http.Request) {
@@ -1084,8 +1137,16 @@ func (s *Server) handleSimpleBotProxy(endpoint string) http.HandlerFunc {
 
 func (s *Server) handleSpeakerBotProxy(endpoint string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ep := endpoint
+		if strings.Contains(ep, "choola") && !strings.Contains(ep, "interrupt=") {
+			if strings.Contains(ep, "?") {
+				ep += "&interrupt=1"
+			} else {
+				ep += "?interrupt=1"
+			}
+		}
 		bot := s.findBotByPlatformOrID(config.PlatformSpeakerBot, "speakerbot1")
-		err := s.dispatchToBot(bot, endpoint)
+		err := s.dispatchToBot(bot, ep)
 		dispatchStatus := "success"
 		if err != nil {
 			dispatchStatus = "dispatched_offline_sim"
@@ -1094,7 +1155,7 @@ func (s *Server) handleSpeakerBotProxy(endpoint string) http.HandlerFunc {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":     dispatchStatus,
 			"target_bot": bot.Hostname,
-			"endpoint":   endpoint,
+			"endpoint":   ep,
 			"error":      fmt.Sprintf("%v", err),
 		})
 	}

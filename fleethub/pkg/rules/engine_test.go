@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -138,4 +139,54 @@ func TestEngineConditionsAndWLED(t *testing.T) {
 	// Verify WLED action parsing does not crash
 	engine.ExecuteRuleAction(rule.Actions[0])
 }
+
+func TestEngineRepeatSuppression1HzTransmitter(t *testing.T) {
+	cfg := &config.Config{
+		Rules: []config.AutomationRule{
+			{
+				ID:          "rf-choola-rule",
+				Name:        "RF 123456 Choola Trigger",
+				Enabled:     true,
+				TriggerCode: 123456,
+				CooldownSec: 3, // 3-second cooldown window
+				Actions: []config.RuleAction{
+					{
+						Type:   "http_get",
+						Target: "speakerbot1.local",
+						Path:   "/choola",
+					},
+				},
+			},
+		},
+	}
+
+	var suppressionCount int32
+	var totalEvents int32
+
+	engine := NewEngine(cfg, func(ep EventPayload, logs []string) {
+		atomic.AddInt32(&totalEvents, 1)
+		for _, logMsg := range logs {
+			if strings.Contains(logMsg, "Ignoring repeat during 3s window") {
+				atomic.AddInt32(&suppressionCount, 1)
+			}
+		}
+	})
+
+	// Simulate Arduino transmitting RF 123456 at 1Hz (e.g. at 0s, 150ms, 300ms for fast unit test)
+	// First packet: triggers rule
+	engine.ProcessEvent(EventPayload{Code: 123456, Timestamp: time.Now()})
+	time.Sleep(120 * time.Millisecond)
+
+	// Second packet within 3s: must be suppressed
+	engine.ProcessEvent(EventPayload{Code: 123456, Timestamp: time.Now()})
+	time.Sleep(120 * time.Millisecond)
+
+	// Third packet within 3s: must be suppressed
+	engine.ProcessEvent(EventPayload{Code: 123456, Timestamp: time.Now()})
+
+	if atomic.LoadInt32(&suppressionCount) != 2 {
+		t.Fatalf("Expected 2 suppressed repeat events during 3s cooldown, got %d", suppressionCount)
+	}
+}
+
 

@@ -780,14 +780,36 @@ func (c *Config) UpsertRule(rule AutomationRule) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if rule.CooldownSec <= 0 {
-		rule.CooldownSec = 30
-	}
-
 	found := false
 	if rule.ID != "" {
 		for i, r := range c.Rules {
 			if r.ID == rule.ID {
+				// Preserve existing fields if not provided in partial update
+				if rule.Name == "" {
+					rule.Name = r.Name
+				}
+				if rule.TriggerCode == 0 && r.TriggerCode != 0 {
+					rule.TriggerCode = r.TriggerCode
+				}
+				if rule.TriggerType == "" && r.TriggerType != "" {
+					rule.TriggerType = r.TriggerType
+				}
+				if len(rule.Actions) == 0 && len(r.Actions) > 0 {
+					rule.Actions = r.Actions
+				}
+				if len(rule.Conditions) == 0 && len(r.Conditions) > 0 {
+					rule.Conditions = r.Conditions
+				}
+				if rule.CanvasData == "" && r.CanvasData != "" {
+					rule.CanvasData = r.CanvasData
+				}
+				if rule.CooldownSec <= 0 {
+					if r.CooldownSec > 0 {
+						rule.CooldownSec = r.CooldownSec
+					} else {
+						rule.CooldownSec = 3
+					}
+				}
 				c.Rules[i] = rule
 				found = true
 				break
@@ -798,8 +820,30 @@ func (c *Config) UpsertRule(rule AutomationRule) {
 		if rule.ID == "" {
 			rule.ID = fmt.Sprintf("rule-%d", time.Now().UnixNano())
 		}
+		if rule.CooldownSec <= 0 {
+			rule.CooldownSec = 3
+		}
 		c.Rules = append(c.Rules, rule)
 	}
+}
+
+// RenameRule updates the name of an existing AutomationRule by ID without altering other properties.
+func (c *Config) RenameRule(id, newName string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	trimmed := strings.TrimSpace(newName)
+	if trimmed == "" || id == "" {
+		return false
+	}
+
+	for i, r := range c.Rules {
+		if r.ID == id {
+			c.Rules[i].Name = trimmed
+			return true
+		}
+	}
+	return false
 }
 
 // DeleteRule removes an AutomationRule by ID.

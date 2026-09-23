@@ -254,4 +254,43 @@ func TestUpsertMultipleRules(t *testing.T) {
 	}
 }
 
+func TestRenameRule(t *testing.T) {
+	cfg := &Config{
+		Rules: []AutomationRule{
+			{
+				ID:          "rule-100",
+				Name:        "Old Name",
+				TriggerCode: 123456,
+				CooldownSec: 3,
+				Actions: []RuleAction{
+					{Type: "http_get", Target: "speakerbot1.local", Path: "/choola"},
+				},
+			},
+		},
+	}
+
+	// Rename rule-100
+	renamed := cfg.RenameRule("rule-100", "New Choola Alert")
+	if !renamed {
+		t.Fatalf("Expected RenameRule to return true")
+	}
+	if cfg.Rules[0].Name != "New Choola Alert" {
+		t.Errorf("Expected rule name 'New Choola Alert', got '%s'", cfg.Rules[0].Name)
+	}
+	// Verify other properties preserved
+	if cfg.Rules[0].TriggerCode != 123456 || len(cfg.Rules[0].Actions) != 1 || cfg.Rules[0].Actions[0].Path != "/choola" {
+		t.Errorf("Expected actions and trigger code to be preserved after rename")
+	}
+
+	// Non-existent ID returns false
+	if cfg.RenameRule("non-existent", "Test") {
+		t.Errorf("Expected false for non-existent rule")
+	}
+	// Empty name returns false
+	if cfg.RenameRule("rule-100", "   ") {
+		t.Errorf("Expected false for empty name")
+	}
+}
+
+
 

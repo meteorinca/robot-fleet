@@ -40,6 +40,12 @@ type buttonTracker struct {
 	button config.InputButton
 }
 
+type rfStreamTracker struct {
+	timer      *time.Timer
+	targetBots []config.RobotNode
+	code       uint32
+}
+
 // Engine evaluates incoming signals against active rules and executes actions.
 type Engine struct {
 	cfg            *config.Config
@@ -55,6 +61,7 @@ type Engine struct {
 	lastRuleExec   map[string]time.Time
 	snoozedRules   map[string]time.Time
 	buttonTrackers map[string]*buttonTracker
+	rfStreams      map[uint32]*rfStreamTracker
 }
 
 // NewEngine creates a new fast rule engine instance.
@@ -66,6 +73,7 @@ func NewEngine(cfg *config.Config, eventCb func(EventPayload, []string)) *Engine
 		lastRuleExec:   make(map[string]time.Time),
 		snoozedRules:   make(map[string]time.Time),
 		buttonTrackers: make(map[string]*buttonTracker),
+		rfStreams:      make(map[uint32]*rfStreamTracker),
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -251,6 +259,15 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 	}
 	e.lastCodeTx[event.Code] = time.Now()
 	now := time.Now()
+
+	// If an active RF stream tracker exists for this code, reset the timeout (transmitter still active)
+	if tracker, exists := e.rfStreams[event.Code]; exists && tracker.timer != nil {
+		tracker.timer.Stop()
+		code := event.Code
+		tracker.timer = time.AfterFunc(1800*time.Millisecond, func() {
+			e.handleRFStreamStopped(code)
+		})
+	}
 	e.mu.Unlock()
 
 	var executedLogs []string
@@ -272,25 +289,29 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 
 		matchedRuleName = rule.Name
 
-		e.mu.RLock()
+		// Atomically check snooze and cooldown under write lock to eliminate race conditions
+		e.mu.Lock()
 		// Check Snooze state
 		if snoozedUntil, snoozed := e.snoozedRules[rule.ID]; snoozed && now.Before(snoozedUntil) {
-			e.mu.RUnlock()
+			e.mu.Unlock()
 			executedLogs = append(executedLogs, fmt.Sprintf("Rule '%s' SUPPRESSED (Snoozed until %s)", rule.Name, snoozedUntil.Format("15:04:05")))
 			continue
 		}
 
-		// Check Rule Cooldown (3 seconds default for rapid testing)
+		// Check Rule Cooldown (3 seconds default for repeat suppression of 1Hz transmitters)
 		cooldownSec := rule.CooldownSec
 		if cooldownSec <= 0 {
 			cooldownSec = 3
 		}
 		if lastExec, exists := e.lastRuleExec[rule.ID]; exists && now.Sub(lastExec) < time.Duration(cooldownSec)*time.Second {
-			e.mu.RUnlock()
-			executedLogs = append(executedLogs, fmt.Sprintf("Rule '%s' SUPPRESSED (Cooldown %ds active)", rule.Name, cooldownSec))
+			e.mu.Unlock()
+			executedLogs = append(executedLogs, fmt.Sprintf("Rule '%s' SUPPRESSED (Ignoring repeat during %ds window)", rule.Name, cooldownSec))
 			continue
 		}
-		e.mu.RUnlock()
+
+		// Update last execution time atomically under lock
+		e.lastRuleExec[rule.ID] = now
+		e.mu.Unlock()
 
 		// Check multi-condition logic if configured
 		if len(rule.Conditions) > 0 {
@@ -301,18 +322,13 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 			}
 		}
 
-		// Update last execution time for rule
-		e.mu.Lock()
-		e.lastRuleExec[rule.ID] = now
-		e.mu.Unlock()
-
 		// Dispatch Rule Actions
 		for _, action := range rule.Actions {
 			actionCopy := action
 			ruleName := rule.Name
 			executedLogs = append(executedLogs, fmt.Sprintf("Rule '%s' -> %s (%s)", ruleName, actionCopy.Type, actionCopy.Target))
 
-			go e.executeAction(actionCopy)
+			go e.executeAction(actionCopy, event.Code)
 		}
 	}
 
@@ -396,7 +412,12 @@ func (e *Engine) ExecuteRuleAction(action config.RuleAction) {
 }
 
 // executeAction dispatches a single HTTP GET/POST or SpeakerBot call using IP-first target routing.
-func (e *Engine) executeAction(action config.RuleAction) {
+func (e *Engine) executeAction(action config.RuleAction, triggerCode ...uint32) {
+	var code uint32
+	if len(triggerCode) > 0 {
+		code = triggerCode[0]
+	}
+
 	cleanTarget := strings.TrimPrefix(strings.TrimPrefix(action.Target, "http://"), "https://")
 	cleanHost := strings.Split(cleanTarget, ":")[0]
 
@@ -410,6 +431,35 @@ func (e *Engine) executeAction(action config.RuleAction) {
 			botCopy := b
 			matchedBot = &botCopy
 			break
+		}
+	}
+
+	// Fallback detection for SpeakerBot if target contains "speaker" or path is "/choola"
+	if matchedBot == nil && (strings.Contains(strings.ToLower(action.Target), "speaker") || strings.Contains(action.Path, "choola")) {
+		for _, b := range e.cfg.Bots {
+			if b.Platform == config.PlatformSpeakerBot || strings.Contains(strings.ToLower(b.ID), "speaker") {
+				botCopy := b
+				matchedBot = &botCopy
+				break
+			}
+		}
+	}
+
+	// For audio alerts on SpeakerBot (e.g. /choola), enforce ?interrupt=1 so SpeakerBot never queues leftover commands
+	isSpeakerBotAction := (matchedBot != nil && matchedBot.Platform == config.PlatformSpeakerBot) ||
+		action.Type == "speakerbot_audio" || action.Type == "speakerbot_play" ||
+		strings.Contains(action.Path, "choola")
+
+	if isSpeakerBotAction {
+		if !strings.Contains(action.Path, "interrupt=") {
+			if strings.Contains(action.Path, "?") {
+				action.Path += "&interrupt=1"
+			} else {
+				action.Path += "?interrupt=1"
+			}
+		}
+		if code > 0 && matchedBot != nil {
+			e.trackRFStream(code, *matchedBot)
 		}
 	}
 
@@ -427,8 +477,8 @@ func (e *Engine) executeAction(action config.RuleAction) {
 		soundName := "choola"
 		if action.Payload != "" {
 			soundName = action.Payload
-		} else if action.Path != "" && action.Path != "/choola" {
-			soundName = strings.TrimPrefix(action.Path, "/")
+		} else if action.Path != "" && action.Path != "/choola" && !strings.HasPrefix(action.Path, "/choola?") {
+			soundName = strings.TrimPrefix(strings.Split(action.Path, "?")[0], "/")
 		}
 		botCopy := *matchedBot
 		go func() {
@@ -487,6 +537,79 @@ func (e *Engine) executeAction(action config.RuleAction) {
 	}
 
 	log.Printf("[RuleEngine] Action failed %s -> %s across targets %v: %v", action.Type, action.Path, candidates, lastErr)
+}
+
+// trackRFStream tracks ongoing emissions for an RF code and dispatches /stop to SpeakerBot when transmission ceases (>1.8s timeout).
+func (e *Engine) trackRFStream(code uint32, bot config.RobotNode) {
+	if code == 0 {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	tracker, exists := e.rfStreams[code]
+	if exists && tracker.timer != nil {
+		tracker.timer.Stop()
+	} else {
+		tracker = &rfStreamTracker{
+			code:       code,
+			targetBots: []config.RobotNode{bot},
+		}
+		e.rfStreams[code] = tracker
+	}
+
+	tracker.timer = time.AfterFunc(1800*time.Millisecond, func() {
+		e.handleRFStreamStopped(code)
+	})
+}
+
+func (e *Engine) handleRFStreamStopped(code uint32) {
+	e.mu.Lock()
+	tracker, exists := e.rfStreams[code]
+	if !exists {
+		e.mu.Unlock()
+		return
+	}
+	delete(e.rfStreams, code)
+	targetBots := tracker.targetBots
+	e.mu.Unlock()
+
+	log.Printf("[RuleEngine] RF Code %d transmission ended (idle > 1.8s) -> Dispatched /stop to SpeakerBot for instant silence", code)
+	for _, bot := range targetBots {
+		go e.sendStopToBot(bot)
+	}
+}
+
+func (e *Engine) sendStopToBot(bot config.RobotNode) {
+	candidates := e.cfg.BuildTargetCandidates(bot)
+	if len(candidates) == 0 {
+		if bot.Hostname != "" {
+			candidates = append(candidates, bot.Hostname)
+		} else if bot.IP != "" {
+			candidates = append(candidates, bot.IP)
+		} else {
+			candidates = append(candidates, "speakerbot1.local")
+		}
+	}
+
+	for _, cand := range candidates {
+		targetHost := cand
+		if !strings.HasPrefix(targetHost, "http://") && !strings.HasPrefix(targetHost, "https://") {
+			targetHost = "http://" + targetHost
+		}
+		stopURL := strings.TrimRight(targetHost, "/") + "/stop"
+		req, err := http.NewRequest("GET", stopURL, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("User-Agent", "FleetHub-Mothership/1.0")
+		resp, err := e.client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			log.Printf("[RuleEngine] Dispatched stop acknowledged by %s", cand)
+			return
+		}
+	}
 }
 
 // executeWLEDAction sends JSON state payloads to WLED controllers.
