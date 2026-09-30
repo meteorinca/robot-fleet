@@ -342,8 +342,6 @@ func (e *Engine) ProcessEvent(event EventPayload) {
 			if err != nil {
 				log.Printf("[RuleEngine] DB record error for RF event: %v", err)
 			}
-			// Enforce circular retention of recent 1,000 events
-			_, _ = dbInstance.EnforceRFEventRetention(1000)
 		}(event, matchedRuleName)
 	}
 

@@ -2002,7 +2002,7 @@
               <button class="btn-sm btn-secondary" onclick="toggleMeshMoveMode()" id="mesh-move-btn" title="Toggle interactive Move Nodes mode to freely reposition gateways and devices">
                 Move Nodes: OFF
               </button>
-              <button class="btn-sm btn-secondary" onclick="resetMeshNodePositions()" id="mesh-reset-pos-btn" title="Reset all topology node positions to default responsive layout" style="display:none;">
+              <button class="btn-sm btn-secondary" onclick="resetMeshNodePositions()" id="mesh-reset-pos-btn" title="Reset all topology node positions to default responsive layout">
                 Reset Layout
               </button>
               <button class="btn-sm btn-secondary" onclick="toggleMeshListen()" id="mesh-listen-btn" title="Toggle active listening on receiver gateways">
@@ -3909,7 +3909,11 @@
         if (hudFeed.children.length > 15) hudFeed.removeChild(hudFeed.lastChild);
       }
 
-      fetchStatus();
+      // Only debounced status refresh if a rule was executed that may have changed state
+      if (msg.executed && msg.executed.length > 0) {
+        if (window._ruleStatusDebounce) clearTimeout(window._ruleStatusDebounce);
+        window._ruleStatusDebounce = setTimeout(fetchStatus, 2000);
+      }
     }
   }
   connectTrafficWS();
@@ -3920,7 +3924,16 @@
   var meshListenActive = false;
   window.meshMoveModeActive = false;
   window._suppressMeshClick = false;
+  window.meshNodeRatios = null;
   window.meshNodePositions = null;
+
+  var defaultMeshRatios = {
+    rfbot6:      { xRatio: 0.22, yRatio: 0.42 },
+    rfbot1:      { xRatio: 0.76, yRatio: 0.42 },
+    fleethub:    { xRatio: 0.50, yRatio: 0.82 },
+    speakerbot1: { xRatio: 0.80, yRatio: 0.16 },
+    simplebot1:  { xRatio: 0.16, yRatio: 0.76 }
+  };
 
   window.toggleMeshMoveMode = function() {
     window.meshMoveModeActive = !window.meshMoveModeActive;
@@ -3942,35 +3955,19 @@
     if (container) {
       container.classList.toggle('move-mode', window.meshMoveModeActive);
     }
-    var resetBtn = document.getElementById('mesh-reset-pos-btn');
-    if (resetBtn) {
-      var hasCustom = false;
-      try { hasCustom = Boolean(localStorage.getItem('fleethub_mesh_positions')); } catch(e){}
-      resetBtn.style.display = (window.meshMoveModeActive || hasCustom) ? 'inline-block' : 'none';
-    }
   };
 
   window.resetMeshNodePositions = function() {
     try {
       localStorage.removeItem('fleethub_mesh_positions');
     } catch(e){}
-    window.meshNodePositions = null;
+    window.meshNodeRatios = JSON.parse(JSON.stringify(defaultMeshRatios));
     updateMeshNodePositions(true);
-    var resetBtn = document.getElementById('mesh-reset-pos-btn');
-    if (resetBtn && !window.meshMoveModeActive) {
-      resetBtn.style.display = 'none';
-    }
   };
 
   window.initRFMeshView = async function() {
     updateMeshNodePositions();
     initMeshNodeDragging();
-    var resetBtn = document.getElementById('mesh-reset-pos-btn');
-    if (resetBtn) {
-      var hasCustom = false;
-      try { hasCustom = Boolean(localStorage.getItem('fleethub_mesh_positions')); } catch(e){}
-      resetBtn.style.display = (window.meshMoveModeActive || hasCustom) ? 'inline-block' : 'none';
-    }
     try {
       var res = await fetch('/api/rfbots/poll_status');
       var data = await res.json();
@@ -3984,11 +3981,46 @@
     } catch(e) {}
   };
 
+  function loadMeshRatios(forceDefault) {
+    if (forceDefault || !window.meshNodeRatios) {
+      var saved = null;
+      if (!forceDefault) {
+        try { saved = JSON.parse(localStorage.getItem('fleethub_mesh_positions')); } catch(e){}
+      }
+      if (saved && typeof saved === 'object') {
+        var valid = {};
+        for (var k in defaultMeshRatios) {
+          if (saved[k]) {
+            if (saved[k].xRatio !== undefined && saved[k].yRatio !== undefined) {
+              valid[k] = {
+                xRatio: Math.max(0.08, Math.min(0.92, saved[k].xRatio)),
+                yRatio: Math.max(0.08, Math.min(0.92, saved[k].yRatio))
+              };
+            } else if (saved[k].x !== undefined && saved[k].y !== undefined) {
+              // Backward-compatibility: convert old pixel positions to normalized ratios
+              valid[k] = {
+                xRatio: Math.max(0.08, Math.min(0.92, saved[k].x / 900.0)),
+                yRatio: Math.max(0.08, Math.min(0.92, saved[k].y / 380.0))
+              };
+            }
+          }
+        }
+        if (valid.rfbot6 && valid.rfbot1 && valid.fleethub && valid.speakerbot1 && valid.simplebot1) {
+          window.meshNodeRatios = valid;
+          return;
+        }
+      }
+      window.meshNodeRatios = JSON.parse(JSON.stringify(defaultMeshRatios));
+    }
+  }
+
   function updateMeshNodePositions(forceDefault) {
     var container = document.getElementById('mesh-topology-container');
     if (!container) return;
     var w = container.clientWidth || 900;
     var h = container.clientHeight || 380;
+
+    loadMeshRatios(forceDefault);
 
     var nTX = document.getElementById('node-rfbot6');
     var nRX = document.getElementById('node-rfbot1');
@@ -3996,24 +4028,18 @@
     var nSpk = document.getElementById('node-speakerbot1');
     var nSmp = document.getElementById('node-simplebot1');
 
-    var defaultPositions = {
-      rfbot6: { x: Math.round(w * 0.22), y: Math.round(h * 0.42) },
-      rfbot1: { x: Math.round(w * 0.76), y: Math.round(h * 0.42) },
-      fleethub: { x: Math.round(w * 0.50), y: Math.round(h * 0.82) },
-      speakerbot1: { x: Math.round(w * 0.80), y: Math.round(h * 0.16) },
-      simplebot1: { x: Math.round(w * 0.16), y: Math.round(h * 0.76) }
-    };
+    var minX = 75, maxX = Math.max(minX + 20, w - 75);
+    var minY = 35, maxY = Math.max(minY + 20, h - 35);
 
-    if (!window.meshNodePositions || forceDefault) {
-      var saved = null;
-      if (!forceDefault) {
-        try { saved = JSON.parse(localStorage.getItem('fleethub_mesh_positions')); } catch(e){}
-      }
-      if (saved && saved.rfbot6 && saved.rfbot1 && saved.fleethub && saved.speakerbot1 && saved.simplebot1) {
-        window.meshNodePositions = saved;
-      } else {
-        window.meshNodePositions = defaultPositions;
-      }
+    var r = window.meshNodeRatios;
+    window.meshNodePositions = {};
+    for (var k in r) {
+      var px = Math.round(w * r[k].xRatio);
+      var py = Math.round(h * r[k].yRatio);
+      window.meshNodePositions[k] = {
+        x: Math.max(minX, Math.min(maxX, px)),
+        y: Math.max(minY, Math.min(maxY, py))
+      };
     }
 
     var p = window.meshNodePositions;
@@ -4068,6 +4094,8 @@
       var hasMoved = false;
 
       function onPointerDown(e) {
+        // ONLY allow dragging if Move Nodes mode is explicitly turned ON!
+        if (!window.meshMoveModeActive) return;
         if (e.type === 'mousedown' && e.button !== 0) return;
         var clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
         var clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
@@ -4096,11 +4124,19 @@
           if (hasMoved) {
             if (moveEvt.cancelable && moveEvt.preventDefault) moveEvt.preventDefault();
             var cRect = container.getBoundingClientRect();
-            var newX = Math.max(60, Math.min(cRect.width - 60, origX + dx));
-            var newY = Math.max(30, Math.min(cRect.height - 30, origY + dy));
+            var minX = 75, maxX = Math.max(minX + 20, cRect.width - 75);
+            var minY = 35, maxY = Math.max(minY + 20, cRect.height - 35);
+            var newX = Math.max(minX, Math.min(maxX, origX + dx));
+            var newY = Math.max(minY, Math.min(maxY, origY + dy));
 
             window.meshNodePositions[key].x = Math.round(newX);
             window.meshNodePositions[key].y = Math.round(newY);
+
+            // Update ratio for responsive scaling
+            if (window.meshNodeRatios && window.meshNodeRatios[key]) {
+              window.meshNodeRatios[key].xRatio = Math.max(0.08, Math.min(0.92, newX / cRect.width));
+              window.meshNodeRatios[key].yRatio = Math.max(0.08, Math.min(0.92, newY / cRect.height));
+            }
 
             nodeEl.style.left = window.meshNodePositions[key].x + 'px';
             nodeEl.style.top = window.meshNodePositions[key].y + 'px';
@@ -4120,10 +4156,8 @@
             window._suppressMeshClick = true;
             setTimeout(function() { window._suppressMeshClick = false; }, 200);
             try {
-              localStorage.setItem('fleethub_mesh_positions', JSON.stringify(window.meshNodePositions));
+              localStorage.setItem('fleethub_mesh_positions', JSON.stringify(window.meshNodeRatios));
             } catch(e) {}
-            var resetBtn = document.getElementById('mesh-reset-pos-btn');
-            if (resetBtn) resetBtn.style.display = 'inline-block';
           }
         }
 
@@ -4139,9 +4173,7 @@
   }
 
   window.addEventListener('resize', function() {
-    if (document.getElementById('tab-sec-rfbots')?.style.display !== 'none') {
-      updateMeshNodePositions();
-    }
+    updateMeshNodePositions();
   });
 
   window.triggerMeshTransmission = async function(code, bits, proto, pulse, skipApi) {

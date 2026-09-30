@@ -36,6 +36,7 @@ type RFPoller struct {
 	client     *http.Client
 	done       chan struct{}
 	activeBots map[string]bool
+	inFlight   map[string]bool
 	mu         sync.RWMutex
 }
 
@@ -44,9 +45,10 @@ func NewRFPoller(cfg *config.Config, engine *rules.Engine) *RFPoller {
 	return &RFPoller{
 		cfg:        cfg,
 		engine:     engine,
-		client:     &http.Client{Timeout: 2 * time.Second},
+		client:     &http.Client{Timeout: 600 * time.Millisecond},
 		done:       make(chan struct{}),
 		activeBots: make(map[string]bool),
+		inFlight:   make(map[string]bool),
 	}
 }
 
@@ -115,7 +117,23 @@ func (p *RFPoller) pollAllReceivers() {
 	}
 
 	for _, bot := range candidates {
-		go p.pollBot(bot)
+		p.mu.Lock()
+		if p.inFlight[bot.ID] {
+			p.mu.Unlock()
+			continue
+		}
+		p.inFlight[bot.ID] = true
+		p.mu.Unlock()
+
+		targetBot := bot
+		go func() {
+			defer func() {
+				p.mu.Lock()
+				delete(p.inFlight, targetBot.ID)
+				p.mu.Unlock()
+			}()
+			p.pollBot(targetBot)
+		}()
 	}
 }
 

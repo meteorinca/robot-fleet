@@ -43,7 +43,8 @@ func (s *Service) Start() {
 		// Sample immediately
 		s.sampleSystemMetrics()
 
-		ticker := time.NewTicker(20 * time.Second)
+		// Sample every 60 seconds to reduce GC pauses and SQLite writes on Raspberry Pi
+		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 
 		for {

@@ -44,9 +44,9 @@ func (p *Pinger) Start() {
 
 		// Run immediate initial ping sweep
 		p.PingAll()
-		_ = p.cfg.SaveRuntimeState()
 
-		pingTicker := time.NewTicker(15 * time.Second)
+		// User requested: ping interval every 5 minutes (reduced from 15s to save CPU and SD writes)
+		pingTicker := time.NewTicker(5 * time.Minute)
 		defer pingTicker.Stop()
 
 		// Hourly ticker re-resolves all mDNS hostnames to fresh IPs, healing stale DHCP entries
@@ -60,10 +60,8 @@ func (p *Pinger) Start() {
 				return
 			case <-pingTicker.C:
 				p.PingAll()
-				_ = p.cfg.SaveRuntimeState()
 			case <-resolveTicker.C:
 				p.ResolveAndUpdateIPs()
-				_ = p.cfg.SaveRuntimeState()
 			}
 		}
 	}()
@@ -136,6 +134,7 @@ func (p *Pinger) PingAllSync() []PingResult {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var results []PingResult
+	stateChanged := false
 
 	for _, bot := range bots {
 		wg.Add(1)
@@ -161,23 +160,28 @@ func (p *Pinger) PingAllSync() []PingResult {
 			}
 
 			updatedBot := config.RobotNode{
-				ID:       b.ID,
-				Name:     b.Name,
-				Hostname: b.Hostname,
-				Platform: b.Platform,
-				Status:   status,
+				ID:        b.ID,
+				Name:      b.Name,
+				Hostname:  b.Hostname,
+				Platform:  b.Platform,
+				Status:    status,
 				LatencyMs: latency,
 			}
 			// If the pinger reached the bot via mDNS and discovered a fresh IP, persist it
+			ipChanged := false
 			if discoveredIP != "" && isValidIP(discoveredIP) && discoveredIP != b.IP {
 				log.Printf("[Pinger] Updating stored IP for %s: %s -> %s (live ping)", b.Hostname, b.IP, discoveredIP)
 				updatedBot.IP = discoveredIP
+				ipChanged = true
 			} else if isValidIP(b.IP) {
 				updatedBot.IP = b.IP
 			}
 			p.cfg.UpsertBot(updatedBot)
 
 			mu.Lock()
+			if b.Status != status || ipChanged {
+				stateChanged = true
+			}
 			results = append(results, PingResult{
 				ID:        b.ID,
 				Name:      b.Name,
@@ -190,6 +194,9 @@ func (p *Pinger) PingAllSync() []PingResult {
 	}
 
 	wg.Wait()
+	if stateChanged {
+		_ = p.cfg.SaveRuntimeState()
+	}
 	return results
 }
 
@@ -206,23 +213,19 @@ func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool, string) {
 		port = 80
 	}
 
-	// Try resolving hostname to IPv4 address via pure-Go mDNS lookup
-	var resolvedIP string
-	if bot.Hostname != "" {
-		resolvedIP, _ = mdns.ResolveHostname(bot.Hostname, 500*time.Millisecond)
-	}
-
-	// Use cfg.BuildTargetCandidates for ordering, but the pinger also needs to track
-	// the IP that corresponds to each target for update purposes.
 	type targetItem struct {
 		addr string
 		ip   string
 	}
 
 	targets := []targetItem{}
+	var resolvedIP string
 
 	if p.cfg.PreferMDNS {
-		// mDNS-first: resolved IP from hostname lookup, then stored IP, then fallback
+		// Try resolving hostname to IPv4 address via pure-Go mDNS lookup
+		if bot.Hostname != "" {
+			resolvedIP, _ = mdns.ResolveHostname(bot.Hostname, 500*time.Millisecond)
+		}
 		if resolvedIP != "" && isValidIP(resolvedIP) {
 			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", resolvedIP, port), ip: resolvedIP})
 		}
@@ -237,19 +240,16 @@ func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool, string) {
 			targets = append(targets, targetItem{addr: hostAddr, ip: resolvedIP})
 		}
 	} else {
-		// IP-first: reliable on Raspberry Pi where mDNS may not resolve
+		// IP-first: test known IP directly without waiting for mDNS network multicast
 		if isValidIP(bot.IP) {
 			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.IP, port), ip: bot.IP})
 		}
 		if isValidIP(bot.FallbackIP) && bot.FallbackIP != bot.IP {
 			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", bot.FallbackIP, port), ip: bot.FallbackIP})
 		}
-		if resolvedIP != "" && isValidIP(resolvedIP) {
-			targets = append(targets, targetItem{addr: fmt.Sprintf("%s:%d", resolvedIP, port), ip: resolvedIP})
-		}
 		if bot.Hostname != "" {
 			hostAddr := fmt.Sprintf("%s:%d", mdns.CleanHostname(bot.Hostname), port)
-			targets = append(targets, targetItem{addr: hostAddr, ip: resolvedIP})
+			targets = append(targets, targetItem{addr: hostAddr, ip: ""})
 		}
 	}
 
@@ -264,10 +264,11 @@ func (p *Pinger) PingDevice(bot config.RobotNode) (float64, bool, string) {
 				if target.ip == "" {
 					target.ip = ip
 				}
+				resolvedIP = ip
 			}
 		}
 
-		conn, err := net.DialTimeout("tcp", dialAddr, 1200*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", dialAddr, 800*time.Millisecond)
 		if err == nil {
 			latency := float64(time.Since(start).Microseconds()) / 1000.0 // ms
 			_ = conn.Close()

@@ -74,8 +74,9 @@ type SpeedtestRecord struct {
 
 // DB wraps the SQLite database with thread-safe helpers and prepared statements.
 type DB struct {
-	db *sql.DB
-	mu sync.RWMutex
+	db            *sql.DB
+	mu            sync.RWMutex
+	rfInsertCount int64
 }
 
 // Open initializes or creates the SQLite database with WAL optimizations.
@@ -221,6 +222,12 @@ func (d *DB) RecordRFEvent(code uint32, bits, proto, pulse uint, gateway, ruleNa
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
+
+	d.rfInsertCount++
+	if d.rfInsertCount%500 == 0 {
+		_, _ = d.enforceRFEventRetentionLocked(1000)
+	}
+
 	return newCount, nil
 }
 
@@ -242,12 +249,13 @@ func (d *DB) GetFilteredRFCounts(minHits int, limit int) ([]RFAggregate, error) 
 		args = append(args, minHits)
 	}
 
-	query += ` ORDER BY total_count DESC`
-
-	if limit > 0 {
-		query += ` LIMIT ?`
-		args = append(args, limit)
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 500 {
+		limit = 500
 	}
+	query += ` LIMIT ?`
+	args = append(args, limit)
 
 	rows, err := d.db.Query(query, args...)
 	if err != nil {
@@ -298,7 +306,10 @@ func (d *DB) PruneRFEphemeralNoise(minHits int, preserveCodes []uint32) (int64, 
 func (d *DB) EnforceRFEventRetention(maxRows int) (int64, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	return d.enforceRFEventRetentionLocked(maxRows)
+}
 
+func (d *DB) enforceRFEventRetentionLocked(maxRows int) (int64, error) {
 	if maxRows <= 0 {
 		maxRows = 1000
 	}
@@ -442,7 +453,17 @@ func (d *DB) GetPingHistory(hours int) ([]PingRecord, error) {
 	}
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 
-	rows, err := d.db.Query(`SELECT id, device_id, latency_ms, status, ip, created_at FROM ping_history WHERE created_at >= ? ORDER BY created_at ASC`, since)
+	// Subquery recent 200 records to prevent massive JSON transfer on low-power devices
+	rows, err := d.db.Query(`
+		SELECT id, device_id, latency_ms, status, ip, created_at 
+		FROM (
+			SELECT id, device_id, latency_ms, status, ip, created_at 
+			FROM ping_history 
+			WHERE created_at >= ? 
+			ORDER BY created_at DESC 
+			LIMIT 200
+		) 
+		ORDER BY created_at ASC`, since)
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +504,17 @@ func (d *DB) GetSystemMetrics(hours int) ([]SystemMetricRecord, error) {
 	}
 	since := time.Now().Add(-time.Duration(hours) * time.Hour)
 
-	rows, err := d.db.Query(`SELECT id, cpu_pct, mem_used_mb, mem_total_mb, goroutines, created_at FROM system_metrics WHERE created_at >= ? ORDER BY created_at ASC`, since)
+	// Subquery recent 150 records to prevent massive JSON payload on Pi
+	rows, err := d.db.Query(`
+		SELECT id, cpu_pct, mem_used_mb, mem_total_mb, goroutines, created_at 
+		FROM (
+			SELECT id, cpu_pct, mem_used_mb, mem_total_mb, goroutines, created_at 
+			FROM system_metrics 
+			WHERE created_at >= ? 
+			ORDER BY created_at DESC 
+			LIMIT 150
+		) 
+		ORDER BY created_at ASC`, since)
 	if err != nil {
 		return nil, err
 	}
@@ -548,7 +579,8 @@ func (d *DB) pruneLoop() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		d.PruneOldRecords(30) // Keep last 30 days of telemetry
+		d.PruneOldRecords(7) // Keep last 7 days of telemetry to save SD card space
+		_, _ = d.EnforceRFEventRetention(1000)
 	}
 }
 
