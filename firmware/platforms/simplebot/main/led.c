@@ -81,25 +81,28 @@ void led_blink(int count, int ms_period) {
 #include "ota_mgr.h"
 
 // ── Heartbeat task ──
+// Airplane strobe (3 s period, mostly OFF):
+//   0–1500 ms  : double flash (ON 0–40, ON 120–160)
+//   1500–3000ms: single flash (ON 1500–1540)
+static bool airplane_strobe_on(void) {
+    int t = (int)((esp_timer_get_time() / 1000) % 3000);
+    return (t < 40) || (t >= 120 && t < 160) || (t >= 1500 && t < 1540);
+}
+
 static void led_heartbeat_task(void *pvParameters) {
     uint32_t max_duty = 8191;
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(10));
 
         // ── OTA Visual Feedback ──
         if (g_ota_state == OTA_STATE_ACTIVE) {
-            // Rapid strobe during flashing
-            bool strobe = (esp_timer_get_time() / 50000) % 2; // 50ms toggle
-            led_set(strobe);
+            led_set((esp_timer_get_time() / 50000) % 2);
             continue;
         } else if (g_ota_state == OTA_STATE_SUCCESS) {
-            // Solid ON for success
             led_set(true);
             continue;
         } else if (g_ota_state == OTA_STATE_FAILED) {
-            // Very fast panic blink
-            bool panic = (esp_timer_get_time() / 100000) % 2; // 100ms toggle
-            led_set(panic);
+            led_set((esp_timer_get_time() / 100000) % 2);
             continue;
         }
 
@@ -112,31 +115,14 @@ static void led_heartbeat_task(void *pvParameters) {
         if (connected) {
             // Slow breathing pattern
             float t = esp_timer_get_time() / 1000000.0f;
-            // 0.3 Hz breathing -> full cycle every ~3.3 seconds
             float breathe = (sinf(t * 3.14159f * 0.6f) + 1.0f) / 2.0f;
-            
-            // Gamma correction / squaring for more natural LED fade
             breathe = breathe * breathe;
-
             uint32_t duty = (uint32_t)(breathe * max_duty);
             if (LED_ACTIVE_LOW) duty = max_duty - duty;
-            
             ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL, duty);
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL);
         } else {
-            // Disconnected pattern: double-pulse heartbeat
-            int cycle_ms = (esp_timer_get_time() / 1000) % 1350;
-            bool on = false;
-            if (cycle_ms < 100) {
-                on = true;
-            } else if (cycle_ms < 250) {
-                on = false;
-            } else if (cycle_ms < 350) {
-                on = true;
-            } else {
-                on = false;
-            }
-            led_set(on);
+            led_set(airplane_strobe_on());
         }
     }
 }

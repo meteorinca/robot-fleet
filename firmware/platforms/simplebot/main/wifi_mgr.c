@@ -309,26 +309,39 @@ static void start_softap(void) {
     if (s_ap_active) return;
     s_ap_active = true;
 
-    ESP_LOGW(TAG, "STA failed — starting SoftAP at 192.168.4.1");
+    if (s_ap_timer) {
+        xTimerStop(s_ap_timer, 0);
+    }
+
+    ESP_LOGW(TAG, "Starting SoftAP at 192.168.4.1 (APSTA mode)");
+
+    esp_wifi_disconnect();
 
     wifi_config_t ap_cfg = {
         .ap = {
-            .ssid_len       = 0,
-            .channel        = 6,
+            .channel        = 1,
             .authmode       = WIFI_AUTH_OPEN,   // no password
             .max_connection = 4,
+            .beacon_interval = 100,
+            .ssid_hidden    = 0,
         },
     };
     
     // Build SSID "SimpleBot-<device_num>"
     snprintf((char *)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid),
              "SimpleBot-%d", DEVICE_NUMBER);
+    ap_cfg.ap.ssid_len = strlen((char *)ap_cfg.ap.ssid);
 
-    // Switch to APSTA so we still try STA in background
+    // Switch to APSTA mode so SoftAP is active AND STA interface can scan for networks
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg));
+    esp_err_t s_err = esp_wifi_start();
+    if (s_err != ESP_OK && s_err != ESP_ERR_WIFI_STATE) {
+        ESP_ERROR_CHECK(s_err);
+    }
+    esp_wifi_set_max_tx_power(78);
 
-    ESP_LOGI(TAG, "SoftAP started — SSID: %s  IP: 192.168.4.1",
+    ESP_LOGI(TAG, "SoftAP started — SSID: '%s'  IP: 192.168.4.1 (APSTA mode, Channel 1)",
              (char *)ap_cfg.ap.ssid);
 
 #if ENABLE_CAPTIVE_PORTAL
@@ -350,7 +363,14 @@ static void advance_to_next_network(void) {
                  s_network_idx + 1, s_network_count, s_networks[s_network_idx].ssid);
 
         wifi_config_t wifi_config = {
-            .sta = { .threshold.authmode = WIFI_AUTH_WPA_PSK },
+            .sta = {
+                .threshold.authmode = WIFI_AUTH_WPA_PSK,
+                .pmf_cfg = {
+                    .capable = true,
+                    .required = false,
+                },
+                .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+            },
         };
         strncpy((char*)wifi_config.sta.ssid,     s_networks[s_network_idx].ssid,
                 sizeof(wifi_config.sta.ssid));
@@ -493,9 +513,32 @@ EventGroupHandle_t wifi_init(void) {
 
     build_network_list();
 
+    if (s_network_count == 0) {
+        ESP_LOGW(TAG, "No networks configured — starting SoftAP immediately");
+        start_softap();
+
+        // mDNS (works regardless of STA/AP mode)
+        ESP_ERROR_CHECK(mdns_init());
+        ESP_ERROR_CHECK(mdns_hostname_set(MDNS_HOSTNAME));
+        ESP_ERROR_CHECK(mdns_instance_name_set(MDNS_INSTANCE));
+        mdns_service_add(MDNS_INSTANCE, "_http", "_tcp", WEB_SERVER_PORT, NULL, 0);
+
+        return s_wifi_events;
+    }
+
+    // Create the AP-fallback timer before wifi start
+    s_ap_timer = xTimerCreate("ap_fallback",
+                              pdMS_TO_TICKS(AP_FALLBACK_TIMEOUT_MS),
+                              pdFALSE, NULL, ap_fallback_cb);
+
     wifi_config_t wifi_config = {
         .sta = {
             .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .pmf_cfg = {
+                .capable = true,
+                .required = false,
+            },
+            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
         },
     };
     if (s_network_count > 0) {
@@ -505,17 +548,13 @@ EventGroupHandle_t wifi_init(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+    esp_wifi_set_max_tx_power(78);
 
     // mDNS (works regardless of STA/AP mode)
     ESP_ERROR_CHECK(mdns_init());
     ESP_ERROR_CHECK(mdns_hostname_set(MDNS_HOSTNAME));
     ESP_ERROR_CHECK(mdns_instance_name_set(MDNS_INSTANCE));
     mdns_service_add(MDNS_INSTANCE, "_http", "_tcp", WEB_SERVER_PORT, NULL, 0);
-
-    // Create the AP-fallback timer (one-shot, fires after AP_FALLBACK_TIMEOUT_MS)
-    s_ap_timer = xTimerCreate("ap_fallback",
-                              pdMS_TO_TICKS(AP_FALLBACK_TIMEOUT_MS),
-                              pdFALSE, NULL, ap_fallback_cb);
 
     ESP_LOGI(TAG, "WiFi init — STA → %s | AP fallback in %d s (per SSID)",
              MDNS_HOSTNAME, AP_FALLBACK_TIMEOUT_MS / 1000);

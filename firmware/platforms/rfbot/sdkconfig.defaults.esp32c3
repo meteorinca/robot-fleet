@@ -1,9 +1,9 @@
 # sdkconfig.defaults.esp32c3
 # Applied Yes automatically by IDF when IDF_TARGET=esp32c3
 
-# C3 uses UART0 for console (no native USB)
 CONFIG_ESP_CONSOLE_UART_DEFAULT=y
-CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y
 CONFIG_ESP_CONSOLE_UART_NUM=0
 
 # C3 dog board has 4MB flash
@@ -26,9 +26,9 @@ CONFIG_LOG_MAXIMUM_LEVEL_INFO=y
 # Trim LWIP TCP/IP task stack (default 3072 – 2048 is fine for our use)
 CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=2048
 
-# Disable AMPDU TX/RX (saves ~4KB WiFi stack, not needed for our http server)
-CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
-CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
+# Keep AMPDU enabled for compatibility with modern Wi-Fi 5 / Wi-Fi 6 routers
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=y
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=y
 
 # Trim HTTP server buffers (we never use headers > 512 bytes)
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=512

@@ -12,7 +12,7 @@ set(COMMON_SRCS
 )
 
 # Boards that use a WS2812/NeoPixel strip instead of a simple GPIO LED
-set(WS2812_BOARDS "esp32c3_simplebot")
+set(WS2812_BOARDS "")
 
 set(DISPLAY_BOARDS "")
 

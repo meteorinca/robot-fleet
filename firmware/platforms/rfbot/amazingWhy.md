@@ -52,7 +52,7 @@ In [RCSwitch.c:L483-L517](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveG
 ---
 
 #### 5. Burst Repeat Transmission
-On the transmitter side in [arduinoPhotoDetector433.ino:L53](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-fleet/firmware/platforms/rfbot/boards/simplearduino/arduinoPhotoDetector433.ino#L53), the Arduino photodetector is configured with `mySwitch.setRepeatTransmit(5)`. Each event sends 5 back-to-back bursts of the 24-bit frame. With 5 opportunities per trigger, the chance of missing a signal is nearly zero.
+On the transmitter side in [.ino:L53](file:///c:/Users/dontm/Documents/mojCodexstuff/ActiveGithub/robot-arduinoPhotoDetector433fleet/firmware/platforms/rfbot/boards/simplearduino/arduinoPhotoDetector433.ino#L53), the Arduino photodetector is configured with `mySwitch.setRepeatTransmit(5)`. Each event sends 5 back-to-back bursts of the 24-bit frame. With 5 opportunities per trigger, the chance of missing a signal is nearly zero.
 
 ---
 
