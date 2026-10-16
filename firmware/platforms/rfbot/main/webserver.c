@@ -5,6 +5,7 @@
 #include "led.h"
 #include "timekeep.h"
 #include "ota_mgr.h"
+#include "telemetry.h"
 #include "servo.h"
 #include <string.h>
 #include <stdio.h>
@@ -727,14 +728,11 @@ static esp_err_t time_handler(httpd_req_t *req) {
 }
 
 static esp_err_t status_handler(httpd_req_t *req) {
-    char resp[128];
-    int len = snprintf(resp, sizeof(resp),
-        "{\"status\":\"running\",\"version\":\"%s\",\"epoch\":%lld,\"time_synced\":%s}",
-        FW_VERSION, (long long)timekeep_now(),
-        timekeep_is_synced() ? "true" : "false");
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, resp, len);
-    return ESP_OK;
+    return telemetry_handler(req);
+}
+
+static esp_err_t info_handler(httpd_req_t *req) {
+    return telemetry_handler(req);
 }
 
 // Quick-action: now async — returns immediately
@@ -1235,6 +1233,7 @@ static esp_err_t rf_poll_handler(httpd_req_t *req) {
 
     extern volatile uint32_t rf_isr_edge_count;
     cJSON_AddNumberToObject(root, "edges", rf_isr_edge_count);
+    cJSON_AddBoolToObject(root, "edges_estimated", true);
 
     cJSON *pkts = rf_listen_get_packets();
     cJSON_AddItemToObject(root, "packets", pkts);
@@ -1297,7 +1296,15 @@ static esp_err_t rf_send_handler(httpd_req_t *req) {
                              : (uint32_t)strtoul(code_str, NULL, 10);
     }
 
-    rf_send_full(code_val, (unsigned)bits, proto, pulse);
+    if (bits < 1 || bits > 32 || proto < 1 || proto > 12 || pulse < 50 || pulse > 2000) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid RF bits, protocol, or pulse");
+        return ESP_OK;
+    }
+    esp_err_t err = rf_send_full(code_val, (unsigned)bits, proto, pulse);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, err == ESP_ERR_INVALID_ARG ? HTTPD_400_BAD_REQUEST : HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
+        return ESP_OK;
+    }
     ESP_LOGI("RF_API", "TX 0x%lX (input='%s') bits=%d proto=%d pulse=%d",
              (unsigned long)code_val, code_str, bits, proto, pulse);
 
@@ -1441,6 +1448,8 @@ void webserver_start(void) {
         { "/dog",       HTTP_OPTIONS, cors_options_handler,NULL },
         { "/time",      HTTP_GET,  time_handler,           NULL },
         { "/status",    HTTP_GET,  status_handler,         NULL },
+        { "/api/info",  HTTP_GET,  info_handler,           NULL },
+        { "/info",      HTTP_GET,  info_handler,           NULL },
         { "/schedule",  HTTP_GET,  schedule_handler,       NULL },
         { "/events",    HTTP_GET,  sse_handler,            NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },

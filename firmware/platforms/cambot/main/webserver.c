@@ -28,6 +28,7 @@
 #include "motor.h"
 #include "timekeep.h"
 #include "ota_mgr.h"
+#include "telemetry.h"
 #include "esp_camera.h"
 #include <string.h>
 #include <stdio.h>
@@ -643,14 +644,18 @@ static esp_err_t time_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t info_handler(httpd_req_t *req) {
+    return telemetry_handler(req);
+}
+
 static esp_err_t status_handler(httpd_req_t *req) {
-    char resp[192];
-    int len = snprintf(resp, sizeof(resp),
-        "{\"status\":\"running\",\"version\":\"%s\",\"epoch\":%lld,"
-        "\"time_synced\":%s,\"streaming\":%s}",
-        FW_VERSION, (long long)timekeep_now(),
-        timekeep_is_synced() ? "true" : "false",
+    char extra[64];
+    snprintf(extra, sizeof(extra),
+        "\"streaming\":%s",
         camera_is_streaming() ? "true" : "false");
+    char resp[384];
+    int len = telemetry_build_json_with_extra(resp, sizeof(resp), extra);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, resp, len);
     return ESP_OK;
@@ -1260,7 +1265,7 @@ void webserver_start(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable   = true;
     config.server_port        = WEB_SERVER_PORT;
-    config.max_uri_handlers   = 30;
+    config.max_uri_handlers   = 40;
     config.recv_wait_timeout  = 300;   // 300 s — allows OTA + long stream sessions
     config.send_wait_timeout  = 30;    // 30 s (was 10 — too short for OTA uploads)
     config.stack_size         = 8192;
@@ -1281,6 +1286,8 @@ void webserver_start(void) {
         { "/drive",      HTTP_GET,  drive_handler,      NULL },
         { "/time",       HTTP_GET,  time_handler,       NULL },
         { "/status",     HTTP_GET,  status_handler,     NULL },
+        { "/api/info",   HTTP_GET,  info_handler,       NULL },
+        { "/info",       HTTP_GET,  info_handler,       NULL },
         { "/schedule",   HTTP_GET,  schedule_handler,   NULL },
         { "/sync_time",  HTTP_GET,  sync_time_handler,  NULL },
         { "/l1on",       HTTP_GET,  quick_action_handler, NULL },

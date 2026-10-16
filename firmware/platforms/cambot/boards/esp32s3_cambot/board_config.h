@@ -24,6 +24,10 @@
 #define DEVICE_NUMBER 1
 #endif
 
+#ifndef ROBOT_PLATFORM
+#define ROBOT_PLATFORM      "cambot"
+#endif
+
 #define MDNS_HOSTNAME       "cambot" _STR(DEVICE_NUMBER)
 #define MDNS_INSTANCE       "CamBot v" _STR(DEVICE_NUMBER)
 

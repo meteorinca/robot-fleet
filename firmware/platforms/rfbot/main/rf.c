@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "esp_http_client.h"
 #include "esp_timer.h"
 #include "mdns.h"
@@ -27,6 +28,7 @@ volatile uint32_t rf_isr_edge_count = 0;
 // ── Separate TX and RX structs to avoid conflicts ───────────────────────────
 static RCSWITCH_t s_rc_tx;
 static RCSWITCH_t s_rc_rx;
+static SemaphoreHandle_t s_tx_mutex;
 
 // ── Shared packet type ───────────────────────────────────────────────────────
 typedef struct {
@@ -239,18 +241,22 @@ void rf_module_init(void) {
     // TX
     initSwitch(&s_rc_tx);
     enableTransmit(&s_rc_tx, RF_TX_GPIO);
+    rf_rmt_tx_init(RF_TX_GPIO);
+    s_tx_mutex = xSemaphoreCreateMutex();
+    ESP_ERROR_CHECK(s_tx_mutex ? ESP_OK : ESP_ERR_NO_MEM);
 
     // RX — will be started in rf_start_receiver()
     initSwitch(&s_rc_rx);
 }
 
 
-void rf_send_code(uint32_t code, unsigned int bit_length) {
-    sendCode(&s_rc_tx, code, bit_length);
+esp_err_t rf_send_code(uint32_t code, unsigned int bit_length) {
+    return rf_send_full(code, bit_length, 0, 0);
 }
 
-void rf_send_full(uint32_t code, unsigned int bit_length, int protocol, int pulse_length) {
+esp_err_t rf_send_full(uint32_t code, unsigned int bit_length, int protocol, int pulse_length) {
     /* Save current protocol so we can restore it cleanly after the send. */
+    xSemaphoreTake(s_tx_mutex, portMAX_DELAY);
     Protocol saved = s_rc_tx.protocol;
 
     if (protocol > 0) setProtocol(&s_rc_tx, protocol);
@@ -258,10 +264,12 @@ void rf_send_full(uint32_t code, unsigned int bit_length, int protocol, int puls
 
     ESP_LOGI(TAG, "rf_send_full: code=0x%lX bits=%u proto=%d pulse=%d",
              (unsigned long)code, bit_length, protocol, pulse_length);
-    sendCode(&s_rc_tx, code, bit_length);
+    esp_err_t err = sendCode(&s_rc_tx, code, bit_length);
 
     /* Restore previous protocol (including its pulseLength). */
     s_rc_tx.protocol = saved;
+    xSemaphoreGive(s_tx_mutex);
+    return err;
 }
 
 // ── Learn mode API ───────────────────────────────────────────────────────────
@@ -374,23 +382,36 @@ cJSON *rf_listen_get_packets(void) {
 // ── Confirmation TX (existing logic) ────────────────────────────────────────
 static void send_confirmation(uint32_t original_code) {
     uint32_t confirm = original_code ^ 0xAAAAAA;
-    sendCode(&s_rc_tx, confirm, 24);
+    rf_send_code(confirm, 24);
     ESP_LOGI(TAG, "Sent confirmation 0x%06lX", (unsigned long)confirm);
     vTaskDelay(pdMS_TO_TICKS(500));
 }
 
 // ── Receiver task ────────────────────────────────────────────────────────────
 static void rf_receiver_task(void *pvParameters) {
-    enableReceive(&s_rc_rx, RF_RX_GPIO);
+    ESP_ERROR_CHECK(enableReceive(&s_rc_rx, RF_RX_GPIO));
+    uint32_t last_code = 0;
+    unsigned last_bits = 0, last_proto = 0;
+    int64_t last_packet_us = -1000000;
     while (1) {
-        if (available(&s_rc_rx)) {
+        if (receiveCode(&s_rc_rx, portMAX_DELAY)) {
             uint32_t   code  = getReceivedValue(&s_rc_rx);
             unsigned   bits  = getReceivedBitlength(&s_rc_rx);
             unsigned   proto = getReceivedProtocol(&s_rc_rx);
             unsigned   pulse = getReceivedDelay(&s_rc_rx);
             resetAvailable(&s_rc_rx);
 
-            ESP_LOGI(TAG, "Received 0x%lX bits=%u proto=%u pulse=%u",
+            int64_t now_us = esp_timer_get_time();
+            // A remote repeats one frame several times. Dispatch each burst
+            // once, rather than logging, relaying, and acting on every repeat.
+            if (code == last_code && bits == last_bits && proto == last_proto &&
+                now_us - last_packet_us < 250000) continue;
+            last_code = code;
+            last_bits = bits;
+            last_proto = proto;
+            last_packet_us = now_us;
+
+            ESP_LOGD(TAG, "Received 0x%lX bits=%u proto=%u pulse=%u",
                      (unsigned long)code, bits, proto, pulse);
 
             bool is_relayed = false;
@@ -413,7 +434,7 @@ static void rf_receiver_task(void *pvParameters) {
             }
 
             // ── Listen mode — buffer every packet for the WebUI ──────────────
-            if (s_listen_mode) {
+            { // Always buffer decoded events for FleetHub polling.
                 portENTER_CRITICAL(&s_listen_mux);
                 s_listen_buf[s_listen_head].code     = code;
                 s_listen_buf[s_listen_head].bits     = bits;
@@ -466,17 +487,17 @@ static void rf_receiver_task(void *pvParameters) {
                         break;
                     default:
                         if (!is_relayed) {
-                            ESP_LOGW(TAG, "Unknown code, ignoring");
+                            ESP_LOGD(TAG, "Unknown code, ignoring");
                         }
                         break;
                 }
             }
 
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        taskYIELD();
     }
 }
 
 void rf_start_receiver(void) {
-    xTaskCreate(rf_receiver_task, "rf_rx", 4096, NULL, 5, NULL);
+    xTaskCreate(rf_receiver_task, "rf_rx", 8192, NULL, 3, NULL);
 }

@@ -17,6 +17,10 @@
 #define DEVICE_NUMBER 2
 #endif
 
+#ifndef ROBOT_PLATFORM
+#define ROBOT_PLATFORM      "dogbot_v1"
+#endif
+
 #define MDNS_HOSTNAME       "paulbot" _STR(DEVICE_NUMBER)
 #define MDNS_INSTANCE       "PaulBotv" _STR(DEVICE_NUMBER)
 

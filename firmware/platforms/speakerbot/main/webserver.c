@@ -8,6 +8,7 @@
 #include "timekeep.h"
 #include "ota_mgr.h"
 #include "wifi_mgr.h"
+#include "telemetry.h"
 
 #include <sys/param.h>
 #include <string.h>
@@ -781,14 +782,11 @@ static esp_err_t time_handler(httpd_req_t *req) {
 }
 
 static esp_err_t status_handler(httpd_req_t *req) {
-    char resp[128];
-    int len = snprintf(resp, sizeof(resp),
-        "{\"status\":\"running\",\"version\":\"%s\",\"epoch\":%lld,\"time_synced\":%s}",
-        FW_VERSION, (long long)timekeep_now(),
-        timekeep_is_synced() ? "true" : "false");
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, resp, len);
-    return ESP_OK;
+    return telemetry_handler(req);
+}
+
+static esp_err_t info_handler(httpd_req_t *req) {
+    return telemetry_handler(req);
 }
 
 static esp_err_t sync_time_handler(httpd_req_t *req) {
@@ -929,6 +927,8 @@ void webserver_start(void) {
         // System
         { .uri = "/time",               .method = HTTP_GET,  .handler = time_handler },
         { .uri = "/status",             .method = HTTP_GET,  .handler = status_handler },
+        { .uri = "/api/info",           .method = HTTP_GET,  .handler = info_handler },
+        { .uri = "/info",               .method = HTTP_GET,  .handler = info_handler },
         { .uri = "/sync_time",          .method = HTTP_GET,  .handler = sync_time_handler },
 
         // Button/LED Direct & Games

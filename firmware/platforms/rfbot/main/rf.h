@@ -2,14 +2,15 @@
 #define RF_H
 
 #include <stdint.h>
+#include "esp_err.h"
 #include <stdbool.h>
 #include <stddef.h>
 
 
 // ── Core init / TX ───────────────────────────────────────────────────────────
 void rf_module_init(void);
-void rf_send_code(uint32_t code, unsigned int bit_length);
-void rf_send_full(uint32_t code, unsigned int bit_length, int protocol, int pulse_length);
+esp_err_t rf_send_code(uint32_t code, unsigned int bit_length);
+esp_err_t rf_send_full(uint32_t code, unsigned int bit_length, int protocol, int pulse_length);
 
 extern volatile uint32_t rf_isr_edge_count;
 void rf_start_receiver(void);
@@ -28,7 +29,7 @@ struct cJSON;
 struct cJSON *rf_learn_get_codes(void);
 
 // ── Listen mode ───────────────────────────────────────────────────────────────
-// Continuously buffers ALL received 433 MHz packets into a ring buffer so that
+// Continuously buffers decoded 433 MHz packets, even outside listen mode, so that
 // the WebUI can poll /rf/poll and display them in real time.
 // Normal action dispatch is suspended while listen mode is active.
 void rf_listen_start(void);
@@ -42,11 +43,10 @@ struct cJSON *rf_listen_get_packets(void);
 
 // ── Relay mode (Photodetector RF -> SpeakerBot Bark) ────────────────────────
 // When enabled, receiving RF code 123456 (or 0x123456) sends HTTP GET /bark
-// to the configured target SpeakerBot host. Enabled by default.
+// to the configured target SpeakerBot host. Disabled by default; FleetHub handles bridge rules.
 void rf_relay_set_config(bool enabled, const char *host);
 void rf_relay_get_config(bool *out_enabled, char *out_host, size_t max_host, char *out_last_event, size_t max_event);
 bool rf_relay_is_enabled(void);
 void rf_relay_trigger(void);
 
 #endif
-

@@ -40,8 +40,8 @@ Requires `WS2812_DATA_GPIO` and `WS2812_NUM_LEDS` to be defined in `board_config
   - *Turns every pixel off (all black).*
 
 ## ⏱️ System & Status
-- **Get Status**: `GET /status`
-  - *Returns JSON with version, running status, and time.*
+- **Get Status / Telemetry**: `GET /status` or `GET /api/info` (or `/info`)
+  - *Returns unified JSON with platform, firmware version, hostname, device_number, uptime, free_heap, epoch, and NTP time_synced.*
 - **Get Time**: `GET /time`
   - *Returns JSON with NTP synced time and epoch.*
 

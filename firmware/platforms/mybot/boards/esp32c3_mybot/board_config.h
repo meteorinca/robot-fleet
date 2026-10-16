@@ -17,6 +17,10 @@
 #define DEVICE_NUMBER 5
 #endif
 
+#ifndef ROBOT_PLATFORM
+#define ROBOT_PLATFORM      "mybot"
+#endif
+
 #define MDNS_HOSTNAME       "mybot" _STR(DEVICE_NUMBER)
 #define MDNS_INSTANCE       "MyBot v" _STR(DEVICE_NUMBER)
 

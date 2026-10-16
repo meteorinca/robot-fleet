@@ -18,6 +18,10 @@
 #define DEVICE_NUMBER 1
 #endif
 
+#ifndef ROBOT_PLATFORM
+#define ROBOT_PLATFORM      "speakerbot"
+#endif
+
 #define MDNS_HOSTNAME       "speakerbot" _STR(DEVICE_NUMBER)
 #define MDNS_INSTANCE       "SpeakerBot v" _STR(DEVICE_NUMBER)
 

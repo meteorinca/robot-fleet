@@ -9,6 +9,7 @@
 #endif
 #include "timekeep.h"
 #include "ota_mgr.h"
+#include "telemetry.h"
 #include "servo.h"
 #include <string.h>
 #include <stdio.h>
@@ -494,14 +495,11 @@ static esp_err_t time_handler(httpd_req_t *req) {
 }
 
 static esp_err_t status_handler(httpd_req_t *req) {
-    char resp[128];
-    int len = snprintf(resp, sizeof(resp),
-        "{\"status\":\"running\",\"version\":\"%s\",\"epoch\":%lld,\"time_synced\":%s}",
-        FW_VERSION, (long long)timekeep_now(),
-        timekeep_is_synced() ? "true" : "false");
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, resp, len);
-    return ESP_OK;
+    return telemetry_handler(req);
+}
+
+static esp_err_t info_handler(httpd_req_t *req) {
+    return telemetry_handler(req);
 }
 
 // Quick-action: now async — returns immediately
@@ -1090,6 +1088,8 @@ void webserver_start(void) {
         { "/dog",       HTTP_OPTIONS, cors_options_handler,NULL },
         { "/time",      HTTP_GET,  time_handler,           NULL },
         { "/status",    HTTP_GET,  status_handler,         NULL },
+        { "/api/info",  HTTP_GET,  info_handler,           NULL },
+        { "/info",      HTTP_GET,  info_handler,           NULL },
         { "/schedule",  HTTP_GET,  schedule_handler,       NULL },
         { "/events",    HTTP_GET,  sse_handler,            NULL },
         { "/sync_time", HTTP_GET,  sync_time_handler,      NULL },

@@ -15,6 +15,7 @@
 #include "timekeep.h"
 #include "dog_actions.h"
 #include "ota_mgr.h"
+#include "telemetry.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -324,29 +325,11 @@ static esp_err_t time_handler(httpd_req_t *req) {
 }
 
 static esp_err_t status_handler(httpd_req_t *req) {
-    char resp[128];
-    int len = snprintf(resp, sizeof(resp),
-        "{\"status\":\"running\",\"version\":\"%s\",\"epoch\":%lld,\"time_synced\":%s}",
-        FW_VERSION, (long long)timekeep_now(),
-        timekeep_is_synced() ? "true" : "false");
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, resp, len);
-    return ESP_OK;
+    return telemetry_handler(req);
 }
 
 static esp_err_t info_handler(httpd_req_t *req) {
-    char resp[256];
-    int len = snprintf(resp, sizeof(resp),
-        "{\"platform\":\"dogbot_v1\",\"firmware\":\"%s\",\"uptime\":%lld,\"free_heap\":%lu,\"hostname\":\"%s\",\"device_number\":%d}",
-        FW_VERSION,
-        (long long)(esp_timer_get_time() / 1000000ULL),
-        (unsigned long)esp_get_free_heap_size(),
-        MDNS_HOSTNAME,
-        DEVICE_NUMBER);
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, resp, len);
-    return ESP_OK;
+    return telemetry_handler(req);
 }
 
 static void send_cmd_html_response(httpd_req_t *req) {

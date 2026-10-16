@@ -34,6 +34,8 @@
 static EventGroupHandle_t s_wifi_events;
 static TimerHandle_t      s_ap_timer      = NULL;
 static bool               s_ap_active     = false;
+static bool               s_sta_associated = false;
+static bool               s_ignore_disconnect = false;
 static int                s_retry_count   = 0;
 static char               s_ip_addr[32] = {0};
 
@@ -262,7 +264,7 @@ static void dns_server_task(void *arg) {
         socklen_t addr_len = sizeof(client_addr);
         int len = recvfrom(sock, buf, sizeof(buf), 0,
                            (struct sockaddr *)&client_addr, &addr_len);
-        if (len < 12) continue;  // too short for DNS header
+        if (len < 12 || len > (int)sizeof(buf) - 16) continue;
 
         uint8_t resp[512];
         memcpy(resp, buf, len);  // start with the query
@@ -294,6 +296,9 @@ static void dns_server_task(void *arg) {
 }
 
 static void start_captive_dns(void) {
+    static bool started = false;
+    if (started) return;
+    started = true;
     xTaskCreate(dns_server_task, "dns_srv", 3072, NULL, 3, NULL);
 }
 #endif // ENABLE_CAPTIVE_PORTAL
@@ -344,7 +349,6 @@ static void start_softap(void) {
     if (s_err != ESP_OK && s_err != ESP_ERR_WIFI_STATE) {
         ESP_ERROR_CHECK(s_err);
     }
-    esp_wifi_set_max_tx_power(78);
 
     ESP_LOGI(TAG, "SoftAP started — SSID: '%s'  IP: 192.168.4.1 (APSTA mode, Channel %d)",
              (char *)ap_cfg.ap.ssid, ap_cfg.ap.channel);
@@ -355,10 +359,14 @@ static void start_softap(void) {
 
     // Start the web server on the AP interface too
     webserver_start();
+    if (s_network_count && s_ap_timer) xTimerChangePeriod(s_ap_timer, pdMS_TO_TICKS(60000), 0);
 }
 
 static void advance_to_next_network(void) {
-    if (s_ap_active) return;
+    if (s_ap_active) {
+        s_ap_active = false;
+        s_network_idx = -1;
+    }
 
     s_retry_count = 0;
     s_network_idx++;
@@ -380,60 +388,35 @@ static void advance_to_next_network(void) {
                 sizeof(wifi_config.sta.ssid));
         strncpy((char*)wifi_config.sta.password, s_networks[s_network_idx].pass,
                 sizeof(wifi_config.sta.password));
-        esp_wifi_disconnect();
+        if (s_sta_associated) {
+            s_ignore_disconnect = true;
+            esp_wifi_disconnect();
+            s_sta_associated = false;
+        }
         esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
         esp_wifi_connect();
-        if (s_ap_timer) xTimerReset(s_ap_timer, 0);
+        if (s_ap_timer) xTimerChangePeriod(s_ap_timer, pdMS_TO_TICKS(AP_FALLBACK_TIMEOUT_MS), 0);
     } else {
         ESP_LOGW(TAG, "All %d configured networks failed. Starting SoftAP hotspot mode...", s_network_count);
         start_softap();
     }
 }
 
+#define WIFI_MGR_ADVANCE_EVENT 1
+ESP_EVENT_DEFINE_BASE(WIFI_MGR_EVENTS);
+
+static void on_advance_event(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    if (!(xEventGroupGetBits(s_wifi_events) & WIFI_CONNECTED_BIT)) advance_to_next_network();
+}
+
 static void ap_fallback_cb(TimerHandle_t xTimer) {
-    advance_to_next_network();
+    esp_event_post(WIFI_MGR_EVENTS, WIFI_MGR_ADVANCE_EVENT, NULL, 0, 0);
 }
 
 // ── ESP-NETIF style event handler ──
 static void on_wifi_event(void *arg, esp_event_base_t base,
                           int32_t id, void *event_data) {
     if (id == WIFI_EVENT_STA_START) {
-        ESP_LOGW(TAG, "==== HARDWARE RF DIAGNOSTIC: Scanning 2.4 GHz spectrum... ====");
-        int8_t max_pwr = 0;
-        esp_wifi_get_max_tx_power(&max_pwr);
-        ESP_LOGI(TAG, "Max TX Power: %d (%.2f dBm)", max_pwr, max_pwr * 0.25f);
-
-        wifi_scan_config_t scan_cfg = {
-            .show_hidden = true,
-        };
-        esp_err_t scan_err = esp_wifi_scan_start(&scan_cfg, true);
-        if (scan_err != ESP_OK) {
-            ESP_LOGE(TAG, "RF SCAN FAILED! esp_wifi_scan_start error: %s", esp_err_to_name(scan_err));
-        } else {
-            uint16_t ap_num = 0;
-            esp_wifi_scan_get_ap_num(&ap_num);
-            ESP_LOGW(TAG, "RF SCAN RESULT: Detected %d access point(s)", ap_num);
-            if (ap_num > 0) {
-                uint16_t max_records = (ap_num > 20) ? 20 : ap_num;
-                wifi_ap_record_t *records = malloc(max_records * sizeof(wifi_ap_record_t));
-                if (records) {
-                    esp_wifi_scan_get_ap_records(&max_records, records);
-                    for (int i = 0; i < max_records; i++) {
-                        ESP_LOGI(TAG, "  [%02d] SSID: '%-20s' | RSSI: %4d dBm | Ch: %2d | Auth: %d",
-                                 i + 1, (char*)records[i].ssid, records[i].rssi,
-                                 records[i].primary, records[i].authmode);
-                    }
-                    free(records);
-                }
-            } else {
-                ESP_LOGE(TAG, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                ESP_LOGE(TAG, ">>> HARDWARE FAILURE: 0 NETWORKS HEARD ON 2.4 GHz! <<<");
-                ESP_LOGE(TAG, ">>> The ESP32 RF radio / antenna circuit is defective! <<<");
-                ESP_LOGE(TAG, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            }
-        }
-        ESP_LOGW(TAG, "===============================================================");
-
         if (s_network_count == 0) {
             ESP_LOGW(TAG, "No networks configured — starting SoftAP immediately");
             advance_to_next_network();
@@ -441,9 +424,19 @@ static void on_wifi_event(void *arg, esp_event_base_t base,
             esp_wifi_connect();
             if (s_ap_timer) xTimerReset(s_ap_timer, 0);
         }
+    } else if (id == WIFI_EVENT_STA_CONNECTED) {
+        s_sta_associated = true;
     } else if (id == WIFI_EVENT_STA_DISCONNECTED) {
+        s_sta_associated = false;
+        xEventGroupClearBits(s_wifi_events, WIFI_CONNECTED_BIT);
+        s_ip_addr[0] = '\0';
+        if (s_ignore_disconnect) {
+            s_ignore_disconnect = false;
+            return;
+        }
         wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
         if (!s_ap_active && s_network_idx < s_network_count) {
+            if (s_ap_timer && s_retry_count == 0) xTimerChangePeriod(s_ap_timer, pdMS_TO_TICKS(AP_FALLBACK_TIMEOUT_MS), 0);
             s_retry_count++;
             ESP_LOGW(TAG, "Disconnected (reason=%d, attempt %d/3) on '%s'",
                      disc->reason, s_retry_count, s_networks[s_network_idx].ssid);
@@ -471,6 +464,10 @@ static void on_ip_event(void *arg, esp_event_base_t base,
     if (id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         snprintf(s_ip_addr, sizeof(s_ip_addr), IPSTR, IP2STR(&event->ip_info.ip));
+        s_retry_count = 0;
+        s_ap_active = false;
+        // Stop the fallback hotspot once the station has recovered.
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
         ESP_LOGI(TAG, "Got IP: %s", s_ip_addr);
         if (s_ap_timer) xTimerStop(s_ap_timer, 0);
         
@@ -566,6 +563,8 @@ EventGroupHandle_t wifi_init(void) {
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &on_ip_event, NULL, &h_ip));
 
+    ESP_ERROR_CHECK(esp_event_handler_register(
+        WIFI_MGR_EVENTS, WIFI_MGR_ADVANCE_EVENT, on_advance_event, NULL));
     build_network_list();
 
     // Create the AP-fallback timer BEFORE starting Wi-Fi

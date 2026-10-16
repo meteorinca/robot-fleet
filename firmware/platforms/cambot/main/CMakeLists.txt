@@ -15,6 +15,7 @@ idf_component_register(
     SRCS            ${SRCS}
     INCLUDE_DIRS    "."
                     "${CMAKE_SOURCE_DIR}/boards/${BOARD}"   # makes board_config.h includable directly
+                    "${CMAKE_SOURCE_DIR}/../../common"
     PRIV_REQUIRES   esp_driver_gpio
                     esp_driver_ledc
                     esp_wifi

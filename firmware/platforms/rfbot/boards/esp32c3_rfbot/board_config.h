@@ -7,7 +7,7 @@
 #pragma once
 
 // ── Firmware identity ───────────────────────────────────────────────────────
-#define FW_VERSION          "0.1"
+#define FW_VERSION          "0.2"
 
 // Device number macro helpers to stringify the number passed from CMake
 #define _XSTR(x) #x
@@ -15,6 +15,10 @@
 
 #ifndef DEVICE_NUMBER
 #define DEVICE_NUMBER 5
+#endif
+
+#ifndef ROBOT_PLATFORM
+#define ROBOT_PLATFORM      "rfbot"
 #endif
 
 // This hostname sets the base mDNS name.
@@ -85,4 +89,3 @@
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 #define MAX_SCHEDULED_ACTIONS  8
-

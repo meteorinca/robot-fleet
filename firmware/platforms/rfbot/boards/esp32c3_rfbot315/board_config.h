@@ -17,6 +17,10 @@
 #define DEVICE_NUMBER 5
 #endif
 
+#ifndef ROBOT_PLATFORM
+#define ROBOT_PLATFORM      "rfbot"
+#endif
+
 // This hostname sets the base mDNS name.
 // E.g. "rfbot315" -> "rfbot315_5.local"
 #define MDNS_HOSTNAME       "rfbot315_" _STR(DEVICE_NUMBER)

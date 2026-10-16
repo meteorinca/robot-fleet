@@ -31,6 +31,7 @@ from .discovery import Bot, Fleet
 # ─── Constants ───────────────────────────────────────────────────────────────
 
 INFO_ENDPOINT = "/api/info"
+STATUS_ENDPOINT = "/status"
 DEFAULT_PORT: int = 80
 DEFAULT_TIMEOUT: float = 2.0
 
@@ -45,7 +46,7 @@ def probe_bot(
     timeout: float = DEFAULT_TIMEOUT,
 ) -> Bot:
     """
-    Probe a single bot's HTTP ``/api/info`` endpoint.
+    Probe a single bot's HTTP ``/api/info`` endpoint (with fallback to ``/status``).
 
     Mutates *bot* in-place and returns it.
     If the bot is offline, or the request fails for any reason,
@@ -62,22 +63,37 @@ def probe_bot(
     if not bot.is_online or bot.ip in ("N/A", "?", ""):
         return bot
 
-    url = f"http://{bot.ip}:{port}{INFO_ENDPOINT}"
-    try:
-        with urlopen(url, timeout=timeout) as resp:
-            data: dict = json.loads(resp.read().decode())
+    data: dict | None = None
+    for endpoint in (INFO_ENDPOINT, STATUS_ENDPOINT):
+        url = f"http://{bot.ip}:{port}{endpoint}"
+        try:
+            with urlopen(url, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode())
+                if isinstance(data, dict):
+                    break
+        except (URLError, HTTPError, json.JSONDecodeError, OSError, ValueError):
+            continue
 
+    if data and isinstance(data, dict):
         bot.platform = data.get("platform", bot.platform) or bot.platform
-        bot.fw_version = data.get("firmware", bot.fw_version) or bot.fw_version
+        fw = data.get("firmware") or data.get("version")
+        if fw:
+            bot.fw_version = str(fw)
         uptime = data.get("uptime")
         if uptime is not None:
-            bot.uptime_s = int(uptime)
+            try:
+                bot.uptime_s = int(uptime)
+            except (ValueError, TypeError):
+                pass
         free_heap = data.get("free_heap")
         if free_heap is not None:
-            bot.free_heap = int(free_heap)
-
-    except (URLError, HTTPError, json.JSONDecodeError, OSError, ValueError):
-        pass  # Best-effort — ignore all probe failures
+            try:
+                bot.free_heap = int(free_heap)
+            except (ValueError, TypeError):
+                pass
+        hostname = data.get("hostname") or data.get("name")
+        if hostname and (not bot.hostname or bot.hostname.startswith("?")):
+            bot.hostname = str(hostname)
 
     return bot
 

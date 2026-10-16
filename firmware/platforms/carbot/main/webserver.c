@@ -32,6 +32,7 @@
 #include "buzzer.h"
 #include "timekeep.h"
 #include "ota_mgr.h"
+#include "telemetry.h"
 #include "motor.h"
 #include "ultrasonic.h"
 #include "oled.h"
@@ -280,17 +281,21 @@ static esp_err_t time_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t info_handler(httpd_req_t *req) {
+    return telemetry_handler(req);
+}
+
 // ── Status ────────────────────────────────────────────────────────────────────
 static esp_err_t status_handler(httpd_req_t *req) {
-    char resp[256];
-    int len = snprintf(resp, sizeof(resp),
-        "{\"status\":\"running\",\"version\":\"%s\",\"epoch\":%lld,"
-        "\"time_synced\":%s,\"throttle\":%d,\"steer\":%d,\"braking\":%s}",
-        FW_VERSION, (long long)timekeep_now(),
-        timekeep_is_synced() ? "true" : "false",
+    char extra[128];
+    snprintf(extra, sizeof(extra),
+        "\"throttle\":%d,\"steer\":%d,\"braking\":%s",
         motor_drive_get_throttle(),
         motor_steer_get_pos(),
         motor_is_braking() ? "true" : "false");
+    char resp[384];
+    int len = telemetry_build_json_with_extra(resp, sizeof(resp), extra);
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, resp, len);
     return ESP_OK;
@@ -653,6 +658,8 @@ void webserver_start(void) {
         { "/dog",           HTTP_OPTIONS,cors_options_handler,  NULL },
         // ── Status / time ─────────────────────────────────────────────────────
         { "/status",        HTTP_GET,    status_handler,        NULL },
+        { "/api/info",      HTTP_GET,    info_handler,          NULL },
+        { "/info",          HTTP_GET,    info_handler,          NULL },
         { "/time",          HTTP_GET,    time_handler,          NULL },
         { "/sync_time",     HTTP_GET,    sync_time_handler,     NULL },
         { "/schedule",      HTTP_GET,    schedule_handler,      NULL },

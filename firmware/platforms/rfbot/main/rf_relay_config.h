@@ -14,7 +14,7 @@
 // ============================================================================
 
 #ifndef RF_RELAY_ENABLED_DEFAULT
-#define RF_RELAY_ENABLED_DEFAULT true
+#define RF_RELAY_ENABLED_DEFAULT false
 #endif
 
 // ── RX Relay Rules (Add as many RF_RELAY lines as you want!) ─────────────────

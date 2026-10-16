@@ -47,6 +47,7 @@ idf_component_register(
     SRCS            ${COMMON_SRCS} ${CONDITIONAL_SRCS}
     INCLUDE_DIRS    "."
                     "${CMAKE_SOURCE_DIR}/boards/${BOARD}"   # makes board_config.h includable directly
+                    "${CMAKE_SOURCE_DIR}/../../common"
     EMBED_TXTFILES  "index.html"
     REQUIRES        RCSwitch
                     led_strip

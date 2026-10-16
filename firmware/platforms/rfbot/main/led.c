@@ -5,7 +5,10 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/task.h"
-#include <math.h>
+#include "freertos/semphr.h"
+
+static SemaphoreHandle_t s_led_mutex;
+static uint32_t s_last_duty = UINT32_MAX;
 
 static bool g_led_state = false;
 static volatile int64_t s_last_manual_time = -10000000LL; // Initialize far in the past
@@ -17,7 +20,16 @@ static EventBits_t        s_connected_bit;
 #define LED_LEDC_TIMER      LEDC_TIMER_1
 #define LED_LEDC_CHANNEL    LEDC_CHANNEL_4
 
+static void write_duty(uint32_t duty) {
+    if (duty == s_last_duty) return;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL);
+    s_last_duty = duty;
+}
+
 void led_init(void) {
+    s_led_mutex = xSemaphoreCreateMutex();
+    ESP_ERROR_CHECK(s_led_mutex ? ESP_OK : ESP_ERR_NO_MEM);
     ledc_timer_config_t ledc_timer = {
         .speed_mode       = LEDC_LOW_SPEED_MODE,
         .timer_num        = LED_LEDC_TIMER,
@@ -49,12 +61,15 @@ void led_set(bool on) {
     } else {
         duty = on ? max_duty : 0;
     }
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL, duty);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL);
+    xSemaphoreTake(s_led_mutex, portMAX_DELAY);
+    write_duty(duty);
+    xSemaphoreGive(s_led_mutex);
 }
 
 void led_register_manual_control(void) {
+    xSemaphoreTake(s_led_mutex, portMAX_DELAY);
     s_last_manual_time = esp_timer_get_time();
+    xSemaphoreGive(s_led_mutex);
 }
 
 void led_action_set(bool state) {
@@ -80,60 +95,41 @@ void led_blink(int count, int ms_period) {
 
 #include "ota_mgr.h"
 
-// Airplane strobe (3 s period, mostly OFF):
-//   0–1500 ms  : double flash (ON 0–40, ON 120–160)
-//   1500–3000ms: single flash (ON 1500–1540)
-static bool airplane_strobe_on(void) {
-    int t = (int)((esp_timer_get_time() / 1000) % 3000);
-    return (t < 40) || (t >= 120 && t < 160) || (t >= 1500 && t < 1540);
+// Integer breathing curve sampled at 25 Hz. LEDC generates the PWM;
+// unchanged strobe/solid states do not rewrite the hardware registers.
+static uint32_t breathe_duty(int64_t now_ms) {
+    unsigned phase = now_ms % 3200;
+    unsigned triangle = phase < 1600 ? phase : 3200 - phase;
+    uint32_t x = triangle * 1024 / 1600;
+    uint32_t smooth = x * x * (3072 - 2 * x) / (1024 * 1024);
+    return smooth * 8191 / 1024;
 }
 
-// ── Heartbeat task ──
 static void led_heartbeat_task(void *pvParameters) {
-    uint32_t max_duty = 8191;
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-
-        // ── OTA Visual Feedback ──
+        int64_t now_us = esp_timer_get_time();
+        int64_t now_ms = now_us / 1000;
+        uint32_t brightness = 0;
+        bool manual = false;
+        xSemaphoreTake(s_led_mutex, portMAX_DELAY);
         if (g_ota_state == OTA_STATE_ACTIVE) {
-            // Rapid strobe during flashing
-            bool strobe = (esp_timer_get_time() / 50000) % 2; // 50ms toggle
-            led_set(strobe);
-            continue;
+            brightness = (now_ms / 50) % 2 ? 8191 : 0;
         } else if (g_ota_state == OTA_STATE_SUCCESS) {
-            // Solid ON for success
-            led_set(true);
-            continue;
+            brightness = 8191;
         } else if (g_ota_state == OTA_STATE_FAILED) {
-            // Very fast panic blink
-            bool panic = (esp_timer_get_time() / 100000) % 2; // 100ms toggle
-            led_set(panic);
-            continue;
-        }
-
-        if (esp_timer_get_time() - s_last_manual_time < LED_MANUAL_OVERRIDE_US) {
-            continue;
-        }
-
-        bool connected = (xEventGroupGetBits(s_wifi_events) & s_connected_bit) != 0;
-
-        if (connected) {
-            // Slow breathing pattern
-            float t = esp_timer_get_time() / 1000000.0f;
-            // 0.3 Hz breathing -> full cycle every ~3.3 seconds
-            float breathe = (sinf(t * 3.14159f * 0.6f) + 1.0f) / 2.0f;
-            
-            // Gamma correction / squaring for more natural LED fade
-            breathe = breathe * breathe;
-
-            uint32_t duty = (uint32_t)(breathe * max_duty);
-            if (LED_ACTIVE_LOW) duty = max_duty - duty;
-            
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL, duty);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_LEDC_CHANNEL);
+            brightness = (now_ms / 100) % 2 ? 8191 : 0;
+        } else if (now_us - s_last_manual_time < LED_MANUAL_OVERRIDE_US) {
+            manual = true;
+        } else if (xEventGroupGetBits(s_wifi_events) & s_connected_bit) {
+            brightness = breathe_duty(now_ms);
         } else {
-            led_set(airplane_strobe_on());
+            unsigned t = now_ms % 3000;
+            brightness = (t < 40 || (t >= 120 && t < 160) ||
+                          (t >= 1500 && t < 1540)) ? 8191 : 0;
         }
+        if (!manual) write_duty(LED_ACTIVE_LOW ? 8191 - brightness : brightness);
+        xSemaphoreGive(s_led_mutex);
+        vTaskDelay(pdMS_TO_TICKS(40));
     }
 }
 
