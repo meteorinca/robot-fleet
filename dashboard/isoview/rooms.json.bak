@@ -1,0 +1,530 @@
+{
+  "image": {
+    "w": 1189,
+    "h": 1323
+  },
+  "rooms": [
+    {
+      "id": "livingroom",
+      "label": "Living Room",
+      "category": "Living",
+      "polygon": [
+        [
+          420,
+          230
+        ],
+        [
+          535,
+          230
+        ],
+        [
+          715,
+          220
+        ],
+        [
+          770,
+          360
+        ],
+        [
+          755,
+          440
+        ],
+        [
+          675,
+          460
+        ],
+        [
+          670,
+          510
+        ],
+        [
+          530,
+          550
+        ],
+        [
+          405,
+          540
+        ],
+        [
+          380,
+          450
+        ],
+        [
+          425,
+          340
+        ],
+        [
+          420,
+          230
+        ]
+      ],
+      "devices": [
+        {
+          "id": "lr_light",
+          "label": "Ceiling Lights",
+          "type": "light",
+          "bot": "simplebot1",
+          "channel": 1,
+          "feedback": false,
+          "state": true
+        }
+      ],
+      "presence": {
+        "bot": "simplebot1",
+        "sensor": "pir1",
+        "active": true
+      },
+      "camera": {
+        "bot": "cambot1",
+        "name": "Living Room Cam"
+      }
+    },
+    {
+      "id": "projector",
+      "label": "Home Theater Projector",
+      "category": "Entertainment",
+      "isSpecial": true,
+      "parentRoom": "livingroom",
+      "polygon": [
+        [
+          385,
+          255
+        ],
+        [
+          490,
+          240
+        ],
+        [
+          495,
+          390
+        ],
+        [
+          455,
+          420
+        ],
+        [
+          410,
+          410
+        ],
+        [
+          385,
+          330
+        ]
+      ],
+      "devices": [
+        {
+          "id": "projector_power",
+          "label": "4K Laser Projector",
+          "type": "projector",
+          "bot": "rfbot1",
+          "code": "proj_pwr_on",
+          "feedback": false,
+          "state": true
+        }
+      ]
+    },
+    {
+      "id": "kitchen_dining",
+      "label": "Kitchen & Dining",
+      "category": "Dining",
+      "polygon": [
+        [
+          95,
+          430
+        ],
+        [
+          250,
+          430
+        ],
+        [
+          330,
+          470
+        ],
+        [
+          540,
+          470
+        ],
+        [
+          540,
+          640
+        ],
+        [
+          340,
+          665
+        ],
+        [
+          175,
+          665
+        ],
+        [
+          85,
+          620
+        ],
+        [
+          75,
+          500
+        ]
+      ],
+      "devices": [
+        {
+          "id": "dining_light",
+          "label": "Chandelier & Spots",
+          "type": "light",
+          "bot": "simplebot1",
+          "channel": 2,
+          "feedback": false,
+          "state": true
+        },
+        {
+          "id": "stove_sensor",
+          "label": "Stove RF Monitor",
+          "type": "stove",
+          "bot": "rfbot1",
+          "code": "stove_status",
+          "feedback": true,
+          "state": false
+        }
+      ],
+      "presence": {
+        "bot": "simplebot1",
+        "sensor": "pir2",
+        "active": false
+      }
+    },
+    {
+      "id": "master_bedroom",
+      "label": "NE Master Bedroom",
+      "category": "Bedroom",
+      "polygon": [
+        [
+          610,
+          110
+        ],
+        [
+          765,
+          80
+        ],
+        [
+          875,
+          110
+        ],
+        [
+          925,
+          240
+        ],
+        [
+          910,
+          350
+        ],
+        [
+          765,
+          360
+        ],
+        [
+          725,
+          305
+        ],
+        [
+          640,
+          280
+        ],
+        [
+          605,
+          160
+        ]
+      ],
+      "devices": [
+        {
+          "id": "master_bed_light",
+          "label": "Master Bed Lamps",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "ne_bed_light",
+          "feedback": false,
+          "state": true
+        }
+      ],
+      "presence": {
+        "bot": "simplebot2",
+        "sensor": "pir3",
+        "active": true
+      }
+    },
+    {
+      "id": "master_bath",
+      "label": "Master Bath & Dressing",
+      "category": "Bath",
+      "polygon": [
+        [
+          730,
+          360
+        ],
+        [
+          910,
+          345
+        ],
+        [
+          975,
+          420
+        ],
+        [
+          975,
+          490
+        ],
+        [
+          700,
+          510
+        ],
+        [
+          700,
+          420
+        ]
+      ],
+      "devices": [
+        {
+          "id": "master_bath_light",
+          "label": "Vanity & Tub Lights",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "bath_ne_light",
+          "feedback": false,
+          "state": true
+        }
+      ]
+    },
+    {
+      "id": "nw_bedroom",
+      "label": "NW Guest Bedroom",
+      "category": "Bedroom",
+      "polygon": [
+        [
+          245,
+          95
+        ],
+        [
+          425,
+          125
+        ],
+        [
+          410,
+          275
+        ],
+        [
+          315,
+          290
+        ],
+        [
+          210,
+          235
+        ],
+        [
+          200,
+          150
+        ]
+      ],
+      "devices": [
+        {
+          "id": "nw_bed_light",
+          "label": "Guest Bed Lamps",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "nw_bed_light",
+          "feedback": false,
+          "state": true
+        }
+      ],
+      "presence": {
+        "bot": "simplebot1",
+        "sensor": "pir4",
+        "active": false
+      }
+    },
+    {
+      "id": "nw_bath",
+      "label": "NW Bath & Hall",
+      "category": "Bath",
+      "polygon": [
+        [
+          110,
+          275
+        ],
+        [
+          315,
+          285
+        ],
+        [
+          345,
+          440
+        ],
+        [
+          200,
+          440
+        ],
+        [
+          105,
+          380
+        ]
+      ],
+      "devices": [
+        {
+          "id": "nw_bath_light",
+          "label": "Hall & Bath Light",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "nw_bath_light",
+          "feedback": false,
+          "state": true
+        }
+      ]
+    },
+    {
+      "id": "south_bedroom",
+      "label": "South Bedroom Suite",
+      "category": "Bedroom",
+      "polygon": [
+        [
+          310,
+          670
+        ],
+        [
+          675,
+          665
+        ],
+        [
+          675,
+          890
+        ],
+        [
+          530,
+          920
+        ],
+        [
+          330,
+          890
+        ],
+        [
+          305,
+          750
+        ]
+      ],
+      "devices": [
+        {
+          "id": "south_bed_light",
+          "label": "Bed Lamps & Downlights",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "south_bed_light",
+          "feedback": false,
+          "state": true
+        }
+      ],
+      "presence": {
+        "bot": "simplebot3",
+        "sensor": "pir5",
+        "active": true
+      }
+    },
+    {
+      "id": "south_bath",
+      "label": "South Bath",
+      "category": "Bath",
+      "polygon": [
+        [
+          145,
+          650
+        ],
+        [
+          305,
+          650
+        ],
+        [
+          305,
+          830
+        ],
+        [
+          145,
+          830
+        ]
+      ],
+      "devices": [
+        {
+          "id": "south_bath_light",
+          "label": "Bathroom Lights",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "south_bath_light",
+          "feedback": false,
+          "state": true
+        }
+      ]
+    },
+    {
+      "id": "north_patio",
+      "label": "North Terrace",
+      "category": "Outdoor",
+      "polygon": [
+        [
+          440,
+          130
+        ],
+        [
+          605,
+          130
+        ],
+        [
+          605,
+          220
+        ],
+        [
+          440,
+          220
+        ]
+      ],
+      "devices": [
+        {
+          "id": "patio_light",
+          "label": "Balcony Sconces",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "patio_light",
+          "feedback": false,
+          "state": true
+        }
+      ]
+    },
+    {
+      "id": "entrance_foyer",
+      "label": "Entrance & Porch",
+      "category": "Entry",
+      "polygon": [
+        [
+          555,
+          480
+        ],
+        [
+          665,
+          480
+        ],
+        [
+          665,
+          640
+        ],
+        [
+          555,
+          640
+        ]
+      ],
+      "devices": [
+        {
+          "id": "foyer_light",
+          "label": "Entry Downlights",
+          "type": "light",
+          "bot": "rfbot1",
+          "code": "foyer_light",
+          "feedback": false,
+          "state": true
+        }
+      ]
+    }
+  ]
+}

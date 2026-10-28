@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>IsoView - Smart Floorplan</title>
+  <link rel="stylesheet" href="isoview.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Glass HUD -->
+  <header class="app-header" id="appHeader">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </div>
+      <h1 class="brand-title">ISOVIEW</h1>
+      <span class="online-indicator" title="Live"></span>
+    </div>
+
+    <!-- Center Compact Metrics -->
+    <div class="hud-stats">
+      <!-- Lights count -->
+      <div class="stat-chip" title="Active Lights">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18h6m-4 4h2a2 2 0 0 0 2-2v-1H9v1a2 2 0 0 0 2 2zm7-11a7 7 0 1 0-11.95 4.95c.59.59 1.15 1.44 1.45 2.05h7c.3-.61.86-1.46 1.45-2.05A6.98 6.98 0 0 0 18 11z"></path>
+        </svg>
+        <span class="stat-val" id="hudLitCount">7 / 10</span>
+      </div>
+
+      <!-- Projector -->
+      <div class="stat-chip" id="hudProjChip" title="Projector">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        <span class="stat-val" id="hudProjState">ACTIVE</span>
+      </div>
+
+      <!-- Presence -->
+      <div class="stat-chip" title="Presence Detected">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <span class="stat-val" id="hudPresCount">3</span>
+      </div>
+    </div>
+
+    <!-- Quick Seamless Action Buttons -->
+    <div class="header-actions">
+      <!-- Stove Toggle (Visual Heat Hue) -->
+      <button class="btn btn-stove" id="btnStoveToggle" title="Toggle Stove Heat Hue">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+        </svg>
+        <span id="stoveBtnText">Stove</span>
+      </button>
+
+      <button class="btn" id="btnToggleBots" title="Show/Hide Hardware Bot Nodes">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+          <rect x="9" y="9" width="6" height="6"></rect>
+          <line x1="9" y1="1" x2="9" y2="4"></line>
+          <line x1="15" y1="1" x2="15" y2="4"></line>
+          <line x1="9" y1="20" x2="9" y2="23"></line>
+          <line x1="15" y1="20" x2="15" y2="23"></line>
+        </svg>
+        Bots
+      </button>
+
+      <button class="btn" id="btnAllOn" title="Turn on all lights">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"></path>
+        </svg>
+        All On
+      </button>
+
+      <button class="btn" id="btnAllOff" title="Turn off all lights">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
+        All Off
+      </button>
+    </div>
+  </header>
+
+  <!-- Interactive SVG Floorplan Viewport -->
+  <main class="viewport-container" id="viewportContainer">
+    <svg id="svgStage" preserveAspectRatio="xMidYMid meet">
+      <defs id="svgDefs">
+        <!-- Stove Heat Glow Shader -->
+        <radialGradient id="stoveGlowGradient" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff2600" stop-opacity="0.95" />
+          <stop offset="35%" stop-color="#ff6a00" stop-opacity="0.8" />
+          <stop offset="70%" stop-color="#ffaa00" stop-opacity="0.35" />
+          <stop offset="100%" stop-color="#ff5500" stop-opacity="0" />
+        </radialGradient>
+        <filter id="stoveHeatBlur" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
+        </filter>
+        <!-- Dynamic room clip paths injected by JS -->
+      </defs>
+
+      <!-- Transformable Scene Group -->
+      <g id="sceneGroup">
+        <!-- Floorplan Render Layers (Base Off, Lit Clipped Layers, Presence Rings, Stove Hue, Hit Polygons) -->
+        <g id="layersGroup"></g>
+      </g>
+    </svg>
+
+    <!-- Floating Zoom Controls -->
+    <div class="viewport-controls">
+      <button class="ctrl-btn" id="btnZoomIn" title="Zoom in">+</button>
+      <button class="ctrl-btn" id="btnZoomOut" title="Zoom out">-</button>
+      <button class="ctrl-btn" id="btnZoomReset" title="Reset view">R</button>
+    </div>
+
+    <!-- Side Drawer / Room Detail Popover -->
+    <aside class="side-drawer hidden" id="sideDrawer">
+      <div class="drawer-header">
+        <div>
+          <h2 class="drawer-title" id="drawerTitle">Room</h2>
+          <div class="drawer-subtitle" id="drawerCategory">Room Details</div>
+        </div>
+        <button class="close-btn" id="closeDrawerBtn" title="Close">X</button>
+      </div>
+
+      <div id="drawerDeviceList">
+        <!-- Populated dynamically -->
+      </div>
+    </aside>
+  </main>
+
+  <script src="isoview.js"></script>
+</body>
+</html>

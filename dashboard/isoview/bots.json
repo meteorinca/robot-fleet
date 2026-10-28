@@ -1,0 +1,54 @@
+{
+  "bots": [
+    {
+      "id": "rfbot1",
+      "label": "RFBot Backbone #1",
+      "type": "rfbot",
+      "x": 620,
+      "y": 480,
+      "room": "livingroom",
+      "ip": "192.168.1.110",
+      "desc": "433MHz TX/RX backbone bridge"
+    },
+    {
+      "id": "speakerbot1",
+      "label": "SpeakerBot #1",
+      "type": "speakerbot",
+      "x": 480,
+      "y": 380,
+      "room": "livingroom",
+      "ip": "192.168.1.111",
+      "desc": "TTS & voice announcement node"
+    },
+    {
+      "id": "simplebot1",
+      "label": "SimpleBot #1",
+      "type": "simplebot",
+      "x": 380,
+      "y": 520,
+      "room": "kitchen_dining",
+      "ip": "192.168.1.112",
+      "desc": "Dual servo light switcher + presence"
+    },
+    {
+      "id": "cambot1",
+      "label": "CamBot #1",
+      "type": "cambot",
+      "x": 730,
+      "y": 270,
+      "room": "livingroom",
+      "ip": "192.168.1.113",
+      "desc": "ESP32-CAM live room overview"
+    },
+    {
+      "id": "stove_sensor1",
+      "label": "Stove RF Transmitter",
+      "type": "sensor",
+      "x": 128,
+      "y": 498,
+      "room": "kitchen_dining",
+      "ip": "433MHz-RF",
+      "desc": "Arduino stove heat sensor (433MHz TX)"
+    }
+  ]
+}

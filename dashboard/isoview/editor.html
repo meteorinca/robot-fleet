@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IsoView - Floorplan & Hardware Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --bg-panel: rgba(16, 22, 34, 0.95);
+      --bg-card: rgba(255, 255, 255, 0.04);
+      --bg-card-hover: rgba(255, 255, 255, 0.08);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --border-active: #38bdf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-amber: #f59e0b;
+      --accent-emerald: #10b981;
+      --accent-rose: #f43f5e;
+      --accent-purple: #a855f7;
+      --accent-indigo: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation */
+    header {
+      height: 56px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    /* Mode Switcher Tabs */
+    .mode-switcher {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      gap: 3px;
+    }
+
+    .mode-btn {
+      padding: 5px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mode-btn:hover {
+      color: #fff;
+    }
+
+    .mode-btn.active {
+      background: var(--accent-cyan);
+      color: #0a0d14;
+      font-weight: 700;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+    }
+
+    .mode-btn.bot-mode.active {
+      background: var(--accent-purple);
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+      color: #fff;
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .layer-slider-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .layer-slider-box input[type="range"] {
+      width: 100px;
+      cursor: pointer;
+      accent-color: var(--accent-cyan);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 7px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      border-color: #38bdf8;
+      color: #fff;
+    }
+
+    .btn-purple {
+      background: linear-gradient(135deg, #7c3aed, #9333ea);
+      border-color: #a855f7;
+      color: #fff;
+    }
+
+    /* Workspace */
+    .workspace {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 310px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .item-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-item {
+      background: var(--bg-card);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .card-item:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .card-item.active {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: var(--accent-cyan);
+    }
+
+    .card-item.bot-active {
+      background: rgba(168, 85, 247, 0.14);
+      border-color: var(--accent-purple);
+    }
+
+    .card-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .color-pill {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .card-subtitle {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Inspector */
+    .inspector-panel {
+      border-top: 1px solid var(--border-color);
+      padding: 14px 16px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 7px;
+      font-size: 0.78rem;
+    }
+
+    .prop-row label {
+      color: var(--text-muted);
+    }
+
+    .prop-input {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      width: 150px;
+    }
+
+    /* Canvas */
+    .viewport {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #151a26 0%, #07090e 100%);
+      overflow: hidden;
+    }
+
+    #svgCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    /* SVG Elements */
+    .editor-polygon {
+      stroke-width: 2;
+      cursor: move;
+      transition: fill 0.15s ease, stroke 0.15s ease;
+    }
+
+    .editor-polygon.active {
+      stroke-width: 2.5;
+      stroke-dasharray: 6 3;
+      animation: dashMove 8s linear infinite;
+    }
+
+    @keyframes dashMove {
+      to { stroke-dashoffset: 72; }
+    }
+
+    .vertex-handle {
+      cursor: grab;
+      transition: r 0.1s ease;
+    }
+
+    .vertex-handle:hover {
+      r: 8;
+      filter: drop-shadow(0 0 6px #fff);
+    }
+
+    .edge-handle {
+      opacity: 0;
+      cursor: copy;
+      transition: opacity 0.15s ease;
+    }
+
+    .edge-handle:hover {
+      opacity: 1;
+    }
+
+    /* Bot Nodes on SVG */
+    .bot-pin-node {
+      cursor: grab;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .bot-pin-node:hover {
+      filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+    }
+
+    .bot-pin-node:active {
+      cursor: grabbing;
+    }
+
+    .bot-pin-node.selected circle {
+      stroke: #ffffff;
+      stroke-width: 3;
+      filter: drop-shadow(0 0 10px #38bdf8);
+    }
+
+    /* Floating Instructions */
+    .canvas-hud {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 9px;
+      padding: 9px 13px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .canvas-hud kbd {
+      background: #1e293b;
+      padding: 1px 4px;
+      border-radius: 4px;
+      color: #e2e8f0;
+      font-family: monospace;
+    }
+
+    .zoom-controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .zoom-btn {
+      width: 34px;
+      height: 34px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      border-radius: 7px;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      top: 68px;
+      right: 20px;
+      background: rgba(16, 185, 129, 0.95);
+      color: #fff;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      z-index: 200;
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateY(-8px);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header>
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+      <span>IsoView Studio</span>
+    </div>
+
+    <!-- Mode Switcher -->
+    <div class="mode-switcher">
+      <button class="mode-btn active" id="tabRooms">Rooms & Polygons</button>
+      <button class="mode-btn bot-mode" id="tabBots">Hardware Bot Nodes</button>
+    </div>
+
+    <!-- Background Layer Crossfade -->
+    <div class="header-center">
+      <div class="layer-slider-box">
+        <span>Off</span>
+        <input type="range" id="layerSlider" min="0" max="100" value="0">
+        <span>On</span>
+      </div>
+      <span id="sliderValText" style="font-family: monospace; font-size: 0.72rem;">OFF</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="header-actions">
+      <a href="/index.html" class="btn" style="text-decoration: none; color: #38bdf8;" target="_blank">
+        Launch Dashboard &rarr;
+      </a>
+      <button class="btn btn-primary" id="btnSaveActive">
+        Save to JSON
+      </button>
+      <button class="btn" id="btnCopyJson">Copy JSON</button>
+    </div>
+  </header>
+
+  <!-- Workspace -->
+  <div class="workspace">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title" id="sidebarTitle">Configured Items</span>
+        <button class="btn" id="btnAddNewItem" style="padding: 3px 8px; font-size: 0.75rem;">+ Add</button>
+      </div>
+
+      <div class="item-list" id="itemList">
+        <!-- Injected dynamically -->
+      </div>
+
+      <!-- Inspector Panel -->
+      <div class="inspector-panel" id="inspectorPanel">
+        <!-- Injected dynamically -->
+      </div>
+    </aside>
+
+    <!-- Center Canvas -->
+    <main class="viewport" id="viewport">
+      <svg id="svgCanvas" preserveAspectRatio="xMidYMid meet">
+        <defs id="svgDefs"></defs>
+        <g id="panZoomGroup">
+          <image href="isoviewOff.png" width="1189" height="1323" id="imgOff" />
+          <image href="isoViewOn.png" width="1189" height="1323" id="imgOn" style="opacity: 0;" />
+          <g id="litLayersGroup"></g>
+          <g id="polygonsGroup"></g>
+          <g id="handlesGroup"></g>
+          <!-- Hardware Bots Node Layer -->
+          <g id="botsGroup"></g>
+        </g>
+      </svg>
+
+      <!-- Canvas Instructions -->
+      <div class="canvas-hud" id="canvasHud">
+        <!-- Dynamic based on mode -->
+      </div>
+
+      <!-- Zoom -->
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="btnZoomIn">+</button>
+        <button class="zoom-btn" id="btnZoomOut">-</button>
+        <button class="zoom-btn" id="btnZoomReset">R</button>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast">Saved!</div>
+
+  <script>
+    const BOT_COLORS = {
+      rfbot: "#38bdf8",      // Cyan
+      speakerbot: "#a855f7", // Violet
+      simplebot: "#f59e0b",  // Amber
+      cambot: "#10b981",     // Emerald
+      sensor: "#f43f5e"      // Rose / Flame
+    };
+
+    const ROOM_COLORS = [
+      "#f59e0b", "#38bdf8", "#10b981", "#6366f1", "#ec4899",
+      "#8b5cf6", "#14b8a6", "#f97316", "#06b6d4", "#84cc16"
+    ];
+
+    class UnifiedStudio {
+      constructor() {
+        this.mode = "rooms"; // "rooms" or "bots"
+        this.roomsConfig = { image: { w: 1189, h: 1323 }, rooms: [] };
+        this.botsConfig = { bots: [] };
+        this.activeRoomId = null;
+        this.activeBotId = null;
+        this.roomLitStates = {};
+
+        // Transform
+        this.imgW = 1189;
+        this.imgH = 1323;
+        this.viewBox = { x: 0, y: 0, w: this.imgW, h: this.imgH };
+        this.isPanning = false;
+        this.dragVertex = null;
+        this.dragPolygon = null;
+        this.dragBot = null;
+        this.panStart = { x: 0, y: 0 };
+
+        // DOM
+        this.svg = document.getElementById("svgCanvas");
+        this.defs = document.getElementById("svgDefs");
+        this.litLayersGroup = document.getElementById("litLayersGroup");
+        this.polygonsGroup = document.getElementById("polygonsGroup");
+        this.handlesGroup = document.getElementById("handlesGroup");
+        this.botsGroup = document.getElementById("botsGroup");
+        this.itemList = document.getElementById("itemList");
+        this.inspectorPanel = document.getElementById("inspectorPanel");
+
+        this.init();
+      }
+
+      async init() {
+        this.svg.setAttribute("viewBox", `0 0 ${this.imgW} ${this.imgH}`);
+        await this.loadAllData();
+        this.renderAll();
+        this.bindEvents();
+      }
+
+      async loadAllData() {
+        try {
+          const respR = await fetch("/api/rooms?t=" + Date.now());
+          if (respR.ok) this.roomsConfig = await respR.json();
+        } catch (e) {
+          console.log("Using cached rooms");
+        }
+
+        try {
+          const respB = await fetch("/api/bots?t=" + Date.now());
+          if (respB.ok) this.botsConfig = await respB.json();
+        } catch (e) {
+          console.log("Using cached bots");
+        }
+
+        if (this.roomsConfig.rooms.length > 0) {
+          this.activeRoomId = this.roomsConfig.rooms[0].id;
+        }
+        if (this.botsConfig.bots.length > 0) {
+          this.activeBotId = this.botsConfig.bots[0].id;
+        }
+      }
+
+      setMode(newMode) {
+        this.mode = newMode;
+        document.getElementById("tabRooms").classList.toggle("active", this.mode === "rooms");
+        document.getElementById("tabBots").classList.toggle("active", this.mode === "bots");
+        document.getElementById("btnSaveActive").textContent = this.mode === "rooms" ? "Save rooms.json" : "Save bots.json";
+        this.renderAll();
+      }
+
+      renderAll() {
+        this.renderSidebar();
+        this.renderSceneLayers();
+        this.renderPolygons();
+        this.renderHandles();
+        this.renderBots();
+        this.renderInspector();
+        this.updateHudText();
+      }
+
+      renderSidebar() {
+        this.itemList.innerHTML = "";
+        const titleEl = document.getElementById("sidebarTitle");
+
+        if (this.mode === "rooms") {
+          titleEl.textContent = `Rooms (${this.roomsConfig.rooms.length})`;
+          this.roomsConfig.rooms.forEach((r, idx) => {
+            const color = ROOM_COLORS[idx % ROOM_COLORS.length];
+            const isActive = r.id === this.activeRoomId;
+            const item = document.createElement("div");
+            item.className = `card-item ${isActive ? 'active' : ''}`;
+            item.innerHTML = `
+              <div class="card-info">
+                <span class="color-pill" style="background: ${color};"></span>
+                <div>
+                  <div class="card-title">${r.label}</div>
+                  <div class="card-subtitle">${r.polygon.length} pts - ${r.id}</div>
+                </div>
+              </div>
+            `;
+            item.onclick = () => {
+              this.activeRoomId = r.id;
+              this.renderAll();
+            };
+            this.itemList.appendChild(item);
+          });
+        } else {
+          titleEl.textContent = `Hardware Bots (${this.botsConfig.bots.length})`;
+          this.botsConfig.bots.forEach(b => {
+            const color = BOT_COLORS[b.type] || "#38bdf8";
+            const isActive = b.id === this.activeBotId;
+            const item = document.createElement("div");
+            item.className = `card-item ${isActive ? 'bot-active' : ''}`;
+            item.innerHTML = `
+              <div class="card-info">
+                <span class="color-pill" style="background: ${color};"></span>
+                <div>
+                  <div class="card-title">${b.label}</div>
+                  <div class="card-subtitle">${b.type.toUpperCase()} | (${b.x}, ${b.y})</div>
+                </div>
+              </div>
+            `;
+            item.onclick = () => {
+              this.activeBotId = b.id;
+              this.renderAll();
+            };
+            this.itemList.appendChild(item);
+          });
+        }
+      }
+
+      renderSceneLayers() {
+        this.defs.innerHTML = "";
+        this.litLayersGroup.innerHTML = "";
+
+        this.roomsConfig.rooms.forEach(room => {
+          const clipId = `clip-${room.id}`;
+          const clip = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
+          clip.setAttribute("id", clipId);
+          const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+          poly.setAttribute("points", room.polygon.map(p => `${p[0]},${p[1]}`).join(" "));
+          clip.appendChild(poly);
+          this.defs.appendChild(clip);
+
+          const litImg = document.createElementNS("http://www.w3.org/2000/svg", "image");
+          litImg.setAttribute("href", "isoViewOn.png");
+          litImg.setAttribute("width", this.imgW);
+          litImg.setAttribute("height", this.imgH);
+          litImg.setAttribute("clip-path", `url(#${clipId})`);
+          litImg.setAttribute("id", `lit-layer-${room.id}`);
+          litImg.style.opacity = this.roomLitStates[room.id] ? "1" : "0";
+          litImg.style.pointerEvents = "none";
+          this.litLayersGroup.appendChild(litImg);
+        });
+      }
+
+      renderPolygons() {
+        this.polygonsGroup.innerHTML = "";
+
+        this.roomsConfig.rooms.forEach((room, idx) => {
+          const color = ROOM_COLORS[idx % ROOM_COLORS.length];
+          const isActive = this.mode === "rooms" && room.id === this.activeRoomId;
+          const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+
+          poly.setAttribute("points", room.polygon.map(p => `${p[0]},${p[1]}`).join(" "));
+          poly.setAttribute("class", `editor-polygon ${isActive ? 'active' : ''}`);
+          poly.setAttribute("fill", isActive ? `${color}25` : `${color}06`);
+          poly.setAttribute("stroke", color);
+          poly.setAttribute("stroke-opacity", this.mode === "bots" ? "0.35" : "0.9");
+          poly.setAttribute("id", `svg-poly-${room.id}`);
+
+          if (this.mode === "rooms") {
+            poly.addEventListener("pointerdown", (e) => {
+              if (e.button === 0) {
+                this.activeRoomId = room.id;
+                const pt = this.getSvgPoint(e);
+                this.dragPolygon = {
+                  roomId: room.id,
+                  startX: pt.x,
+                  startY: pt.y,
+                  origPoly: room.polygon.map(p => [...p])
+                };
+                this.renderAll();
+                e.stopPropagation();
+              }
+            });
+          }
+
+          this.polygonsGroup.appendChild(poly);
+        });
+      }
+
+      renderHandles() {
+        this.handlesGroup.innerHTML = "";
+        if (this.mode !== "rooms") return;
+
+        const activeRoom = this.roomsConfig.rooms.find(r => r.id === this.activeRoomId);
+        if (!activeRoom) return;
+
+        const color = ROOM_COLORS[this.roomsConfig.rooms.indexOf(activeRoom) % ROOM_COLORS.length];
+        const poly = activeRoom.polygon;
+
+        // Midpoints to add vertices
+        for (let i = 0; i < poly.length; i++) {
+          const p1 = poly[i];
+          const p2 = poly[(i + 1) % poly.length];
+          const mx = (p1[0] + p2[0]) / 2;
+          const my = (p1[1] + p2[1]) / 2;
+
+          const edgeHandle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          edgeHandle.setAttribute("cx", mx);
+          edgeHandle.setAttribute("cy", my);
+          edgeHandle.setAttribute("r", 4.5);
+          edgeHandle.setAttribute("fill", "#ffffff");
+          edgeHandle.setAttribute("stroke", color);
+          edgeHandle.setAttribute("stroke-width", 2);
+          edgeHandle.setAttribute("class", "edge-handle");
+
+          edgeHandle.addEventListener("pointerdown", (e) => {
+            e.stopPropagation();
+            activeRoom.polygon.splice(i + 1, 0, [Math.round(mx), Math.round(my)]);
+            this.renderAll();
+          });
+          this.handlesGroup.appendChild(edgeHandle);
+        }
+
+        // Vertex handles
+        poly.forEach((p, idx) => {
+          const h = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          h.setAttribute("cx", p[0]);
+          h.setAttribute("cy", p[1]);
+          h.setAttribute("r", idx === 0 ? 6.5 : 5);
+          h.setAttribute("fill", idx === 0 ? "#fff" : color);
+          h.setAttribute("stroke", "#0a0d14");
+          h.setAttribute("stroke-width", 2);
+          h.setAttribute("class", "vertex-handle");
+
+          h.addEventListener("pointerdown", (e) => {
+            if (e.button === 0) {
+              e.stopPropagation();
+              this.dragVertex = { roomId: activeRoom.id, index: idx };
+            }
+          });
+
+          h.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (activeRoom.polygon.length > 3) {
+              activeRoom.polygon.splice(idx, 1);
+              this.renderAll();
+            }
+          });
+
+          this.handlesGroup.appendChild(h);
+        });
+      }
+
+      renderBots() {
+        this.botsGroup.innerHTML = "";
+
+        this.botsConfig.bots.forEach(bot => {
+          const color = BOT_COLORS[bot.type] || "#38bdf8";
+          const isSelected = this.mode === "bots" && bot.id === this.activeBotId;
+
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          g.setAttribute("class", `bot-pin-node ${isSelected ? 'selected' : ''}`);
+          g.setAttribute("transform", `translate(${bot.x}, ${bot.y})`);
+
+          g.innerHTML = `
+            <circle cx="0" cy="0" r="14" fill="${color}" fill-opacity="0.25" stroke="${color}" stroke-width="${isSelected ? 3 : 1.8}" />
+            <circle cx="0" cy="0" r="4.5" fill="${color}" />
+            <text x="0" y="24" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="600" style="paint-order: stroke; stroke: #0a0d14; stroke-width: 3px;">${bot.label}</text>
+          `;
+
+          g.addEventListener("pointerdown", (e) => {
+            if (e.button === 0) {
+              this.activeBotId = bot.id;
+              if (this.mode !== "bots") {
+                this.setMode("bots");
+              } else {
+                this.renderAll();
+              }
+
+              const pt = this.getSvgPoint(e);
+              this.dragBot = {
+                botId: bot.id,
+                offsetX: bot.x - pt.x,
+                offsetY: bot.y - pt.y
+              };
+              e.stopPropagation();
+            }
+          });
+
+          this.botsGroup.appendChild(g);
+        });
+      }
+
+      renderInspector() {
+        this.inspectorPanel.innerHTML = "";
+
+        if (this.mode === "rooms") {
+          const room = this.roomsConfig.rooms.find(r => r.id === this.activeRoomId);
+          if (!room) return;
+
+          this.inspectorPanel.innerHTML = `
+            <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; color: var(--accent-cyan);">${room.label}</div>
+            <div class="prop-row"><label>Label:</label><input class="prop-input" id="inpRoomLabel" value="${room.label}"></div>
+            <div class="prop-row"><label>Category:</label><input class="prop-input" id="inpRoomCategory" value="${room.category || ''}"></div>
+            <div class="prop-row"><label>ID:</label><input class="prop-input" value="${room.id}" readonly style="opacity: 0.6;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button class="btn" id="btnToggleRoomLit" style="flex: 1; justify-content: center;">
+                ${this.roomLitStates[room.id] ? 'Turn Off' : 'Test Light On'}
+              </button>
+              <button class="btn" id="btnDeleteRoom" style="color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.3);">
+                Delete
+              </button>
+            </div>
+          `;
+
+          document.getElementById("inpRoomLabel").oninput = (e) => {
+            room.label = e.target.value;
+            this.renderSidebar();
+          };
+          document.getElementById("inpRoomCategory").oninput = (e) => {
+            room.category = e.target.value;
+          };
+          document.getElementById("btnToggleRoomLit").onclick = () => {
+            this.roomLitStates[room.id] = !this.roomLitStates[room.id];
+            const litImg = document.getElementById(`lit-layer-${room.id}`);
+            if (litImg) litImg.style.opacity = this.roomLitStates[room.id] ? "1" : "0";
+            this.renderInspector();
+          };
+          document.getElementById("btnDeleteRoom").onclick = () => {
+            if (!confirm(`Delete room "${room.label}"?`)) return;
+            this.roomsConfig.rooms = this.roomsConfig.rooms.filter(r => r.id !== room.id);
+            this.activeRoomId = this.roomsConfig.rooms[0]?.id || null;
+            this.renderAll();
+          };
+        } else {
+          // Hardware Bot Inspector
+          const bot = this.botsConfig.bots.find(b => b.id === this.activeBotId);
+          if (!bot) return;
+
+          this.inspectorPanel.innerHTML = `
+            <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; color: var(--accent-purple);">${bot.label}</div>
+            <div class="prop-row"><label>Label:</label><input class="prop-input" id="inpBotLabel" value="${bot.label}"></div>
+            <div class="prop-row">
+              <label>Type:</label>
+              <select class="prop-input" id="inpBotType">
+                <option value="rfbot" ${bot.type === 'rfbot' ? 'selected' : ''}>RFBot (433MHz)</option>
+                <option value="speakerbot" ${bot.type === 'speakerbot' ? 'selected' : ''}>SpeakerBot (TTS)</option>
+                <option value="simplebot" ${bot.type === 'simplebot' ? 'selected' : ''}>SimpleBot (Servos)</option>
+                <option value="cambot" ${bot.type === 'cambot' ? 'selected' : ''}>CamBot (Camera)</option>
+                <option value="sensor" ${bot.type === 'sensor' ? 'selected' : ''}>Sensor (Stove RF)</option>
+              </select>
+            </div>
+            <div class="prop-row"><label>Room:</label><input class="prop-input" id="inpBotRoom" value="${bot.room || ''}"></div>
+            <div class="prop-row"><label>IP / Bridge:</label><input class="prop-input" id="inpBotIp" value="${bot.ip || ''}"></div>
+            <div class="prop-row">
+              <label>Position:</label>
+              <div style="display: flex; gap: 4px; width: 150px;">
+                <input class="prop-input" id="inpBotX" value="${bot.x}" style="width: 50%;">
+                <input class="prop-input" id="inpBotY" value="${bot.y}" style="width: 50%;">
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button class="btn" id="btnDeleteBot" style="color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.3); width: 100%; justify-content: center;">
+                Delete Bot Node
+              </button>
+            </div>
+          `;
+
+          document.getElementById("inpBotLabel").oninput = (e) => {
+            bot.label = e.target.value;
+            this.renderSidebar();
+            this.renderBots();
+          };
+          document.getElementById("inpBotType").onchange = (e) => {
+            bot.type = e.target.value;
+            this.renderSidebar();
+            this.renderBots();
+          };
+          document.getElementById("inpBotRoom").oninput = (e) => {
+            bot.room = e.target.value;
+          };
+          document.getElementById("inpBotIp").oninput = (e) => {
+            bot.ip = e.target.value;
+          };
+          document.getElementById("inpBotX").onchange = (e) => {
+            bot.x = parseInt(e.target.value) || 0;
+            this.renderBots();
+          };
+          document.getElementById("inpBotY").onchange = (e) => {
+            bot.y = parseInt(e.target.value) || 0;
+            this.renderBots();
+          };
+          document.getElementById("btnDeleteBot").onclick = () => {
+            if (!confirm(`Delete bot node "${bot.label}"?`)) return;
+            this.botsConfig.bots = this.botsConfig.bots.filter(b => b.id !== bot.id);
+            this.activeBotId = this.botsConfig.bots[0]?.id || null;
+            this.renderAll();
+          };
+        }
+      }
+
+      updateHudText() {
+        const hud = document.getElementById("canvasHud");
+        if (this.mode === "rooms") {
+          hud.innerHTML = `
+            <div><kbd>Drag Node</kbd> to move vertex</div>
+            <div><kbd>Click Line</kbd> to add vertex</div>
+            <div><kbd>Right-Click Node</kbd> to delete vertex</div>
+            <div><kbd>Drag Polygon</kbd> to move entire room</div>
+          `;
+        } else {
+          hud.innerHTML = `
+            <div><kbd>Drag Bot Pin</kbd> to place hardware in room</div>
+            <div><kbd>Select Bot</kbd> to configure IP / Room / Type</div>
+            <div>Position will sync with FleetHub bridge</div>
+          `;
+        }
+      }
+
+      getSvgPoint(e) {
+        const pt = this.svg.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        return pt.matrixTransform(this.svg.getScreenCTM().inverse());
+      }
+
+      bindEvents() {
+        document.getElementById("tabRooms").onclick = () => this.setMode("rooms");
+        document.getElementById("tabBots").onclick = () => this.setMode("bots");
+
+        // Pan and drag
+        this.svg.addEventListener("pointerdown", (e) => {
+          if (e.target === this.svg || e.target.id === "imgOff" || e.target.id === "imgOn") {
+            this.isPanning = true;
+            this.panStart = { x: e.clientX, y: e.clientY };
+          }
+        });
+
+        window.addEventListener("pointermove", (e) => {
+          // 1. Drag bot node
+          if (this.dragBot) {
+            const pt = this.getSvgPoint(e);
+            const bot = this.botsConfig.bots.find(b => b.id === this.dragBot.botId);
+            if (bot) {
+              bot.x = Math.max(0, Math.min(this.imgW, Math.round(pt.x + this.dragBot.offsetX)));
+              bot.y = Math.max(0, Math.min(this.imgH, Math.round(pt.y + this.dragBot.offsetY)));
+              this.renderBots();
+
+              const inpX = document.getElementById("inpBotX");
+              const inpY = document.getElementById("inpBotY");
+              if (inpX) inpX.value = bot.x;
+              if (inpY) inpY.value = bot.y;
+            }
+            return;
+          }
+
+          // 2. Drag room vertex
+          if (this.dragVertex) {
+            const pt = this.getSvgPoint(e);
+            const room = this.roomsConfig.rooms.find(r => r.id === this.dragVertex.roomId);
+            if (room) {
+              room.polygon[this.dragVertex.index] = [
+                Math.max(0, Math.min(this.imgW, Math.round(pt.x))),
+                Math.max(0, Math.min(this.imgH, Math.round(pt.y)))
+              ];
+              this.renderPolygons();
+              this.renderHandles();
+              this.renderSceneLayers();
+            }
+            return;
+          }
+
+          // 3. Drag entire polygon
+          if (this.dragPolygon) {
+            const pt = this.getSvgPoint(e);
+            const dx = Math.round(pt.x - this.dragPolygon.startX);
+            const dy = Math.round(pt.y - this.dragPolygon.startY);
+            const room = this.roomsConfig.rooms.find(r => r.id === this.dragPolygon.roomId);
+            if (room) {
+              room.polygon = this.dragPolygon.origPoly.map(p => [p[0] + dx, p[1] + dy]);
+              this.renderPolygons();
+              this.renderHandles();
+              this.renderSceneLayers();
+            }
+            return;
+          }
+
+          // 4. Pan view
+          if (this.isPanning) {
+            const dx = e.clientX - this.panStart.x;
+            const dy = e.clientY - this.panStart.y;
+            this.viewBox.x -= dx * (this.viewBox.w / this.svg.clientWidth);
+            this.viewBox.y -= dy * (this.viewBox.h / this.svg.clientHeight);
+            this.panStart = { x: e.clientX, y: e.clientY };
+            this.updateViewBox();
+          }
+        });
+
+        window.addEventListener("pointerup", () => {
+          this.dragBot = null;
+          this.dragVertex = null;
+          this.dragPolygon = null;
+          this.isPanning = false;
+        });
+
+        // Wheel Zoom
+        this.svg.addEventListener("wheel", (e) => {
+          e.preventDefault();
+          const factor = e.deltaY > 0 ? 1.09 : 0.91;
+          this.zoom(factor, e.clientX, e.clientY);
+        }, { passive: false });
+
+        // Layer Slider
+        const slider = document.getElementById("layerSlider");
+        const sliderText = document.getElementById("sliderValText");
+        const imgOn = document.getElementById("imgOn");
+        slider.addEventListener("input", (e) => {
+          const val = e.target.value / 100;
+          imgOn.style.opacity = val;
+          sliderText.textContent = val === 0 ? "OFF" : val === 1 ? "ON" : `${Math.round(val * 100)}%`;
+        });
+
+        // Add Button
+        document.getElementById("btnAddNewItem").onclick = () => {
+          if (this.mode === "rooms") {
+            const label = prompt("Enter room name (e.g. Master Closet):");
+            if (!label) return;
+            const id = label.toLowerCase().replace(/[^a-z0-9]/g, "_");
+            const cx = Math.round(this.viewBox.x + this.viewBox.w / 2);
+            const cy = Math.round(this.viewBox.y + this.viewBox.h / 2);
+            this.roomsConfig.rooms.push({
+              id,
+              label,
+              category: "Room",
+              polygon: [[cx - 50, cy - 50], [cx + 50, cy - 50], [cx + 50, cy + 50], [cx - 50, cy + 50]],
+              devices: [{ id: `${id}_light`, label: `${label} Light`, type: "light", bot: "rfbot1" }]
+            });
+            this.activeRoomId = id;
+            this.renderAll();
+          } else {
+            const label = prompt("Enter bot name (e.g. RFBot #2):");
+            if (!label) return;
+            const id = label.toLowerCase().replace(/[^a-z0-9]/g, "_");
+            const cx = Math.round(this.viewBox.x + this.viewBox.w / 2);
+            const cy = Math.round(this.viewBox.y + this.viewBox.h / 2);
+            this.botsConfig.bots.push({
+              id,
+              label,
+              type: "rfbot",
+              x: cx,
+              y: cy,
+              room: "livingroom",
+              ip: "192.168.1.xxx",
+              desc: "ESP32 node"
+            });
+            this.activeBotId = id;
+            this.renderAll();
+          }
+        };
+
+        // Save Button
+        document.getElementById("btnSaveActive").onclick = async () => {
+          if (this.mode === "rooms") {
+            try {
+              const resp = await fetch("/api/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(this.roomsConfig)
+              });
+              if (resp.ok) this.showToast("Saved to rooms.json!");
+            } catch (e) {
+              this.showToast("Error saving rooms");
+            }
+          } else {
+            try {
+              const resp = await fetch("/api/save_bots", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(this.botsConfig)
+              });
+              if (resp.ok) this.showToast("Saved to bots.json!");
+            } catch (e) {
+              this.showToast("Error saving bots");
+            }
+          }
+        };
+
+        // Copy JSON Button
+        document.getElementById("btnCopyJson").onclick = () => {
+          const data = this.mode === "rooms" ? this.roomsConfig : this.botsConfig;
+          navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+          this.showToast("Copied to clipboard!");
+        };
+
+        // Zoom buttons
+        document.getElementById("btnZoomIn").onclick = () => this.zoom(0.8, window.innerWidth / 2, window.innerHeight / 2);
+        document.getElementById("btnZoomOut").onclick = () => this.zoom(1.25, window.innerWidth / 2, window.innerHeight / 2);
+        document.getElementById("btnZoomReset").onclick = () => {
+          this.viewBox = { x: 0, y: 0, w: this.imgW, h: this.imgH };
+          this.updateViewBox();
+        };
+      }
+
+      zoom(scale, clientX, clientY) {
+        const pt = this.getSvgPoint({ clientX, clientY });
+        this.viewBox.x = pt.x - (pt.x - this.viewBox.x) * scale;
+        this.viewBox.y = pt.y - (pt.y - this.viewBox.y) * scale;
+        this.viewBox.w *= scale;
+        this.viewBox.h *= scale;
+        this.updateViewBox();
+      }
+
+      updateViewBox() {
+        this.svg.setAttribute("viewBox", `${this.viewBox.x} ${this.viewBox.y} ${this.viewBox.w} ${this.viewBox.h}`);
+      }
+
+      showToast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 2800);
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      window.studio = new UnifiedStudio();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,515 @@
+:root {
+  --bg-primary: #0a0d14;
+  --bg-secondary: #121721;
+  --bg-card: rgba(22, 29, 42, 0.75);
+  --bg-card-hover: rgba(30, 40, 58, 0.85);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-accent: rgba(56, 189, 248, 0.3);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-cyan: #38bdf8;
+  --accent-amber: #f59e0b;
+  --accent-emerald: #10b981;
+  --accent-rose: #f43f5e;
+  --accent-indigo: #6366f1;
+  --glow-light: rgba(245, 158, 11, 0.45);
+  --glow-cyan: rgba(56, 189, 248, 0.45);
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header & HUD */
+.app-header {
+  height: 60px;
+  background: rgba(10, 13, 20, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 50;
+  position: relative;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #0284c7, #6366f1);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+
+.brand-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.brand-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: linear-gradient(to right, #f8fafc, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.online-indicator {
+  width: 7px;
+  height: 7px;
+  background-color: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #10b981;
+  display: inline-block;
+  margin-left: 2px;
+}
+
+/* Compact Center HUD Metrics */
+.hud-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.stat-chip svg {
+  color: #94a3b8;
+}
+
+.stat-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.stat-chip.active {
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+
+.stat-chip.active svg {
+  color: #38bdf8;
+}
+
+.stat-val {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Header Buttons */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-accent);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Stove Button (Seamless Visual Hue Toggle) */
+.btn-stove {
+  border-color: rgba(245, 158, 11, 0.25);
+  color: #94a3b8;
+}
+
+.btn-stove svg {
+  color: #94a3b8;
+  transition: color var(--transition-fast);
+}
+
+.btn-stove:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #f59e0b;
+}
+
+.btn-stove.active {
+  background: rgba(249, 115, 22, 0.16);
+  border-color: rgba(249, 115, 22, 0.6);
+  color: #fb923c;
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.3);
+}
+
+.btn-stove.active svg {
+  color: #fb923c;
+  filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.8));
+}
+
+/* Main Viewport */
+.viewport-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 50%, #151a26 0%, #07090e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#svgStage {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+#svgStage:active {
+  cursor: grabbing;
+}
+
+/* Floorplan SVG Elements */
+.room-lit-layer {
+  transition: opacity 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity;
+  pointer-events: none;
+}
+
+.room-polygon {
+  fill: rgba(255, 255, 255, 0.001);
+  stroke: rgba(255, 255, 255, 0.04);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: fill var(--transition-fast), stroke var(--transition-fast), filter var(--transition-fast);
+}
+
+.room-polygon:hover {
+  fill: rgba(56, 189, 248, 0.12);
+  stroke: rgba(56, 189, 248, 0.7);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4));
+}
+
+.room-polygon.is-active {
+  stroke: rgba(245, 158, 11, 0.45);
+}
+
+.projector-polygon {
+  fill: rgba(56, 189, 248, 0.04);
+  stroke: rgba(56, 189, 248, 0.35);
+  stroke-width: 1.8;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.projector-polygon:hover {
+  fill: rgba(56, 189, 248, 0.25);
+  stroke: #38bdf8;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.7));
+}
+
+/* Stove Visual Heat Hue Layer - Stays 100% in spot */
+.stove-hue-group {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.stove-hue-group.active {
+  opacity: 1;
+}
+
+.stove-heat-core {
+  animation: stoveBreathe 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes stoveBreathe {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.stove-heat-ring {
+  animation: stoveRingPulse 2.6s ease-in-out infinite alternate;
+}
+
+.stove-heat-ring.ring-2 {
+  animation-delay: 1.3s;
+}
+
+@keyframes stoveRingPulse {
+  0% { opacity: 0.3; stroke-width: 1.5; }
+  100% { opacity: 0.85; stroke-width: 2.5; }
+}
+
+/* Bot Node Pins (Hardware Layer) */
+.bot-node-group {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+
+.bot-node-group:hover {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6));
+}
+
+.bot-pin-circle {
+  stroke-width: 2;
+  transition: all var(--transition-fast);
+}
+
+.bot-pin-icon {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+/* Presence Ripple */
+.presence-indicator {
+  pointer-events: none;
+  animation: presence-wave 2.4s infinite ease-out;
+}
+
+@keyframes presence-wave {
+  0% { r: 10; opacity: 0.8; stroke-width: 2.5; }
+  100% { r: 50; opacity: 0; stroke-width: 0.5; }
+}
+
+/* Viewport Controls */
+.viewport-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 40;
+}
+
+.ctrl-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: all var(--transition-fast);
+}
+
+.ctrl-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-accent);
+  transform: translateY(-1px);
+}
+
+/* Drawer / Room Detail Popover */
+.side-drawer {
+  position: absolute;
+  top: 75px;
+  left: 20px;
+  width: 320px;
+  background: rgba(14, 19, 28, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  z-index: 45;
+  transition: transform var(--transition-smooth), opacity var(--transition-smooth);
+}
+
+.side-drawer.hidden {
+  transform: translateX(-360px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.drawer-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.drawer-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.device-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all var(--transition-fast);
+}
+
+.device-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.device-bot {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Switch Toggle */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #334155;
+  transition: .25s;
+  border-radius: 22px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .25s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--accent-amber);
+  box-shadow: 0 0 10px var(--glow-light);
+}
+
+input:checked + .slider.projector-slider {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--glow-cyan);
+}
+
+input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 12px;
+  }
+  .hud-stats {
+    display: none;
+  }
+  .side-drawer {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    top: auto;
+    bottom: 20px;
+  }
+}
